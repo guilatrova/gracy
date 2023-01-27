@@ -1,7 +1,8 @@
 # Todo
-- Allowed status code
-- Strict status code
-- Retry
-- Throttle
-- Parsing
-- Metrics (% of successful calls)
+- [x] Strict status code
+- [x] Allowed status code
+- [ ] Generator
+- [] Retry
+- [] Throttle
+- [] Parsing
+- [] Metrics (% of successful calls)
