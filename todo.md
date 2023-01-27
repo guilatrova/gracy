@@ -5,4 +5,6 @@
 - [] Generator
 - [] Throttle
 - [] Parsing
+    - [] JSON
+    - [] Model
 - [] Metrics (% of successful calls)

@@ -1,8 +1,8 @@
 import asyncio
 from http import HTTPStatus
 
+from gracy.core import Gracy, graceful
 from gracy.models import BaseEndpoint, GracefulRetry, LogEvent, LogLevel
-from gracy.sync.core import Gracy, graceful
 
 retry = GracefulRetry(
     None,
