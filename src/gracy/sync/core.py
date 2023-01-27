@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import typing
-from typing import Any, Callable, TypeVar, cast
+from http import HTTPStatus
+from typing import Any, Callable, Iterable, TypeVar, cast
 
 import httpx
 from typing_extensions import Self
 
-from gracy.models import DEFAULT_CONFIG, BaseEndpoint, GracefulMethod, GracyConfig
+from gracy import exceptions
+from gracy.models import DEFAULT_CONFIG, UNSET_VALUE, BaseEndpoint, GracefulMethod, GracyConfig, Unset
 
 logger = logging.getLogger(__name__)
 
@@ -15,21 +17,35 @@ logger = logging.getLogger(__name__)
 Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 
 
-def _wrap_framed_request(framed: GracefulMethod):
-    def _wrapper(*args: Any, **kwargs: Any):
-        return framed.function(*args, **kwargs)
+def _gracify(gracy: GracefulMethod):
+    def _wrapper(instance: Gracy[str], *args: Any, **kwargs: Any):
+        active_config = GracyConfig.merge_config(instance.base_config, gracy.config)
+
+        result = gracy.method(instance, *args, **kwargs)
+        http_result = HTTPStatus(result.status_code)
+
+        if active_config.strict_status_code:
+            if not isinstance(active_config.strict_status_code, Unset):
+                strict_statuses = active_config.strict_status_code
+                if not isinstance(strict_statuses, Iterable):
+                    strict_statuses = {strict_statuses}
+
+                if http_result not in strict_statuses:
+                    raise exceptions.UnexpectedResponse(str(result.url), result, strict_statuses)
+
+        if not result.is_success:
+            if active_config.allowed_status_code:
+                if not isinstance(active_config.allowed_status_code, Unset):
+                    allowed = active_config.allowed_status_code
+                    if not isinstance(allowed, Iterable):
+                        allowed = {allowed}
+
+                    if http_result not in allowed:
+                        raise exceptions.NonOkResponse(str(result.url), result)
+
+        return result
 
     return _wrapper
-
-
-def _wrap_regular_request(func: Callable[..., Any]):
-    def _wrapper(*args: Any, **kwargs: Any):
-        return func(*args, **kwargs)
-
-    return _wrapper
-
-
-FORBIDDEN_METHODS = {"get", "post", "put", "patch", "head"}
 
 
 class GracyMeta(type):
@@ -47,10 +63,7 @@ class GracyMeta(type):
             attr = getattr(instance, attrname)
 
             if isinstance(attr, GracefulMethod):
-                setattr(instance, attrname, _wrap_framed_request(attr))
-
-            elif callable(attr) and not attrname.startswith("_") and attrname not in FORBIDDEN_METHODS:
-                setattr(instance, attrname, _wrap_regular_request(attr))
+                setattr(instance, attrname, _gracify(attr))
 
         return instance
 
@@ -60,12 +73,15 @@ class Gracy(typing.Generic[Endpoint], metaclass=GracyMeta):  # type: ignore
     inheritance.
     """
 
-    def __init__(self, base_url: str = "", config: GracyConfig | None = None) -> None:
-        self._base_config = config or DEFAULT_CONFIG
+    class Config:
+        BASE_URL: str = ""
+
+    def __init__(self) -> None:
+        self.base_config = DEFAULT_CONFIG
 
         event_hooks = {}  # {"request": self._before_request, "response": self._on_response}
 
-        self._client = httpx.Client(base_url=base_url, event_hooks=event_hooks)
+        self._client = httpx.Client(base_url=self.Config.BASE_URL, event_hooks=event_hooks)
 
     def _get(
         self,
@@ -87,7 +103,15 @@ class Gracy(typing.Generic[Endpoint], metaclass=GracyMeta):  # type: ignore
 AnyRequesterMethod = TypeVar("AnyRequesterMethod", bound=Callable[..., httpx.Response])
 
 
-def graceful(config: GracyConfig):
+def graceful(
+    strict_status_code: Iterable[HTTPStatus] | HTTPStatus | Unset = UNSET_VALUE,
+    allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | Unset = UNSET_VALUE,
+):
+    config = GracyConfig(
+        strict_status_code=strict_status_code,
+        allowed_status_code=allowed_status_code,
+    )
+
     def _inner_frame(wrapped_function: AnyRequesterMethod) -> AnyRequesterMethod:
         framed = GracefulMethod(config, wrapped_function)
         return cast(AnyRequesterMethod, framed)
