@@ -110,7 +110,7 @@ async def _gracify(
     strict_pass = _check_strictness(active_config, result)
     if strict_pass is False:
         retry_result = None
-        if active_config.has_retry:
+        if active_config.should_retry(result.status_code):
             retry_result = await _gracefully_retry(
                 active_config.retry,  # type: ignore
                 active_config,
@@ -125,7 +125,7 @@ async def _gracify(
 
     allowed_pass = _check_allowed(active_config, result)
     if allowed_pass is False:
-        if active_config.has_retry is False:
+        if active_config.should_retry(result.status_code):
             retry_result = None
             if active_config.has_retry:
                 retry_result = await _gracefully_retry(

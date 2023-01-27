@@ -114,6 +114,19 @@ class GracyConfig:
 
     e.g. 404 would consider any 200-299 and 404 as successful."""
 
+    def should_retry(self, response_status: int) -> bool:
+        if self.has_retry:
+            retry: GracefulRetry = self.retry  # type: ignore
+            if retry.retry_on is None:
+                return True
+
+            if isinstance(retry.retry_on, Iterable):
+                return HTTPStatus(response_status) in retry.retry_on
+
+            return retry.retry_on == response_status
+
+        return False
+
     @property
     def has_retry(self) -> bool:
         return self.retry is not None and self.retry != UNSET_VALUE
