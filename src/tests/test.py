@@ -32,8 +32,11 @@ pokeapi = GracefulPokeAPI()
 
 
 async def main():
-    await pokeapi.get_pokemon("pikachu")
-    await pokeapi.get_pokemon("invent")
+    try:
+        await pokeapi.get_pokemon("pikachu")
+        await pokeapi.get_pokemon("invent")
+    finally:
+        pokeapi.report_status()
 
 
 asyncio.run(main())

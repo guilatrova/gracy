@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import copy
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, Final, Iterable
+from typing import Any, Awaitable, Callable, Final, Iterable, List
 
 import httpx
 
@@ -167,3 +168,26 @@ class GracefulRequest:
 
     def __call__(self) -> Awaitable[httpx.Response]:
         return self.request(*self.args, **self.kwargs)
+
+
+class GracyRequestResult:
+    def __init__(self, url: str, response: httpx.Response) -> None:
+        self.url = url
+        self.status = response.status_code
+
+
+class GracyReport:
+    def __init__(self) -> None:
+        self._results: List[GracyRequestResult] = []
+
+    def track(self, request_result: GracyRequestResult):
+        self._results.append(request_result)
+
+    def print(self):
+        d = defaultdict[str, dict[HTTPStatus, int]](lambda: defaultdict[HTTPStatus, int](int))
+
+        for result in self._results:
+            d[result.url][HTTPStatus(result.status)] += 1
+
+        for k, v in d.items():
+            print(f"{k} | {v}")

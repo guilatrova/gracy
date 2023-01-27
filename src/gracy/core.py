@@ -18,6 +18,8 @@ from gracy.models import (
     GracefulRetry,
     GracefulRetryState,
     GracyConfig,
+    GracyReport,
+    GracyRequestResult,
     Unset,
 )
 
@@ -30,7 +32,8 @@ Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 async def _gracefully_retry(
     retry: GracefulRetry,
     config: GracyConfig,
-    gracy_method_name: str,
+    url: str,
+    report: GracyReport,
     request: GracefulRequest,
     check_func: Callable[[GracyConfig, httpx.Response], bool],
 ) -> GracefulRetryState:
@@ -41,7 +44,7 @@ async def _gracefully_retry(
         if retry.log_before:
             logger.log(
                 retry.log_before.level.value,
-                f"GracefulRetry: {gracy_method_name} will wait {state.delay}s before next attempt "
+                f"GracefulRetry: {url} will wait {state.delay}s before next attempt "
                 f"({state.cur_attempt} out of {state.max_attempts})",
             )
 
@@ -52,6 +55,7 @@ async def _gracefully_retry(
 
         await sleep(state.delay)
         result = await request()
+        report.track(GracyRequestResult(url, result))
 
         state.success = check_func(config, result)
         failing = not state.success
@@ -59,14 +63,14 @@ async def _gracefully_retry(
         if retry.log_after:
             logger.log(
                 retry.log_after.level.value,
-                f"GracefulRetry: {gracy_method_name} {'SUCCESS' if state.success else 'FAIL'} "
+                f"GracefulRetry: {url} {'SUCCESS' if state.success else 'FAIL'} "
                 f"({state.cur_attempt} out of {state.max_attempts})",
             )
 
     if state.cant_retry and retry.log_exhausted:
         logger.log(
             retry.log_exhausted.level.value,
-            f"GracefulRetry: {gracy_method_name} exhausted the maximum attempts of {state.max_attempts})",
+            f"GracefulRetry: {url} exhausted the maximum attempts of {state.max_attempts})",
         )
 
     return state
@@ -103,9 +107,11 @@ async def _gracify(
     active_config: GracyConfig,
     endpoint: str,
     format_args: dict[str, str] | None,
+    report: GracyReport,
     request: GracefulRequest,
 ):
     result = await request()
+    report.track(GracyRequestResult(endpoint, result))
 
     strict_pass = _check_strictness(active_config, result)
     if strict_pass is False:
@@ -115,6 +121,7 @@ async def _gracify(
                 active_config.retry,  # type: ignore
                 active_config,
                 endpoint,
+                report,
                 request=request,
                 check_func=_check_strictness,
             )
@@ -132,6 +139,7 @@ async def _gracify(
                     active_config.retry,  # type: ignore
                     active_config,
                     endpoint,
+                    report,
                     request=request,
                     check_func=_check_allowed,
                 )
@@ -159,6 +167,8 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
     """Helper class that provides a standard way to create an Requester using
     inheritance.
     """
+
+    _report = GracyReport()
 
     class Config:
         BASE_URL: str = ""
@@ -189,6 +199,7 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
             active_config,
             endpoint,
             format,
+            Gracy._report,
             GracefulRequest(
                 self._client.get,
                 final_endpoint,
@@ -198,6 +209,10 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
         )
 
         return await graceful_request
+
+    @classmethod
+    def report_status(cls):
+        cls._report.print()
 
 
 def graceful(
