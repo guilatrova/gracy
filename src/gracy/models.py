@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import copy
 import logging
-import typing
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from http import HTTPStatus
-from typing import Final, Iterable
+from typing import Any, Awaitable, Callable, Final, Iterable
 
 import httpx
 
@@ -146,7 +145,7 @@ class BaseEndpoint(str, Enum):
 @dataclass
 class GracefulMethod:
     config: GracyConfig
-    method: typing.Callable[..., httpx.Response]
+    method: Callable[..., Awaitable[httpx.Response]]
 
-    def __call__(self, *args: typing.Any, **kwargs: typing.Any) -> httpx.Response:
+    def __call__(self, *args: Any, **kwargs: Any) -> Awaitable[httpx.Response]:
         return self.method(*args, **kwargs)

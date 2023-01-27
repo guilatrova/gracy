@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
+from asyncio import sleep
 from http import HTTPStatus
-from time import sleep
-from typing import Any, Callable, Generic, Iterable, TypeVar, cast
+from typing import Any, Awaitable, Callable, Generic, Iterable, TypeVar, cast
 
 import httpx
 from typing_extensions import Self
@@ -26,11 +26,11 @@ logger = logging.getLogger(__name__)
 Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 
 
-def _gracefully_retry(
+async def _gracefully_retry(
     retry: GracefulRetry,
     config: GracyConfig,
     gracy_method_name: str,
-    gracy_method: Callable[..., httpx.Response],
+    gracy_method: Callable[..., Awaitable[httpx.Response]],
     check_func: Callable[[GracyConfig, httpx.Response], bool],
 ) -> GracefulRetryState:
     failing = True
@@ -49,8 +49,8 @@ def _gracefully_retry(
         if state.cant_retry:
             break
 
-        sleep(state.delay)
-        result = gracy_method()
+        await sleep(state.delay)
+        result = await gracy_method()
 
         state.success = check_func(config, result)
         failing = not state.success
@@ -99,16 +99,16 @@ def _check_allowed(active_config: GracyConfig, result: httpx.Response) -> bool:
 
 
 def _gracify(gracy: GracefulMethod):
-    def _wrapper(instance: Gracy[str], *args: Any, **kwargs: Any):
+    async def _wrapper(instance: Gracy[str], *args: Any, **kwargs: Any):
         active_config = GracyConfig.merge_config(instance.base_config, gracy.config)
 
-        result = gracy.method(instance, *args, **kwargs)
+        result = await gracy.method(instance, *args, **kwargs)
 
         strict_pass = _check_strictness(active_config, result)
         if strict_pass is False:
             retry_result = None
             if active_config.has_retry:
-                retry_result = _gracefully_retry(
+                retry_result = await _gracefully_retry(
                     active_config.retry,  # type: ignore
                     active_config,
                     gracy.method.__name__,
@@ -161,11 +161,9 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
     def __init__(self) -> None:
         self.base_config = DEFAULT_CONFIG
 
-        # event_hooks = {"request": self._before_request, "response": self._on_response}
+        self._client = httpx.AsyncClient(base_url=self.Config.BASE_URL)
 
-        self._client = httpx.Client(base_url=self.Config.BASE_URL)
-
-    def _get(
+    async def _get(
         self,
         endpoint: Endpoint,
         format: dict[str, str] | None = None,
@@ -175,14 +173,14 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
         if format:
             endpoint = endpoint.format(**format)
 
-        return self._client.get(
+        return await self._client.get(
             endpoint,
             *args,
             **kwargs,
         )
 
 
-AnyRequesterMethod = TypeVar("AnyRequesterMethod", bound=Callable[..., httpx.Response])
+AnyRequesterMethod = TypeVar("AnyRequesterMethod", bound=Callable[..., Awaitable[httpx.Response]])
 
 
 def graceful(
