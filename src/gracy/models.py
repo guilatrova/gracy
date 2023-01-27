@@ -142,10 +142,15 @@ class BaseEndpoint(str, Enum):
     pass
 
 
-@dataclass
-class GracefulMethod:
-    config: GracyConfig
-    method: Callable[..., Awaitable[httpx.Response]]
+class GracefulRequest:
+    request: Callable[..., Awaitable[httpx.Response]]
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Awaitable[httpx.Response]:
-        return self.method(*args, **kwargs)
+    def __init__(self, request: Callable[..., Awaitable[httpx.Response]], *args: Any, kwargs: dict[str, Any]) -> None:
+        self.request = request
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self) -> Awaitable[httpx.Response]:
+        return self.request(*self.args, **self.kwargs)
