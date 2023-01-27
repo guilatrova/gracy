@@ -29,6 +29,7 @@ Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 def _gracefully_retry(
     retry: GracefulRetry,
     config: GracyConfig,
+    gracy_method_name: str,
     gracy_method: Callable[..., httpx.Response],
     check_func: Callable[[GracyConfig, httpx.Response], bool],
 ) -> GracefulRetryState:
@@ -39,7 +40,7 @@ def _gracefully_retry(
         if retry.log_before:
             logger.log(
                 retry.log_before.level.value,
-                f"GracefulRetry: {gracy_method.__name__} will wait {state.delay}s before next attempt "
+                f"GracefulRetry: {gracy_method_name} will wait {state.delay}s before next attempt "
                 f"({state.cur_attempt} out of {state.max_attempts})",
             )
 
@@ -57,14 +58,14 @@ def _gracefully_retry(
         if retry.log_after:
             logger.log(
                 retry.log_after.level.value,
-                f"GracefulRetry: {gracy_method.__name__} {'SUCCESS' if state.success else 'FAIL'} "
+                f"GracefulRetry: {gracy_method_name} {'SUCCESS' if state.success else 'FAIL'} "
                 f"({state.cur_attempt} out of {state.max_attempts})",
             )
 
     if state.cant_retry and retry.log_exhausted:
         logger.log(
             retry.log_exhausted.level.value,
-            f"GracefulRetry: {gracy_method.__name__} exhausted the maximum attempts of {state.max_attempts})",
+            f"GracefulRetry: {gracy_method_name} exhausted the maximum attempts of {state.max_attempts})",
         )
 
     return state
@@ -110,6 +111,7 @@ def _gracify(gracy: GracefulMethod):
                 retry_result = _gracefully_retry(
                     active_config.retry,  # type: ignore
                     active_config,
+                    gracy.method.__name__,
                     gracy_method=lambda: gracy.method(instance, *args, **kwargs),
                     check_func=_check_strictness,
                 )
@@ -119,8 +121,9 @@ def _gracify(gracy: GracefulMethod):
                 raise UnexpectedResponse(str(result.url), result, strict_codes)
 
         allowed_pass = _check_allowed(active_config, result)
-        if allowed_pass is False and active_config.has_retry is False:
-            raise NonOkResponse(str(result.url), result)
+        if allowed_pass is False:
+            if active_config.has_retry is False:
+                raise NonOkResponse(str(result.url), result)
 
         return result
 
