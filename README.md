@@ -1,13 +1,10 @@
 <p align="center">
-    <!-- 1. Update your logos, decide if you want light/dark variants -->
     <img src="./img/logo-dark.png#gh-dark-mode-only">
     <img src="./img/logo-light.png#gh-light-mode-only">
 </p>
 
-<!-- 2. Rename to your project -->
-<h2 align="center">Gracy</h2>
+<h2 align="center">Gracefully manage your API interactions</h2>
 
-<!-- 3. Replace/Add with your own username/repo -->
 <p align="center">
   <!-- CI --><a href="https://github.com/guilatrova/gracy/actions"><img alt="Actions Status" src="https://github.com/guilatrova/gracy/workflows/CI/badge.svg"></a>
   <!-- PyPI --><a href="https://pypi.org/project/gracy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/gracy"/></a>
@@ -22,12 +19,20 @@
   <!-- Sponsor --><a href="https://github.com/sponsors/guilatrova"><img alt="Sponsor guilatrova" src="https://img.shields.io/github/sponsors/guilatrova?logo=GitHub%20Sponsors&style=social"/></a>
 </p>
 
-<!-- 4. Give it a description -->
-Gracefully manage your API interactions
-
-<!-- 5. Any remark?  -->
-> “Gracy helps you handle failures, logging, retries, and measures all your HTTP interactions”
+Gracy helps you handle failures, logging, retries, and measures all your HTTP interactions.
 
 ---
 
-<!-- Add more content here -->
+## Get started
+
+### Installation
+
+```
+pip install gracy
+```
+
+OR
+
+```
+poetry add gracy
+```
