@@ -50,6 +50,19 @@ class GracyReport:
         table.add_column("4xx Responses", justify="right")
         table.add_column(">5xx Responses", justify="right")
 
+        footer_totals = {
+            "URL": "[b]TOTAL[/b]",
+            "total": 0,
+            "success": 0,
+            "failed": 0,
+            "avg_latency": [],
+            "max_latency": 0.0,
+            "2xx": 0,
+            "3xx": 0,
+            "4xx": 0,
+            "5xx": 0,
+        }
+
         for url, data in requests_sum.items():
             all_requests = requests_by_url[url]
 
@@ -79,6 +92,18 @@ class GracyReport:
             color_5xx = "red" if responses_5xx else "white"
             # fmt:on
 
+            # Footer
+            footer_totals["total"] += total_requests
+            footer_totals["success"] += successful_requests
+            footer_totals["failed"] += total_requests - successful_requests
+            footer_totals["avg_latency"] += url_latency
+            footer_totals["max_latency"] = max(footer_totals["max_latency"], max_latency)
+            footer_totals["2xx"] += responses_2xx
+            footer_totals["3xx"] += responses_3xx
+            footer_totals["4xx"] += responses_4xx
+            footer_totals["5xx"] += responses_5xx
+
+            # Row
             table.add_row(
                 url,
                 f"[bold]{total_requests}[/bold]",
@@ -91,5 +116,18 @@ class GracyReport:
                 f"[{color_4xx}]{responses_4xx}[/{color_4xx}]",
                 f"[{color_5xx}]{responses_5xx}[/{color_5xx}]",
             )
+
+        table.add_row(
+            footer_totals["URL"],
+            str(footer_totals["total"]),
+            f"{((footer_totals['success'] / footer_totals['total']) * 100):.2f}%",
+            f"{((footer_totals['failed'] / footer_totals['total']) * 100):.2f}%",
+            f"{mean(footer_totals['avg_latency']):.2f}",
+            str(footer_totals["max_latency"]),
+            str(footer_totals["2xx"]),
+            str(footer_totals["3xx"]),
+            str(footer_totals["4xx"]),
+            str(footer_totals["5xx"]),
+        )
 
         console.print(table)
