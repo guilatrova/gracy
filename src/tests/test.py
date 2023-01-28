@@ -5,10 +5,10 @@ from gracy.core import Gracy, graceful
 from gracy.models import BaseEndpoint, GracefulRetry, LogEvent, LogLevel
 
 retry = GracefulRetry(
-    None,
     1,
-    1.5,
     3,
+    1.5,
+    None,
     LogEvent(LogLevel.WARNING),
     LogEvent(LogLevel.WARNING),
     LogEvent(LogLevel.CRITICAL),
@@ -23,7 +23,12 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     class Config:  # type: ignore
         BASE_URL = "https://pokeapi.co/api/v2/"
 
-    @graceful(strict_status_code={HTTPStatus.ACCEPTED}, retry=retry)
+    @graceful(
+        strict_status_code={HTTPStatus.ACCEPTED},
+        retry=retry,
+        log_request=LogEvent(LogLevel.WARNING),
+        log_response=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
+    )
     async def get_pokemon(self, name: str):
         return await self._get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 

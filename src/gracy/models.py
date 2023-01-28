@@ -25,6 +25,21 @@ class LogLevel(IntEnum):
 @dataclass
 class LogEvent:
     level: LogLevel
+    custom_message: str | None = None
+    """You can add some placeholders to be injected in the log.
+
+    Allowed placeholders:
+    - `STATUS`: Response status code
+    - `METHOD`: Method used in the request
+    - `URL`: URL request was made to
+    - `ELAPSED`: Elapsed milliseconds on request
+
+    e.g.
+      - `{URL} executed`
+      - `API replied {STATUS} and took {ELAPSED}`
+      - `{METHOD} {URL} returned {STATUS}`
+      - `Becareful because {URL} is flaky`
+    """
 
 
 class Unset:
@@ -74,11 +89,11 @@ class GracefulRetryState:
 
 @dataclass
 class GracefulRetry:
-    retry_on: HTTPStatus | Iterable[HTTPStatus] | None
     delay: float
-    delay_modifier: float
     max_attempts: int
 
+    delay_modifier: float = 1
+    retry_on: HTTPStatus | Iterable[HTTPStatus] | None = None
     log_before: None | LogEvent = None
     log_after: None | LogEvent = None
     log_exhausted: None | LogEvent = None
@@ -110,7 +125,7 @@ class GracyConfig:
 
     e.g. Setting it to 201 would raise exceptions for both 204 or 200"""
 
-    allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | Unset = UNSET_VALUE
+    allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
     """Adds one or many HTTP Status code that would normally be considered an error
 
     e.g. 404 would consider any 200-299 and 404 as successful."""
@@ -137,7 +152,9 @@ class GracyConfig:
         new_obj = copy.copy(base)
 
         for key, value in vars(modifier).items():
-            if getattr(new_obj, key) == UNSET_VALUE:
+            if getattr(base, key) == UNSET_VALUE:
+                setattr(new_obj, key, value)
+            elif value != UNSET_VALUE:
                 setattr(new_obj, key, value)
 
         return new_obj
@@ -147,8 +164,9 @@ DEFAULT_CONFIG: Final = GracyConfig(
     log_request=None,
     log_response=None,
     log_errors=LogEvent(LogLevel.ERROR),
-    strict_status_code=UNSET_VALUE,
-    allowed_status_code=UNSET_VALUE,
+    strict_status_code=None,
+    allowed_status_code=None,
+    retry=None,
 )
 
 
@@ -171,7 +189,7 @@ class GracefulRequest:
 
 
 class GracyRequestResult:
-    def __init__(self, url: str, response: httpx.Response) -> None:
+    def __init__(self, url: str, response: httpx.Response, time_spent: float) -> None:
         self.url = url
         self.status = response.status_code
 

@@ -16,8 +16,8 @@ class BadResponse(GracyException):
         response: httpx.Response,
         expected: str | HTTPStatus | Iterable[HTTPStatus],
     ) -> None:
-        self._url = url
-        self._response = response
+        self.url = url
+        self.response = response
 
         if isinstance(expected, str):
             expectedstr = expected

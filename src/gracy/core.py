@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 from asyncio import sleep
+from enum import Enum
 from http import HTTPStatus
+from time import time
 from typing import Any, Awaitable, Callable, Generic, Iterable, TypeVar
 
 import httpx
@@ -12,6 +14,7 @@ from gracy.context import custom_gracy_config, gracy_context
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
 from gracy.models import (
     DEFAULT_CONFIG,
+    LOG_EVENT_TYPE,
     UNSET_VALUE,
     BaseEndpoint,
     GracefulRequest,
@@ -20,6 +23,7 @@ from gracy.models import (
     GracyConfig,
     GracyReport,
     GracyRequestResult,
+    LogEvent,
     Unset,
 )
 
@@ -27,6 +31,39 @@ logger = logging.getLogger(__name__)
 
 
 Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
+
+
+class DefaultLogMessage(str, Enum):
+    BEFORE = "Request on {URL} is ongoing"
+    AFTER = "[{METHOD}] {URL} returned {STATUS}"
+    ERRORS = "[{METHOD}] {URL} returned a bad status ({STATUS})"
+
+
+def _process_log_request(logevent: LogEvent, url: str):
+    format_args = dict(URL=url)
+
+    if logevent.custom_message:
+        message = logevent.custom_message.format(**format_args)
+    else:
+        message = DefaultLogMessage.BEFORE.format(**format_args)
+
+    logger.log(logevent.level, message, extra=format_args)
+
+
+def _process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, elapsed: float):
+    format_args = dict(
+        STATUS=response.status_code,
+        METHOD=response.request.method,
+        URL=response.request.url,
+        ELAPSED=elapsed,
+    )
+
+    if logevent.custom_message:
+        message = logevent.custom_message.format(**format_args)
+    else:
+        message = defaultmsg.format(**format_args)
+
+    logger.log(logevent.level, message, extra=format_args)
 
 
 async def _gracefully_retry(
@@ -54,8 +91,10 @@ async def _gracefully_retry(
             break
 
         await sleep(state.delay)
+        start_time = time()
         result = await request()
-        report.track(GracyRequestResult(url, result))
+        elapsed_time = time() - start_time
+        report.track(GracyRequestResult(url, result, elapsed_time))
 
         state.success = check_func(config, result)
         failing = not state.success
@@ -110,8 +149,17 @@ async def _gracify(
     report: GracyReport,
     request: GracefulRequest,
 ):
+    if active_config.log_request and isinstance(active_config.log_request, LogEvent):
+        url = endpoint if format_args is None else endpoint.format(**format_args)
+        _process_log_request(active_config.log_request, url)
+
+    start_time = time()
     result = await request()
-    report.track(GracyRequestResult(endpoint, result))
+    elapsed_time = time() - start_time
+    report.track(GracyRequestResult(endpoint, result, elapsed_time))
+
+    if active_config.log_response and isinstance(active_config.log_response, LogEvent):
+        _process_log(active_config.log_response, DefaultLogMessage.AFTER, result, elapsed_time)
 
     strict_pass = _check_strictness(active_config, result)
     if strict_pass is False:
@@ -128,6 +176,9 @@ async def _gracify(
 
         if not retry_result or retry_result.failed:
             strict_codes: HTTPStatus | Iterable[HTTPStatus] = active_config.strict_status_code  # type: ignore
+            if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
+                _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, elapsed_time)
+
             raise UnexpectedResponse(str(result.url), result, strict_codes)
 
     allowed_pass = _check_allowed(active_config, result)
@@ -145,6 +196,9 @@ async def _gracify(
                 )
 
             if not retry_result or retry_result.failed:
+                if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
+                    _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, elapsed_time)
+
                 raise NonOkResponse(str(result.url), result)
 
     return result
@@ -163,7 +217,7 @@ class GracyMeta(type):
         return instance
 
 
-class Gracy(Generic[Endpoint], metaclass=GracyMeta):
+class Gracy(Generic[Endpoint]):
     """Helper class that provides a standard way to create an Requester using
     inheritance.
     """
@@ -172,15 +226,17 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
 
     class Config:
         BASE_URL: str = ""
+        SETTINGS: GracyConfig = DEFAULT_CONFIG
 
     def __init__(self) -> None:
-        self._base_config = DEFAULT_CONFIG
+        self._base_config = getattr(self.Config, "SETTINGS", DEFAULT_CONFIG)
 
         self._client = httpx.AsyncClient(base_url=self.Config.BASE_URL)
 
-    async def _get(
+    async def _request(
         self,
-        endpoint: Endpoint,
+        method: str,
+        endpoint: Endpoint | str,
         format: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
@@ -201,7 +257,8 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
             format,
             Gracy._report,
             GracefulRequest(
-                self._client.get,
+                self._client.request,
+                method,
                 final_endpoint,
                 *args,
                 kwargs=kwargs,
@@ -210,20 +267,89 @@ class Gracy(Generic[Endpoint], metaclass=GracyMeta):
 
         return await graceful_request
 
+    async def _get(
+        self,
+        endpoint: Endpoint | str,
+        format: dict[str, str] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        return await self._request("GET", endpoint, format, *args, **kwargs)
+
+    async def _post(
+        self,
+        endpoint: Endpoint | str,
+        format: dict[str, str] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        return await self._request("POST", endpoint, format, *args, **kwargs)
+
+    async def _put(
+        self,
+        endpoint: Endpoint | str,
+        format: dict[str, str] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        return await self._request("PUT", endpoint, format, *args, **kwargs)
+
+    async def _patch(
+        self,
+        endpoint: Endpoint | str,
+        format: dict[str, str] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        return await self._request("PATCH", endpoint, format, *args, **kwargs)
+
+    async def _delete(
+        self,
+        endpoint: Endpoint | str,
+        format: dict[str, str] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        return await self._request("DELETE", endpoint, format, *args, **kwargs)
+
+    async def _head(
+        self,
+        endpoint: Endpoint | str,
+        format: dict[str, str] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        return await self._request("HEAD", endpoint, format, *args, **kwargs)
+
+    async def _options(
+        self,
+        endpoint: Endpoint | str,
+        format: dict[str, str] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        return await self._request("OPTIONS", endpoint, format, *args, **kwargs)
+
     @classmethod
     def report_status(cls):
         cls._report.print()
 
 
 def graceful(
-    strict_status_code: Iterable[HTTPStatus] | HTTPStatus | Unset = UNSET_VALUE,
-    allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | Unset = UNSET_VALUE,
-    retry: GracefulRetry | Unset = UNSET_VALUE,
+    strict_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    retry: GracefulRetry | Unset | None = UNSET_VALUE,
+    log_request: LOG_EVENT_TYPE = UNSET_VALUE,
+    log_response: LOG_EVENT_TYPE = UNSET_VALUE,
+    log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
 ):
     config = GracyConfig(
         strict_status_code=strict_status_code,
         allowed_status_code=allowed_status_code,
         retry=retry,
+        log_request=log_request,
+        log_response=log_response,
+        log_errors=log_errors,
     )
 
     def _wrapper(wrapped_function: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
