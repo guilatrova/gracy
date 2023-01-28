@@ -173,7 +173,8 @@ DEFAULT_CONFIG: Final = GracyConfig(
 
 
 class BaseEndpoint(str, Enum):
-    pass
+    def __str__(self) -> str:
+        return self.value
 
 
 class GracefulRequest:
