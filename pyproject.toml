@@ -1,12 +1,54 @@
 [tool.poetry]
 name = "gracy"
-version = "0.1.0"
+version = "1.0.0"
 description = "Gracefully manage your API interactions"
 authors = ["Guilherme Latrova <hello@guilatrova.dev>"]
-license = ">>> LICENSE"
+license = "MIT"
+keywords = ["api", "throttling", "http", "https", "async", "retry"]
+readme = "README.md"
+homepage = "https://github.com/guilatrova/gracy"
+repository = "https://github.com/guilatrova/gracy"
+include = [
+    "LICENSE",
+    "py.typed",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet :: WWW/HTTP",
+]
 packages = [
     { include = "gracy", from = "src" },
 ]
+
+[tool.poetry.urls]
+"Changelog" = "https://github.com/guilatrova/gracy/blob/main/CHANGELOG.md"
+
+[tool.poetry.group.dev.dependencies]
+python-semantic-release = "^7.33.0"
+
+[tool.semantic_release]
+version_variable = [
+    "src/gracy/__init__.py:__version__"
+]
+version_toml = [
+    "pyproject.toml:tool.poetry.version"
+]
+branch = "main"
+upload_to_pypi = true
+upload_to_release = true
+build_command = "pip install poetry && poetry build"
 
 [tool.poetry.dependencies]
 python = "^3.10"
