@@ -35,6 +35,8 @@ class GracyReport:
             requests_sum[result.url]["total"] += 1
             requests_sum[result.url][HTTPStatus(result.response.status_code)] += 1
 
+        requests_sum = dict(sorted(requests_sum.items(), key=lambda item: item[1]["total"], reverse=True))
+
         console = Console()
         table = Table(title="HTTP Requests Summary", show_lines=True)
         table.add_column("URL", overflow="fold")
