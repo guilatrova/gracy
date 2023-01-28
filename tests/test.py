@@ -40,7 +40,7 @@ pokeapifail = GracefulPokeAPI()
 async def main():
     try:
         await pokeapi.get_pokemon("pikachu")
-        # await pokeapifail.get_pokemon("invent")
+        await pokeapifail.get_pokemon("invent")
     finally:
         pokeapi.report_status()
 

@@ -58,12 +58,13 @@ class GracyReport:
             failed_requests = total_requests - successful_requests
             success_rate = (successful_requests / total_requests) * 100
             failed_rate = (failed_requests / total_requests) * 100
+            failed_color = "red" if failed_requests else "green"
 
             table.add_row(
                 url,
                 f"[bold]{total_requests}[/bold]",
                 f"[green]{success_rate:.2f}%[/green]",
-                f"[bold][red]{failed_rate:.2f}%[/bold][/red]",
+                f"[bold][{failed_color}]{failed_rate:.2f}%[/bold][/{failed_color}]",
                 f"{avg_latency:.2f}",
                 f"{max_latency:.2f}",
             )
