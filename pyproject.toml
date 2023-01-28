@@ -6,7 +6,6 @@ authors = ["Guilherme Latrova <hello@guilatrova.dev>"]
 license = ">>> LICENSE"
 packages = [
     { include = "gracy", from = "src" },
-    { include = "gracy/py.typed", from = "src" },
 ]
 
 [tool.poetry.dependencies]

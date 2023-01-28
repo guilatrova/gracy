@@ -8,7 +8,6 @@ from time import time
 from typing import Any, Awaitable, Callable, Generic, Iterable, TypeVar
 
 import httpx
-from typing_extensions import Self
 
 from gracy.context import custom_gracy_config, gracy_context
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
@@ -202,19 +201,6 @@ async def _gracify(
                 raise NonOkResponse(str(result.url), result)
 
     return result
-
-
-class GracyMeta(type):
-    def __new__(
-        cls: type[Self],
-        name: str,
-        bases: tuple[type, ...],
-        namespace: dict[str, Any],
-        *args: Any,
-        **kwargs: Any,
-    ) -> Self:
-        instance = super().__new__(cls, name, bases, namespace, *args, **kwargs)
-        return instance
 
 
 class Gracy(Generic[Endpoint]):

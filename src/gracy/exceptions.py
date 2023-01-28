@@ -22,7 +22,7 @@ class BadResponse(GracyException):
         if isinstance(expected, str):
             expectedstr = expected
         elif isinstance(expected, HTTPStatus):
-            expectedstr = expected.value
+            expectedstr = str(expected.value)
         else:
             expectedstr = ", ".join([str(s.value) for s in expected])
 
