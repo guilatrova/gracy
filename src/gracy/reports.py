@@ -64,7 +64,7 @@ class GracyReport:
             failed_requests = total_requests - successful_requests
             success_rate = (successful_requests / total_requests) * 100
             failed_rate = (failed_requests / total_requests) * 100
-            failed_color = "red" if failed_requests else "green"
+            failed_color = "red" if failed_requests else "white"
 
             # Status Ranges
             # fmt:off
@@ -72,6 +72,9 @@ class GracyReport:
             responses_3xx = sum(count for status, count in data.items() if status != "total" and 300 <= status.value < 400)  # noqa: E501
             responses_4xx = sum(count for status, count in data.items() if status != "total" and 400 <= status.value < 500)  # noqa: E501
             responses_5xx = sum(count for status, count in data.items() if status != "total" and 500 <= status.value)
+
+            color_4xx = "red" if responses_4xx else "white"
+            color_5xx = "red" if responses_5xx else "white"
             # fmt:on
 
             table.add_row(
@@ -83,8 +86,8 @@ class GracyReport:
                 f"{max_latency:.2f}",
                 str(responses_2xx),
                 str(responses_3xx),
-                str(responses_4xx),
-                str(responses_5xx),
+                f"[{color_4xx}]{responses_4xx}[/{color_4xx}]",
+                f"[{color_5xx}]{responses_5xx}[/{color_5xx}]",
             )
 
         console.print(table)
