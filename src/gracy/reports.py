@@ -38,7 +38,7 @@ class GracyReport:
         console = Console()
         table = Table(title="HTTP Requests Summary", show_lines=True)
         table.add_column("URL")
-        table.add_column("Total Requests (#)", justify="right")
+        table.add_column("Total Requests (#)", justify="right", overflow="fold")
         table.add_column("Successful Requests (%)", justify="right")
         table.add_column("Failed Requests (%)", justify="right")
         table.add_column("Avg Latency (s)", justify="right")
@@ -87,4 +87,4 @@ class GracyReport:
                 str(responses_5xx),
             )
 
-            console.print(table)
+        console.print(table)
