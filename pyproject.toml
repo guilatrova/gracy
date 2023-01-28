@@ -11,6 +11,10 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.10"
 httpx = "^0.23.3"
+rich = { version = "*", optional = true }
+
+[tool.poetry.extras]
+rich = ["rich"]
 
 [tool.poetry.dev-dependencies]
 black = "^23.1a1"

@@ -20,11 +20,10 @@ from gracy.models import (
     GracefulRetry,
     GracefulRetryState,
     GracyConfig,
-    GracyReport,
-    GracyRequestResult,
     LogEvent,
     Unset,
 )
+from gracy.reports import GracyReport, GracyRequestResult
 
 logger = logging.getLogger(__name__)
 
