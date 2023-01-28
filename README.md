@@ -19,7 +19,9 @@
   <!-- Sponsor --><a href="https://github.com/sponsors/guilatrova"><img alt="Sponsor guilatrova" src="https://img.shields.io/github/sponsors/guilatrova?logo=GitHub%20Sponsors&style=social"/></a>
 </p>
 
-Gracy helps you handle failures, logging, retries, and measures all your HTTP interactions.
+Gracy helps you handle failures, logging, retries, and tracking for all your HTTP interactions.
+
+> "Don't repeat, simplify"
 
 ---
 
