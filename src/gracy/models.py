@@ -128,7 +128,10 @@ class GracyConfig:
     allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
     """Adds one or many HTTP Status code that would normally be considered an error
 
-    e.g. 404 would consider any 200-299 and 404 as successful."""
+    e.g. 404 would consider any 200-299 and 404 as successful.
+
+    NOTE: `strict_status_code` takes precedence.
+    """
 
     def should_retry(self, response_status: int) -> bool:
         if self.has_retry:
@@ -179,7 +182,7 @@ class GracefulRequest:
     args: tuple[Any, ...]
     kwargs: dict[str, Any]
 
-    def __init__(self, request: Callable[..., Awaitable[httpx.Response]], *args: Any, kwargs: dict[str, Any]) -> None:
+    def __init__(self, request: Callable[..., Awaitable[httpx.Response]], *args: Any, **kwargs: dict[str, Any]) -> None:
         self.request = request
         self.args = args
         self.kwargs = kwargs
@@ -188,10 +191,12 @@ class GracefulRequest:
         return self.request(*self.args, **self.kwargs)
 
 
+@dataclass(frozen=True)
 class GracyRequestResult:
-    def __init__(self, url: str, response: httpx.Response, time_spent: float) -> None:
-        self.url = url
-        self.status = response.status_code
+    __slots__ = ("url", "response")
+
+    url: str
+    response: httpx.Response
 
 
 class GracyReport:
@@ -205,7 +210,7 @@ class GracyReport:
         d = defaultdict[str, dict[HTTPStatus, int]](lambda: defaultdict[HTTPStatus, int](int))
 
         for result in self._results:
-            d[result.url][HTTPStatus(result.status)] += 1
+            d[result.url][HTTPStatus(result.response.status_code)] += 1
 
         for k, v in d.items():
             print(f"{k} | {v}")

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from asyncio import sleep
+from datetime import timedelta
 from enum import Enum
 from http import HTTPStatus
-from time import time
 from typing import Any, Awaitable, Callable, Generic, Iterable, TypeVar
 
 import httpx
@@ -49,7 +49,7 @@ def _process_log_request(logevent: LogEvent, url: str):
     logger.log(logevent.level, message, extra=format_args)
 
 
-def _process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, elapsed: float):
+def _process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, elapsed: timedelta):
     format_args = dict(
         STATUS=response.status_code,
         METHOD=response.request.method,
@@ -90,10 +90,8 @@ async def _gracefully_retry(
             break
 
         await sleep(state.delay)
-        start_time = time()
         result = await request()
-        elapsed_time = time() - start_time
-        report.track(GracyRequestResult(url, result, elapsed_time))
+        report.track(GracyRequestResult(url, result))
 
         state.success = check_func(config, result)
         failing = not state.success
@@ -152,13 +150,11 @@ async def _gracify(
         url = endpoint if format_args is None else endpoint.format(**format_args)
         _process_log_request(active_config.log_request, url)
 
-    start_time = time()
     result = await request()
-    elapsed_time = time() - start_time
-    report.track(GracyRequestResult(endpoint, result, elapsed_time))
+    report.track(GracyRequestResult(endpoint, result))
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
-        _process_log(active_config.log_response, DefaultLogMessage.AFTER, result, elapsed_time)
+        _process_log(active_config.log_response, DefaultLogMessage.AFTER, result, result.elapsed)
 
     strict_pass = _check_strictness(active_config, result)
     if strict_pass is False:
@@ -176,7 +172,7 @@ async def _gracify(
         if not retry_result or retry_result.failed:
             strict_codes: HTTPStatus | Iterable[HTTPStatus] = active_config.strict_status_code  # type: ignore
             if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-                _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, elapsed_time)
+                _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
 
             raise UnexpectedResponse(str(result.url), result, strict_codes)
 
@@ -196,7 +192,7 @@ async def _gracify(
 
             if not retry_result or retry_result.failed:
                 if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-                    _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, elapsed_time)
+                    _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
 
                 raise NonOkResponse(str(result.url), result)
 
@@ -247,7 +243,7 @@ class Gracy(Generic[Endpoint]):
                 method,
                 final_endpoint,
                 *args,
-                kwargs=kwargs,
+                **kwargs,
             ),
         )
 
