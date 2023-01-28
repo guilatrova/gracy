@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.0 (2023-01-28)
+### Feature
+* Calculate footer totals ([`eb77c71`](https://github.com/guilatrova/gracy/commit/eb77c7138c50511cb1d4edfbd7c6f77b52ca6989))
+* Sort table by requests made desc ([`fced5eb`](https://github.com/guilatrova/gracy/commit/fced5eb47dcc87abc97f2d91b1905140ad4d65d9))
+* Add custom color to status ([`9964723`](https://github.com/guilatrova/gracy/commit/99647237155aa0f8b6d236ffbaa71d6d616c4ea7))
+* Fold correct column ([`4a0bff0`](https://github.com/guilatrova/gracy/commit/4a0bff08a67e3c549897cac3ce9ec6d94603c2e7))
+
 ## v0.1.0 (2023-01-28)
 ### Feature
 * Fold url column ([`a4b0ed0`](https://github.com/guilatrova/gracy/commit/a4b0ed0c1b2fe2b313c113e9ecdb6020b2f949a4))
