@@ -143,6 +143,12 @@ class GracyConfig:
     parser: PARSER_TYPE = UNSET_VALUE
     """
     Tell Gracy how to deal with the responses for you.
+
+    Examples:
+        - `"default": lambda response: response.json()`
+        - `HTTPStatus.OK: lambda response: response.json()["ok_data"]`
+        - `HTTPStatus.NOT_FOUND: None`
+        - `HTTPStatus.INTERNAL_SERVER_ERROR: UserDefinedServerException`
     """
 
     def should_retry(self, response_status: int) -> bool:
