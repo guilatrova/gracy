@@ -18,9 +18,9 @@
   <!-- Sponsor --><a href="https://github.com/sponsors/guilatrova"><img alt="Sponsor guilatrova" src="https://img.shields.io/github/sponsors/guilatrova?logo=GitHub%20Sponsors&style=social"/></a>
 </p>
 
-Gracy helps you handle failures, logging, retries, and tracking for all your HTTP interactions.
+Gracy helps you handle failures, logging, retries, throttling, and tracking for all your HTTP interactions. Gracy uses [httpx](https://github.com/encode/httpx) under the hood.
 
-> "Don't repeat, simplify"
+> "Let Gracy do the boring stuff while you focus on your application"
 
 ---
 
