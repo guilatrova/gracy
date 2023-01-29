@@ -15,6 +15,10 @@ retry = GracefulRetry(
 )
 
 
+class PokemonNotFound(Exception):
+    pass
+
+
 class PokeApiEndpoint(BaseEndpoint):
     GET_POKEMON = "/pokemon/{NAME}"
 
@@ -24,10 +28,14 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         BASE_URL = "https://pokeapi.co/api/v2/"
 
     @graceful(
-        strict_status_code={HTTPStatus.OK},
+        allowed_status_code={HTTPStatus.NOT_FOUND},
         retry=retry,
         log_request=LogEvent(LogLevel.WARNING),
         log_response=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
+        parser={
+            "default": lambda r: r.json()["name"],
+            HTTPStatus.NOT_FOUND: None,
+        },
     )
     async def get_pokemon(self, name: str):
         return await self._get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
@@ -39,8 +47,12 @@ pokeapifail = GracefulPokeAPI()
 
 async def main():
     try:
-        await pokeapi.get_pokemon("pikachu")
-        await pokeapifail.get_pokemon("invent")
+        p1: str | None = await pokeapi.get_pokemon("pikachu")
+        p2: str | None = await pokeapifail.get_pokemon("invent")
+
+        print("P1: result of get_pokemon:", p1)
+        print("P2: result of get_pokemon:", p2)
+
     finally:
         pokeapi.report_status()
 

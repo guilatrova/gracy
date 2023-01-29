@@ -14,6 +14,7 @@ from gracy.exceptions import NonOkResponse, UnexpectedResponse
 from gracy.models import (
     DEFAULT_CONFIG,
     LOG_EVENT_TYPE,
+    PARSER_TYPE,
     UNSET_VALUE,
     BaseEndpoint,
     GracefulRequest,
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
+RequestResult = TypeVar("RequestResult", bound=httpx.Response | None | dict[str, Any])
 
 
 class DefaultLogMessage(str, Enum):
@@ -195,6 +197,18 @@ async def _gracify(
 
                 raise NonOkResponse(str(result.url), result)
 
+    if active_config.parser and not isinstance(active_config.parser, Unset):
+        default_fallback = active_config.parser.get("default", UNSET_VALUE)
+        parse_result = active_config.parser.get(HTTPStatus(result.status_code), default_fallback)
+
+        if not isinstance(parse_result, Unset):
+            if isinstance(parse_result, type):
+                raise parse_result()
+            elif callable(parse_result):
+                return parse_result(result)
+            else:
+                return parse_result
+
     return result
 
 
@@ -328,6 +342,7 @@ def graceful(
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
     log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
+    parser: PARSER_TYPE = UNSET_VALUE,
 ):
     config = GracyConfig(
         strict_status_code=strict_status_code,
@@ -336,6 +351,7 @@ def graceful(
         log_request=log_request,
         log_response=log_response,
         log_errors=log_errors,
+        parser=parser,
     )
 
     def _wrapper(wrapped_function: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:

@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, Final, Iterable
+from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Type, Union
 
 import httpx
 
@@ -48,10 +48,17 @@ class Unset:
     explicitly disables the parameter, possibly overriding a client default.
     """
 
+    def __bool__(self):
+        return False
+
 
 UNSET_VALUE: Final = Unset()
 
 LOG_EVENT_TYPE = None | Unset | LogEvent
+
+PARSER_KEY = HTTPStatus | Literal["default"]
+PARSER_VALUE = Union[Type[Exception], Callable[[httpx.Response], Any], None]
+PARSER_TYPE = dict[PARSER_KEY, PARSER_VALUE] | Unset | None
 
 
 class GracefulRetryState:
@@ -120,7 +127,7 @@ class GracyConfig:
     retry: GracefulRetry | None | Unset = UNSET_VALUE
 
     strict_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
-    """Stricitly enforces only one or many HTTP Status code to be considered as successful.
+    """Strictly enforces only one or many HTTP Status code to be considered as successful.
 
     e.g. Setting it to 201 would raise exceptions for both 204 or 200"""
 
@@ -130,6 +137,11 @@ class GracyConfig:
     e.g. 404 would consider any 200-299 and 404 as successful.
 
     NOTE: `strict_status_code` takes precedence.
+    """
+
+    parser: PARSER_TYPE = UNSET_VALUE
+    """
+    Tell Gracy how to deal with the responses for you.
     """
 
     def should_retry(self, response_status: int) -> bool:
