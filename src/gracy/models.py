@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Type, Union
+from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, Type, Union
 
 import httpx
+
+from gracy.throttling import ThrottleController
 
 
 class LogLevel(IntEnum):
@@ -32,6 +35,8 @@ class LogEvent:
     - `METHOD`: Method used in the request
     - `URL`: URL request was made to
     - `ELAPSED`: Elapsed milliseconds on request
+    - `THROTTLE_LIMIT`: Limit defined for the rule
+    - `THROTTLE_TIME`: Time the throttling decided to wait
 
     e.g.
       - `{URL} executed`
@@ -64,7 +69,7 @@ PARSER_TYPE = dict[PARSER_KEY, PARSER_VALUE] | Unset | None
 class GracefulRetryState:
     cur_attempt: int = 0
     success: bool = False
-    delay: float
+    delay: float  # TODO: use property
 
     def __init__(self, retry_config: GracefulRetry) -> None:
         self._retry_config = retry_config
@@ -119,6 +124,59 @@ class GracefulRetry:
         return GracefulRetryState(self)
 
 
+class ThrottleRule:
+    url_pattern: Pattern[str]
+    """
+    Which URLs do you want to account for this?
+    e.g.
+        Strict values:
+        - `"https://myapi.com/endpoint"`
+
+        Regex values:
+        - `"https://.*"`
+        - `"http(s)?://myapi.com/.*"`
+    """
+
+    requests_per_second_limit: float
+    """
+    How many requests should be run per second
+    """
+
+    def __init__(self, intended_url: str, limit_per_second: int) -> None:
+        self.url_pattern = re.compile(intended_url)
+        self.requests_per_second_limit = limit_per_second
+
+    def calculate_await_time(self, controller: ThrottleController) -> float:
+        """
+        Checks current reqs/second and awaits if limit is reached.
+        Returns whether limit was hit or not.
+        """
+        rate_limit = self.requests_per_second_limit
+        cur_reqs_second = controller.calculate_requests_per_second(self.url_pattern)
+
+        if cur_reqs_second >= rate_limit:
+            waiting_time = 1.0 / (rate_limit - cur_reqs_second)
+            return waiting_time
+
+        return 0.0
+
+
+class GracefulThrottle:
+    rules: list[ThrottleRule] = []
+    log_limit_reached: None | LogEvent = None
+    log_wait_over: None | LogEvent = None
+
+    def __init__(
+        self,
+        intended_url: str,
+        limit_per_second: int,
+        log_limit_reached: None | LogEvent = None,
+        log_wait_over: None | LogEvent = None,
+    ) -> None:
+        self.log_limit_reached = log_limit_reached
+        self.log_wait_over = log_wait_over
+
+
 @dataclass
 class GracyConfig:
     log_request: LOG_EVENT_TYPE = UNSET_VALUE
@@ -150,6 +208,8 @@ class GracyConfig:
         - `HTTPStatus.NOT_FOUND: None`
         - `HTTPStatus.INTERNAL_SERVER_ERROR: UserDefinedServerException`
     """
+
+    throttling: GracefulThrottle | None = None
 
     def should_retry(self, response_status: int) -> bool:
         if self.has_retry:

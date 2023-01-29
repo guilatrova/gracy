@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from asyncio import sleep
 from datetime import timedelta
@@ -22,9 +23,11 @@ from gracy.models import (
     GracefulRetryState,
     GracyConfig,
     LogEvent,
+    ThrottleRule,
     Unset,
 )
 from gracy.reports import GracyReport, GracyRequestResult
+from gracy.throttling import ThrottleController
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +41,9 @@ class DefaultLogMessage(str, Enum):
     AFTER = "[{METHOD}] {URL} returned {STATUS}"
     ERRORS = "[{METHOD}] {URL} returned a bad status ({STATUS})"
 
+    THROTTLE_HIT = "{URL} hit {THROTTLE_LIMIT} reqs/s"
+    THROTTLE_DONE = "Done waiting {THROTTLE_TIME}s to hit {URL}"
+
 
 def _process_log_request(logevent: LogEvent, url: str):
     format_args = dict(URL=url)
@@ -46,6 +52,27 @@ def _process_log_request(logevent: LogEvent, url: str):
         message = logevent.custom_message.format(**format_args)
     else:
         message = DefaultLogMessage.BEFORE.format(**format_args)
+
+    logger.log(logevent.level, message, extra=format_args)
+
+
+def _process_log_throttle(
+    logevent: LogEvent,
+    await_time: float,
+    url: str,
+    rule: ThrottleRule,
+    default_message: str,
+):
+    format_args = dict(
+        URL=url,
+        THROTTLE_TIME=await_time,
+        THROTTLE_LIMIT=rule.requests_per_second_limit,
+    )
+
+    if logevent.custom_message:
+        message = logevent.custom_message.format(**format_args)
+    else:
+        message = default_message.format(**format_args)
 
     logger.log(logevent.level, message, extra=format_args)
 
@@ -66,11 +93,42 @@ def _process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, 
     logger.log(logevent.level, message, extra=format_args)
 
 
+async def _gracefully_throttle(active_config: GracyConfig, controller: ThrottleController, url: str):
+    if throttling := active_config.throttling:
+        wait_per_rule = [
+            (rule, wait_time) for rule in throttling.rules if (wait_time := rule.calculate_await_time(controller)) > 0.0
+        ]
+
+        if wait_per_rule:
+            rule, await_time = max(wait_per_rule, key=lambda x: x[1])
+
+            if throttling.log_limit_reached:
+                _process_log_throttle(
+                    throttling.log_limit_reached,
+                    await_time,
+                    url,
+                    rule,
+                    DefaultLogMessage.THROTTLE_HIT,
+                )
+
+            await asyncio.sleep(await_time)
+
+            if throttling.log_wait_over:
+                _process_log_throttle(
+                    throttling.log_wait_over,
+                    await_time,
+                    url,
+                    rule,
+                    DefaultLogMessage.THROTTLE_DONE,
+                )
+
+
 async def _gracefully_retry(
     retry: GracefulRetry,
     config: GracyConfig,
     url: str,
     report: GracyReport,
+    throttle_controller: ThrottleController,
     request: GracefulRequest,
     check_func: Callable[[GracyConfig, httpx.Response], bool],
 ) -> GracefulRetryState:
@@ -91,6 +149,8 @@ async def _gracefully_retry(
             break
 
         await sleep(state.delay)
+        await _gracefully_throttle(config, throttle_controller, url)
+        throttle_controller.init_request(url)
         result = await request()
         report.track(GracyRequestResult(url, result))
 
@@ -145,12 +205,15 @@ async def _gracify(
     endpoint: str,
     endpoint_args: dict[str, str] | None,
     report: GracyReport,
+    throttle_controller: ThrottleController,
     request: GracefulRequest,
 ):
+    final_url = endpoint if endpoint_args is None else endpoint.format(**endpoint_args)
     if active_config.log_request and isinstance(active_config.log_request, LogEvent):
-        url = endpoint if endpoint_args is None else endpoint.format(**endpoint_args)
-        _process_log_request(active_config.log_request, url)
+        _process_log_request(active_config.log_request, final_url)
 
+    await _gracefully_throttle(active_config, throttle_controller, final_url)
+    throttle_controller.init_request(final_url)
     result = await request()
     report.track(GracyRequestResult(endpoint, result))
 
@@ -166,6 +229,7 @@ async def _gracify(
                 active_config,
                 endpoint,
                 report,
+                throttle_controller,
                 request=request,
                 check_func=_check_strictness,
             )
@@ -188,6 +252,7 @@ async def _gracify(
                     active_config,
                     endpoint,
                     report,
+                    throttle_controller,
                     request=request,
                     check_func=_check_allowed,
                 )
@@ -220,7 +285,8 @@ class Gracy(Generic[Endpoint]):
     inheritance.
     """
 
-    _report = GracyReport()
+    _report: GracyReport = GracyReport()
+    _throttle_controller: ThrottleController = ThrottleController()
 
     class Config:
         BASE_URL: str = ""
@@ -259,6 +325,7 @@ class Gracy(Generic[Endpoint]):
             endpoint,
             format,
             Gracy._report,
+            Gracy._throttle_controller,
             GracefulRequest(
                 self._client.request,
                 method,
