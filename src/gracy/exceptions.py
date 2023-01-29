@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Iterable
+from typing import Any, Iterable
 
 import httpx
 
@@ -39,3 +39,37 @@ class UnexpectedResponse(BadResponse):
 class NonOkResponse(BadResponse):
     def __init__(self, url: str, response: httpx.Response) -> None:
         super().__init__(None, url, response, "any successful status code")
+
+
+class GracyUserDefinedException(GracyException):
+    BASE_MESSAGE: str = "[{METHOD}] {URL} returned {}"
+
+    def __init__(self, base_endpoint: str, endpoint_args: dict[str, str] | None, response: httpx.Response) -> None:
+        self._base_endpoint = base_endpoint
+        self._endpoint_args = endpoint_args or {}
+        self._response = response
+        super().__init__(self._format_message(base_endpoint, self._endpoint_args, response))
+
+    def _build_default_args(self) -> dict[str, Any]:
+        return dict(
+            STATUS=self.response.status_code,
+            METHOD=self.response.request.method,
+            URL=self.response.request.url,
+            ELAPSED=self.response.elapsed,
+        )
+
+    def _format_message(self, base_endpoint: str, endpoint_args: dict[str, str], response: httpx.Response) -> str:
+        format_args = self._build_default_args()
+        return self.BASE_MESSAGE.format(**format_args)
+
+    @property
+    def base_endpoint(self):
+        return self._base_endpoint
+
+    @property
+    def endpoint_args(self):
+        return self._endpoint_args
+
+    @property
+    def response(self):
+        return self._response

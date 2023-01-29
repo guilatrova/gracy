@@ -2,7 +2,7 @@
 - [x] Strict status code
 - [x] Allowed status code
 - [x] Retry
-- [ ] Retry but pass
+- [x] Retry but pass
 - [x] Metrics (% of successful calls)
   - [x] Status codes
   - [x] % per status code

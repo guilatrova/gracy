@@ -1,7 +1,11 @@
 import asyncio
 from http import HTTPStatus
+from typing import Awaitable
+
+import httpx
 
 from gracy.core import Gracy, graceful
+from gracy.exceptions import GracyUserDefinedException
 from gracy.models import BaseEndpoint, GracefulRetry, LogEvent, LogLevel
 
 retry = GracefulRetry(
@@ -16,7 +20,16 @@ retry = GracefulRetry(
 )
 
 
-class PokemonNotFound(Exception):
+class PokemonNotFound(GracyUserDefinedException):
+    BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
+
+    def _format_message(self, base_endpoint: str, endpoint_args: dict[str, str], response: httpx.Response) -> str:
+        format_args = self._build_default_args()
+        name = endpoint_args.get("NAME", "Unknown")
+        return self.BASE_MESSAGE.format(NAME=name, **format_args)
+
+
+class ServerIsOutError(Exception):
     pass
 
 
@@ -35,7 +48,8 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         log_response=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
         parser={
             "default": lambda r: r.json()["name"],
-            HTTPStatus.NOT_FOUND: None,
+            HTTPStatus.NOT_FOUND: PokemonNotFound,
+            HTTPStatus.INTERNAL_SERVER_ERROR: ServerIsOutError,
         },
     )
     async def get_pokemon(self, name: str):
@@ -48,8 +62,8 @@ pokeapifail = GracefulPokeAPI()
 
 async def main():
     try:
-        p1: str | None = await pokeapi.get_pokemon("pikachu")
-        p2: str | None = await pokeapifail.get_pokemon("invent")
+        p1: Awaitable[str | None] = await pokeapi.get_pokemon("pikachu")
+        p2: Awaitable[str | None] = await pokeapifail.get_pokemon("doesnt-exist")
 
         print("P1: result of get_pokemon:", p1)
         print("P2: result of get_pokemon:", p2)

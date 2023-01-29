@@ -143,12 +143,12 @@ def _check_allowed(active_config: GracyConfig, result: httpx.Response) -> bool:
 async def _gracify(
     active_config: GracyConfig,
     endpoint: str,
-    format_args: dict[str, str] | None,
+    endpoint_args: dict[str, str] | None,
     report: GracyReport,
     request: GracefulRequest,
 ):
     if active_config.log_request and isinstance(active_config.log_request, LogEvent):
-        url = endpoint if format_args is None else endpoint.format(**format_args)
+        url = endpoint if endpoint_args is None else endpoint.format(**endpoint_args)
         _process_log_request(active_config.log_request, url)
 
     result = await request()
@@ -204,8 +204,9 @@ async def _gracify(
         parse_result = active_config.parser.get(HTTPStatus(result.status_code), default_fallback)
 
         if not isinstance(parse_result, Unset):
-            if isinstance(parse_result, type):
-                raise parse_result()
+            if isinstance(parse_result, type) and issubclass(parse_result, Exception):
+                # if issubclass(parse_result, GracyUserDefinedException):
+                raise parse_result(endpoint, endpoint_args, result)
             elif callable(parse_result):
                 return parse_result(result)
             else:
