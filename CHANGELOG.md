@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.0 (2023-01-29)
+### Feature
+* Improve client customization ([`1372b4f`](https://github.com/guilatrova/gracy/commit/1372b4fb9ba7fc6d2c9b8f5e3064f4e2c9fd9ab5))
+
 ## v0.2.0 (2023-01-28)
 ### Feature
 * Calculate footer totals ([`eb77c71`](https://github.com/guilatrova/gracy/commit/eb77c7138c50511cb1d4edfbd7c6f77b52ca6989))
