@@ -1,6 +1,5 @@
 <p align="center">
-    <img src="./img/logo-dark.png#gh-dark-mode-only">
-    <img src="./img/logo-light.png#gh-light-mode-only">
+    <img src="https://raw.githubusercontent.com/guilatrova/gracy/main/img/logo.png">
 </p>
 
 <h2 align="center">Gracefully manage your API interactions</h2>
