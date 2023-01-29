@@ -4,18 +4,17 @@ from typing import cast
 
 from rich import print
 
-from gracy.core import Gracy
-from gracy.models import BaseEndpoint, GracefulRetry, GracefulThrottle, GracyConfig, LogEvent, LogLevel, ThrottleRule
+from gracy import BaseEndpoint, GracefulRetry, GracefulThrottle, Gracy, GracyConfig, LogEvent, LogLevel, ThrottleRule
 
 retry = GracefulRetry(
-    1,
-    3,
-    1.5,
-    None,
-    LogEvent(LogLevel.WARNING),
-    LogEvent(LogLevel.WARNING),
-    LogEvent(LogLevel.CRITICAL),
-    "pass",
+    delay=1,
+    max_attempts=3,
+    delay_modifier=1.5,
+    retry_on=None,
+    log_before=LogEvent(LogLevel.WARNING),
+    log_after=LogEvent(LogLevel.WARNING),
+    log_exhausted=LogEvent(LogLevel.CRITICAL),
+    behavior="pass",
 )
 
 
@@ -53,7 +52,6 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
 
 pokeapi = GracefulPokeAPI()
-pokeapifail = GracefulPokeAPI()
 
 
 async def main():

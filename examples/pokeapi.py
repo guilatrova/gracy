@@ -3,19 +3,18 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy.core import Gracy, graceful
+from gracy import BaseEndpoint, GracefulRetry, Gracy, LogEvent, LogLevel, graceful
 from gracy.exceptions import GracyUserDefinedException
-from gracy.models import BaseEndpoint, GracefulRetry, LogEvent, LogLevel
 
 retry = GracefulRetry(
-    1,
-    3,
-    1.5,
-    None,
-    LogEvent(LogLevel.WARNING),
-    LogEvent(LogLevel.WARNING),
-    LogEvent(LogLevel.CRITICAL),
-    "pass",
+    delay=1,
+    max_attempts=3,
+    delay_modifier=1.5,
+    retry_on=None,
+    log_before=LogEvent(LogLevel.WARNING),
+    log_after=LogEvent(LogLevel.WARNING),
+    log_exhausted=LogEvent(LogLevel.CRITICAL),
+    behavior="pass",
 )
 
 
@@ -56,13 +55,13 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
 
 pokeapi = GracefulPokeAPI()
-pokeapifail = GracefulPokeAPI()
+pokeapi_two = GracefulPokeAPI()
 
 
 async def main():
     try:
         p1: str | None = await pokeapi.get_pokemon("pikachu")
-        p2: str | None = await pokeapifail.get_pokemon("doesnt-exist")
+        p2: str | None = await pokeapi_two.get_pokemon("doesnt-exist")
 
         print("P1: result of get_pokemon:", p1)
         print("P2: result of get_pokemon:", p2)
