@@ -95,38 +95,46 @@ def _process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, 
 
 async def _gracefully_throttle(active_config: GracyConfig, controller: ThrottleController, url: str):
     if throttling := active_config.throttling:
-        wait_per_rule = [
-            (rule, wait_time) for rule in throttling.rules if (wait_time := rule.calculate_await_time(controller)) > 0.0
-        ]
+        has_been_throttled = True
 
-        if wait_per_rule:
-            rule, await_time = max(wait_per_rule, key=lambda x: x[1])
+        while has_been_throttled:
+            wait_per_rule = [
+                (rule, wait_time)
+                for rule in throttling.rules
+                if (wait_time := rule.calculate_await_time(controller)) > 0.0
+            ]
 
-            if throttling.log_limit_reached:
-                _process_log_throttle(
-                    throttling.log_limit_reached,
-                    await_time,
-                    url,
-                    rule,
-                    DefaultLogMessage.THROTTLE_HIT,
-                )
+            if wait_per_rule:
+                rule, await_time = max(wait_per_rule, key=lambda x: x[1])
 
-            await asyncio.sleep(await_time)
+                if throttling.log_limit_reached:
+                    _process_log_throttle(
+                        throttling.log_limit_reached,
+                        await_time,
+                        url,
+                        rule,
+                        DefaultLogMessage.THROTTLE_HIT,
+                    )
 
-            if throttling.log_wait_over:
-                _process_log_throttle(
-                    throttling.log_wait_over,
-                    await_time,
-                    url,
-                    rule,
-                    DefaultLogMessage.THROTTLE_DONE,
-                )
+                await asyncio.sleep(await_time)
+
+                if throttling.log_wait_over:
+                    _process_log_throttle(
+                        throttling.log_wait_over,
+                        await_time,
+                        url,
+                        rule,
+                        DefaultLogMessage.THROTTLE_DONE,
+                    )
+            else:
+                has_been_throttled = False
 
 
 async def _gracefully_retry(
     retry: GracefulRetry,
     config: GracyConfig,
     url: str,
+    final_url: str,
     report: GracyReport,
     throttle_controller: ThrottleController,
     request: GracefulRequest,
@@ -149,8 +157,8 @@ async def _gracefully_retry(
             break
 
         await sleep(state.delay)
-        await _gracefully_throttle(config, throttle_controller, url)
-        throttle_controller.init_request(url)
+        await _gracefully_throttle(config, throttle_controller, final_url)
+        throttle_controller.init_request(final_url)
         result = await request()
         report.track(GracyRequestResult(url, result))
 
@@ -228,6 +236,7 @@ async def _gracify(
                 active_config.retry,  # type: ignore
                 active_config,
                 endpoint,
+                final_url,
                 report,
                 throttle_controller,
                 request=request,
@@ -251,6 +260,7 @@ async def _gracify(
                     active_config.retry,  # type: ignore
                     active_config,
                     endpoint,
+                    final_url,
                     report,
                     throttle_controller,
                     request=request,

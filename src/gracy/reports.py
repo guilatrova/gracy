@@ -130,13 +130,15 @@ class GracyReport:
                 f"[{color_5xx}]{responses_5xx}[/{color_5xx}]",
             )
 
-        # TODO: Handle totals 0
+        # Handle div by 0
+        footer_total = footer_totals["total"] or 1
+        footer_avg_latency = footer_totals["avg_latency"] or [0]
         table.add_row(
             footer_totals["URL"],
             str(footer_totals["total"]),
-            f"{((footer_totals['success'] / footer_totals['total']) * 100):.2f}%",
-            f"{((footer_totals['failed'] / footer_totals['total']) * 100):.2f}%",
-            f"{mean(footer_totals['avg_latency']):.2f}",
+            f"{((footer_totals['success'] / footer_total) * 100):.2f}%",
+            f"{((footer_totals['failed'] / footer_total) * 100):.2f}%",
+            f"{mean(footer_avg_latency):.2f}",
             f"{footer_totals['max_latency']:.2f}",
             str(footer_totals["resp_2xx"]),
             str(footer_totals["resp_3xx"]),

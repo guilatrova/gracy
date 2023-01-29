@@ -28,7 +28,6 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             strict_status_code={HTTPStatus.OK},
-            log_request=LogEvent(LogLevel.WARNING),
             log_errors=LogEvent(
                 LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"
             ),
@@ -58,7 +57,8 @@ pokeapifail = GracefulPokeAPI()
 
 
 async def main():
-    names = ["blaziken", "pikachu", "lugia", "bulbasaur", "charmander", "venusaur", "charizard", "blastoise"]
+    names = ["blaziken", "pikachu", "lugia", "bulbasaur", "charmander", "venusaur", "charizard", "blastoise", "bad"] * 2
+    print(names, len(names))
     try:
         t = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in names]
 
@@ -66,7 +66,7 @@ async def main():
 
     finally:
         pokeapi.report_status()
-        print(pokeapi._throttle_controller._control)
+        pokeapi._throttle_controller.debug_print()  # type: ignore
 
 
 asyncio.run(main())
