@@ -207,12 +207,17 @@ class Gracy(Generic[Endpoint]):
 
     class Config:
         BASE_URL: str = ""
+        REQUEST_TIMEOUT: float | None = None
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._base_config = getattr(self.Config, "SETTINGS", DEFAULT_CONFIG)
+        self._client = self._create_client(*args, **kwargs)
 
-        self._client = httpx.AsyncClient(base_url=self.Config.BASE_URL)
+    def _create_client(self, *args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        base_url = getattr(self.Config, "BASE_URL", "")
+        request_timeout = getattr(self.Config, "REQUEST_TIMEOUT", None)
+        return httpx.AsyncClient(base_url=base_url, timeout=request_timeout)
 
     async def _request(
         self,
