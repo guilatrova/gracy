@@ -2,11 +2,24 @@ from collections import defaultdict
 from dataclasses import dataclass
 from http import HTTPStatus
 from statistics import mean
-from typing import Dict, List, Literal, Set
+from typing import Dict, List, Literal, Set, TypedDict
 
 import httpx
 from rich.console import Console
 from rich.table import Table
+
+
+class FooterTotals(TypedDict):
+    URL: str
+    total: int
+    success: int
+    failed: int
+    avg_latency: list[float]
+    max_latency: float
+    resp_2xx: int
+    resp_3xx: int
+    resp_4xx: int
+    resp_5xx: int
 
 
 @dataclass(frozen=True)
@@ -50,18 +63,18 @@ class GracyReport:
         table.add_column("4xx Responses", justify="right")
         table.add_column(">5xx Responses", justify="right")
 
-        footer_totals = {
-            "URL": "[b]TOTAL[/b]",
-            "total": 0,
-            "success": 0,
-            "failed": 0,
-            "avg_latency": [],
-            "max_latency": 0.0,
-            "2xx": 0,
-            "3xx": 0,
-            "4xx": 0,
-            "5xx": 0,
-        }
+        footer_totals = FooterTotals(
+            URL="[b]TOTAL[/b]",
+            total=0,
+            success=0,
+            failed=0,
+            avg_latency=[],
+            max_latency=0.0,
+            resp_2xx=0,
+            resp_3xx=0,
+            resp_4xx=0,
+            resp_5xx=0,
+        )
 
         for url, data in requests_sum.items():
             all_requests = requests_by_url[url]
@@ -98,10 +111,10 @@ class GracyReport:
             footer_totals["failed"] += total_requests - successful_requests
             footer_totals["avg_latency"] += url_latency
             footer_totals["max_latency"] = max(footer_totals["max_latency"], max_latency)
-            footer_totals["2xx"] += responses_2xx
-            footer_totals["3xx"] += responses_3xx
-            footer_totals["4xx"] += responses_4xx
-            footer_totals["5xx"] += responses_5xx
+            footer_totals["resp_2xx"] += responses_2xx
+            footer_totals["resp_3xx"] += responses_3xx
+            footer_totals["resp_4xx"] += responses_4xx
+            footer_totals["resp_5xx"] += responses_5xx
 
             # Row
             table.add_row(
@@ -123,11 +136,11 @@ class GracyReport:
             f"{((footer_totals['success'] / footer_totals['total']) * 100):.2f}%",
             f"{((footer_totals['failed'] / footer_totals['total']) * 100):.2f}%",
             f"{mean(footer_totals['avg_latency']):.2f}",
-            str(footer_totals["max_latency"]),
-            str(footer_totals["2xx"]),
-            str(footer_totals["3xx"]),
-            str(footer_totals["4xx"]),
-            str(footer_totals["5xx"]),
+            f"{footer_totals['max_latency']:.2f}",
+            str(footer_totals["resp_2xx"]),
+            str(footer_totals["resp_3xx"]),
+            str(footer_totals["resp_4xx"]),
+            str(footer_totals["resp_5xx"]),
         )
 
         console.print(table)
