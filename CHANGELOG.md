@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.0 (2023-01-29)
+### Feature
+* Implement custom exceptions ([`2d89ebd`](https://github.com/guilatrova/gracy/commit/2d89ebd4c862c60bfc816774c3102c8e9e43ed2a))
+* Implement retry pass ([`45e8ce6`](https://github.com/guilatrova/gracy/commit/45e8ce6124127ef69f5a9704a6ae0dc4a48d1f45))
+
 ## v0.4.0 (2023-01-29)
 ### Feature
 * Implement parser ([`ab48cd9`](https://github.com/guilatrova/gracy/commit/ab48cd937cfa37e4455260defa94a8d41620f878))
