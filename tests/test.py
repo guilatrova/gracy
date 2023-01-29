@@ -12,6 +12,7 @@ retry = GracefulRetry(
     LogEvent(LogLevel.WARNING),
     LogEvent(LogLevel.WARNING),
     LogEvent(LogLevel.CRITICAL),
+    "pass",
 )
 
 
@@ -28,7 +29,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         BASE_URL = "https://pokeapi.co/api/v2/"
 
     @graceful(
-        allowed_status_code={HTTPStatus.NOT_FOUND},
+        strict_status_code={HTTPStatus.OK},
         retry=retry,
         log_request=LogEvent(LogLevel.WARNING),
         log_response=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),

@@ -103,6 +103,7 @@ class GracefulRetry:
     log_before: None | LogEvent = None
     log_after: None | LogEvent = None
     log_exhausted: None | LogEvent = None
+    behavior: Literal["break", "pass"] = "break"
 
     def needs_retry(self, response_result: HTTPStatus) -> bool:
         if self.retry_on is None:

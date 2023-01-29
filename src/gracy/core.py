@@ -175,7 +175,8 @@ async def _gracify(
             if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
                 _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
 
-            raise UnexpectedResponse(str(result.url), result, strict_codes)
+            if active_config.retry.behavior == "break":  # type: ignore
+                raise UnexpectedResponse(str(result.url), result, strict_codes)
 
     allowed_pass = _check_allowed(active_config, result)
     if allowed_pass is False:
@@ -195,7 +196,8 @@ async def _gracify(
                 if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
                     _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
 
-                raise NonOkResponse(str(result.url), result)
+                if active_config.retry.behavior == "break":  # type: ignore
+                    raise NonOkResponse(str(result.url), result)
 
     if active_config.parser and not isinstance(active_config.parser, Unset):
         default_fallback = active_config.parser.get("default", UNSET_VALUE)
