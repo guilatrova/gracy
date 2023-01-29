@@ -12,9 +12,8 @@
   - [x] 200 = lambda r: r.text()
   - [x] 404 = None
   - [x] 401 = InadequatePermissions
-- [] Throttle
-  - [] URL regex support
-  - [] throttle=[(".* ", 10, ), (".*/pokemon", 20)]
+- [x] Throttle
+  - [x] URL regex support
 - [ ] Authorization
   - [ ] Validate if token is still valid
   - [ ] Auto refresh
