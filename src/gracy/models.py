@@ -142,8 +142,8 @@ class ThrottleRule:
     How many requests should be run per second
     """
 
-    def __init__(self, intended_url: str, limit_per_second: int) -> None:
-        self.url_pattern = re.compile(intended_url)
+    def __init__(self, url_regex: str, limit_per_second: int) -> None:
+        self.url_pattern = re.compile(url_regex)
         self.requests_per_second_limit = limit_per_second
 
     def calculate_await_time(self, controller: ThrottleController) -> float:
@@ -155,7 +155,8 @@ class ThrottleRule:
         cur_reqs_second = controller.calculate_requests_per_second(self.url_pattern)
 
         if cur_reqs_second >= rate_limit:
-            waiting_time = 1.0 / (rate_limit - cur_reqs_second)
+            time_diff = (rate_limit - cur_reqs_second) or 1
+            waiting_time = 1.0 / time_diff
             return waiting_time
 
         return 0.0
@@ -168,11 +169,11 @@ class GracefulThrottle:
 
     def __init__(
         self,
-        intended_url: str,
-        limit_per_second: int,
+        rules: list[ThrottleRule] | ThrottleRule,
         log_limit_reached: None | LogEvent = None,
         log_wait_over: None | LogEvent = None,
     ) -> None:
+        self.rules = rules if isinstance(rules, Iterable) else [rules]
         self.log_limit_reached = log_limit_reached
         self.log_wait_over = log_wait_over
 

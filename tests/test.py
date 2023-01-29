@@ -1,6 +1,5 @@
 import asyncio
 from http import HTTPStatus
-from typing import Awaitable
 
 import httpx
 
@@ -62,8 +61,8 @@ pokeapifail = GracefulPokeAPI()
 
 async def main():
     try:
-        p1: Awaitable[str | None] = await pokeapi.get_pokemon("pikachu")
-        p2: Awaitable[str | None] = await pokeapifail.get_pokemon("doesnt-exist")
+        p1: str | None = await pokeapi.get_pokemon("pikachu")
+        p2: str | None = await pokeapifail.get_pokemon("doesnt-exist")
 
         print("P1: result of get_pokemon:", p1)
         print("P2: result of get_pokemon:", p2)

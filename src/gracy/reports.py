@@ -130,6 +130,7 @@ class GracyReport:
                 f"[{color_5xx}]{responses_5xx}[/{color_5xx}]",
             )
 
+        # TODO: Handle totals 0
         table.add_row(
             footer_totals["URL"],
             str(footer_totals["total"]),
