@@ -62,9 +62,9 @@ rich = ["rich"]
 black = "^23.1a1"
 flake8 = "^6.0.0"
 mypy = "^0.991"
-isort = "^5.10.1"
-tryceratops = "^1.0.0"
-pre-commit = "^2.15.0"
+isort = "^5.12.0"
+tryceratops = "^1.1.0"
+pre-commit = "^3.0.1"
 rich = "^13.2.0"
 
 [tool.black]
