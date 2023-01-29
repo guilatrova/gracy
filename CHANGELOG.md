@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.4.0 (2023-01-29)
+### Feature
+* Implement parser ([`ab48cd9`](https://github.com/guilatrova/gracy/commit/ab48cd937cfa37e4455260defa94a8d41620f878))
+
+### Documentation
+* Add custom logo ([`19f6bf8`](https://github.com/guilatrova/gracy/commit/19f6bf86b4daf68ee50908cf2833912b0f3de852))
+
 ## v0.3.0 (2023-01-29)
 ### Feature
 * Improve client customization ([`1372b4f`](https://github.com/guilatrova/gracy/commit/1372b4fb9ba7fc6d2c9b8f5e3064f4e2c9fd9ab5))
