@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.0 (2023-01-29)
+### Feature
+* Implement throttling ([`8691045`](https://github.com/guilatrova/gracy/commit/869104595b7c6954ea31b159e89a1efe8028215c))
+
+### Fix
+* **throttling:** Resolve bugs ([`4c41326`](https://github.com/guilatrova/gracy/commit/4c4132608b61256b8949dcbc46558641bccceedf))
+* **throttling:** Handle some scenarios ([`f9d4fbc`](https://github.com/guilatrova/gracy/commit/f9d4fbc5c2e6e378cdfdd7dc8a930852f9620477))
+
+### Documentation
+* Improve prop description ([`27f9e01`](https://github.com/guilatrova/gracy/commit/27f9e01dd5004827a8df471034138ad1bf18b10c))
+
 ## v0.5.0 (2023-01-29)
 ### Feature
 * Implement custom exceptions ([`2d89ebd`](https://github.com/guilatrova/gracy/commit/2d89ebd4c862c60bfc816774c3102c8e9e43ed2a))
