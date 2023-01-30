@@ -30,13 +30,14 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Installation](#installation)
   - [Usage](#usage)
     - [Simple example](#simple-example)
+    - [More examples](#more-examples)
   - [Settings](#settings)
     - [Strict/Allowed status code](#strictallowed-status-code)
     - [Parsing](#parsing)
     - [Retry](#retry)
     - [Throttling](#throttling)
-    - [Custom Exceptions](#custom-exceptions)
     - [Logging](#logging)
+    - [Custom Exceptions](#custom-exceptions)
     - [Reports](#reports)
     - [Overriding request configs per method](#overriding-request-configs-per-method)
 - [Credits](#credits)
@@ -101,6 +102,11 @@ async def main():
 
 asyncio.run(main())
 ```
+
+#### More examples
+
+- [PokeAPI with retries, parsers, logs](./examples/pokeapi.py)
+- [PokeAPI with throttling](./examples/pokeapi_throttle.py)
 
 ### Settings
 
@@ -258,7 +264,40 @@ class Config:
 
 #### Throttling
 
-#### Custom Exceptions
+Rate limiting issues? No more.
+
+Gracy helps you proactively deal with it before any API throws 429 in your face.
+
+**Creating rules**
+
+You can define rules per endpoint using regex:
+
+```py
+TWO_REQS_FOR_ANY_ENDPOINT_RULE = ThrottleRule(
+  url_pattern=r".*",
+  requests_per_second_limit=2
+)
+
+TEN_REQS_FOR_ANY_POKEMON_ENDPOINT_RULE = ThrottleRule(
+  url_pattern=r".*\/pokemon\/.*",
+  requests_per_second_limit=10
+)
+```
+
+**Setting throttling**
+
+You can set up logging and assign rules as:
+
+```py
+class Config:
+  GracyConfig(
+    throttling=GracefulThrottle(
+        rules=ThrottleRule(r".*", 2), # 2 reqs/s for any endpoint
+        log_limit_reached=LogEvent(LogLevel.ERROR),
+        log_wait_over=LogEvent(LogLevel.WARNING),
+    ),
+  )
+```
 
 #### Logging
 
@@ -329,6 +368,8 @@ GracefulThrottle(
   log_wait_over=LogEvent()
 )
 ```
+
+#### Custom Exceptions
 
 #### Reports
 
