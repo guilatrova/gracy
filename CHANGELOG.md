@@ -2,6 +2,25 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.0 (2023-01-30)
+### Feature
+* Drop python 3.7 support ([`0f69e5b`](https://github.com/guilatrova/gracy/commit/0f69e5be00f8202ea2aa98b71630ae167c6431f1))
+
+### Breaking
+* drop python 3.7 support ([`0f69e5b`](https://github.com/guilatrova/gracy/commit/0f69e5be00f8202ea2aa98b71630ae167c6431f1))
+
+### Documentation
+* Add remaining sections ([`4335b5a`](https://github.com/guilatrova/gracy/commit/4335b5a3313a56c36b7b54c9ec44a07b2e6b4bd0))
+* Add throttling ([`6fc9583`](https://github.com/guilatrova/gracy/commit/6fc958328fcbc5304e745c29918f8ffb2f8fa1a4))
+* Add retry ([`aa8a828`](https://github.com/guilatrova/gracy/commit/aa8a82844a8c77f99897512d23b01eb216b8e0ff))
+* Add credits/settings section ([`113bf48`](https://github.com/guilatrova/gracy/commit/113bf4886ae50418ddaef62d6f4880171f98240f))
+* Write about parsing ([`c133cda`](https://github.com/guilatrova/gracy/commit/c133cda6444058861a5129db5da0a4fd7a12965e))
+* Remove colspans ([`3ef5fd7`](https://github.com/guilatrova/gracy/commit/3ef5fd77dbec659144a034405c815fa5a060d747))
+* Add logging details ([`09e923c`](https://github.com/guilatrova/gracy/commit/09e923cb9bb14b858f8c6ab975fb50ffab8fd42a))
+* Fix badge ([`fea301a`](https://github.com/guilatrova/gracy/commit/fea301a63db98398101ae796f3a14f35882922f7))
+* Add empty topics ([`887b46c`](https://github.com/guilatrova/gracy/commit/887b46ca3a61d20fcc942e18868a159ffaded0f1))
+* Improve top description ([`e745403`](https://github.com/guilatrova/gracy/commit/e745403116483c651ebcd9f7e26fe99ab468ad03))
+
 ## v0.6.0 (2023-01-29)
 ### Feature
 * Implement throttling ([`8691045`](https://github.com/guilatrova/gracy/commit/869104595b7c6954ea31b159e89a1efe8028215c))
