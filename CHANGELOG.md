@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v1.1.0 (2023-01-30)
+### Feature
+* Change api to be public ([`3b0c828`](https://github.com/guilatrova/gracy/commit/3b0c8281c3e164d9a7f01770c698fa825afe562a))
+
+### Documentation
+* Fix examples/info ([`0193f11`](https://github.com/guilatrova/gracy/commit/0193f112807f4621f5fd35acc9fbec32c4a2554c))
+
 ## v1.0.0 (2023-01-30)
 ### Feature
 * Drop python 3.7 support ([`0f69e5b`](https://github.com/guilatrova/gracy/commit/0f69e5be00f8202ea2aa98b71630ae167c6431f1))
