@@ -29,11 +29,12 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
 - [Get started](#get-started)
   - [Installation](#installation)
   - [Usage](#usage)
-    - [Logging](#logging)
+    - [Simple example](#simple-example)
     - [Strict/Allowed status code](#strictallowed-status-code)
     - [Parsing](#parsing)
     - [Retry](#retry)
     - [Throttling](#throttling)
+    - [Logging](#logging)
     - [Reports](#reports)
     - [Overriding request configs](#overriding-request-configs)
 
@@ -54,7 +55,51 @@ poetry add gracy
 
 ### Usage
 
-#### Logging
+Example will use the [PokeAPI](https://pokeapi.co).
+
+#### Simple example
+
+```py
+# 0. Import
+import asyncio
+from typing import Awaitable
+from gracy import BaseEndpoint, Gracy, GracyConfig, LogEvent, LogLevel
+
+# 1. Define your endpoints
+class PokeApiEndpoint(BaseEndpoint):
+    GET_POKEMON = "/pokemon/{NAME}" # 👈 Put placeholders as needed
+
+# 2. Define your Graceful API
+class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
+    class Config:  # type: ignore
+        BASE_URL = "https://pokeapi.co/api/v2/" # 👈 Optional BASE_URL
+        # 👇 Define settings to apply for every request
+        SETTINGS = GracyConfig(
+          log_request=LogEvent(LogLevel.DEBUG),
+          log_response=LogEvent(LogLevel.INFO, "{URL} took {ELAPSED}"),
+          parser={
+            "default": lambda r: r.json()
+          }
+        )
+
+    async def get_pokemon(self, name: str) -> Awaitable[dict]:
+        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+
+pokeapi = GracefulPokeAPI()
+
+async def main():
+    try:
+      pokemon = await pokeapi.get_pokemon("pikachu")
+      print(pokemon)
+
+    finally:
+        pokeapi.report_status()
+
+
+asyncio.run(main())
+```
+
+
 
 #### Strict/Allowed status code
 
@@ -63,6 +108,79 @@ poetry add gracy
 #### Retry
 
 #### Throttling
+
+
+#### Logging
+
+You can **define and customize logs** for events by using `LogEvent` and `LogLevel`:
+
+```py
+verbose_log = LogEvent(LogLevel.CRITICAL)
+custom_warn_log = LogEvent(LogLevel.WARNING. custom_message="{METHOD} {URL} is quite slow and flaky")
+custom_error_log = LogEvent(LogLevel.INFO, custom_message="{URL} returned a bad status code {STATUS}, but that's fine")
+```
+
+Note that placeholders are formatted and replaced later on by Gracy based on the event type, like:
+
+**Placeholders per event**
+
+| Placeholder                               | Description                                                                     | Example                                 | Supported Events                                                                                                                                                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{URL}`                                   | Endpoint being targetted. Sometimes formatted, sometimes containg placeholders. | `/pokemon/{NAME}`, `/pokemon/{PIKACHU}` | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[x] Before retry</li><li>[x] After retry</li><li>[x] Retry exhausted</li><li>[x] Throttle limit reached</li><li>[x] Throttle limit available</li></ul> |
+| `{METHOD}`                                | HTTP Request being used                                                         | `GET`, `POST`                           | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
+| `{STATUS}`                                | Status code returned by the response                                            | `200`, `404`, `501`                     | <ul><li>[ ] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
+| `{ELAPSED}`                               | Amount of seconds taken for the request to complete                             | *Numeric*                               | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
+| <td colspan=3>**Retry Exclusive**</td>    |
+| `{RETRY_DELAY}`                           | How long Gracy will wait before repeating the request                           | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
+| `{CUR_ATTEMPT}`                           | Current attempt count for the current request                                   | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
+| `{MAX_ATTEMPT}`                           | Max attempt defined for the current request                                     | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
+| <td colspan=3>**Throttle Exclusive**</td> |
+| `{THROTTLE_LIMIT}`                        | How many reqs/s is defined for the current request                              | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
+| `{THROTTLE_TIME}`                         | How long Gracy will wait before calling the request                             | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
+
+and you can set up the log events as follows:
+
+**Requests**
+
+1. Before request
+2. After response
+3. Response has non successful errors
+
+```py
+GracyConfig(
+  log_request=LogEvent(),
+  log_response=LogEvent(),
+  log_errors=LogEvent(),
+)
+```
+
+**Retry**
+
+1. Before retry
+2. After retry
+3. When retry exhausted
+
+```py
+GracefulRetry(
+  ...,
+  log_before=LogEvent(),
+  log_after=LogEvent(),
+  log_exhausted=LogEvent(),
+)
+```
+
+**Throttling**
+
+1. When reqs/s limit is reached
+2. When limit decreases again
+
+```py
+GracefulThrottle(
+  ...,
+  log_limit_reached=LogEvent()
+  log_wait_over=LogEvent()
+)
+```
 
 #### Reports
 
