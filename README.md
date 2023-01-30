@@ -218,6 +218,44 @@ async def get_pokemon(self, name: str) -> Awaitable[dict]:
 
 #### Retry
 
+Who doesn't hate flaky APIs? 🙋
+
+Yet there're many of them.
+
+Using tenacity, backoff, retry, aiohttp_retry, and any other retry libs is **NOT easy enough**. 🙅
+
+You still would need to code the implementation for each request which is annoying.
+
+Here's how Gracy allows you to gracefully code your retry logic:
+
+```py
+class Config:
+  GracyConfig(
+    retry=GracefulRetry(
+      delay=1,
+      max_attempts=3,
+      delay_modifier=1.5,
+      retry_on=None,
+      log_before=None,
+      log_after=LogEvent(LogLevel.WARNING),
+      log_exhausted=LogEvent(LogLevel.CRITICAL),
+      behavior="break",
+    )
+  )
+```
+
+| Parameter        | Description                                                                               | Example                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `delay`          | How many seconds to wait between retries                                                  | `2` would wait 2 seconds, `1.5` would wait 1.5 seconds, and so on                                            |
+| `max_attempts`   | How many times should Gracy retry the request?                                            | `10` means 1 regular request with additional 10 retries in case they keep failing. `1` should be the minimum |
+| `delay_modifier` | Allows you to specify increasing delay times by multiplying this value to `delay`         | Setting `1` means no delay change. Setting `2` means delay will be doubled every retry                       |
+| `retry_on`       | Should we retry for which status codes? `None` means for any non successful status code   | `HTTPStatus.BAD_REQUEST`, or `{HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN}`                                |
+| `log_before`     | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
+| `log_after`      | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
+| `log_exhausted`  | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
+| `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure | `pass` or `break` (default)                                                                                  |
+
+
 #### Throttling
 
 #### Custom Exceptions
