@@ -20,5 +20,3 @@
 - [ ] Docs
   - [ ] Methods without `_`
 ---
-
-Implement custom exception + log per status
