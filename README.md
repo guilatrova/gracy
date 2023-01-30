@@ -36,7 +36,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
     - [Throttling](#throttling)
     - [Logging](#logging)
     - [Reports](#reports)
-    - [Overriding request configs](#overriding-request-configs)
+    - [Overriding request configs per method](#overriding-request-configs-per-method)
 
 
 ## Get started
@@ -99,8 +99,6 @@ async def main():
 asyncio.run(main())
 ```
 
-
-
 #### Strict/Allowed status code
 
 #### Parsing
@@ -124,19 +122,17 @@ Note that placeholders are formatted and replaced later on by Gracy based on the
 
 **Placeholders per event**
 
-| Placeholder                               | Description                                                                     | Example                                 | Supported Events                                                                                                                                                                                                                                |
-| ----------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `{URL}`                                   | Endpoint being targetted. Sometimes formatted, sometimes containg placeholders. | `/pokemon/{NAME}`, `/pokemon/{PIKACHU}` | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[x] Before retry</li><li>[x] After retry</li><li>[x] Retry exhausted</li><li>[x] Throttle limit reached</li><li>[x] Throttle limit available</li></ul> |
-| `{METHOD}`                                | HTTP Request being used                                                         | `GET`, `POST`                           | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
-| `{STATUS}`                                | Status code returned by the response                                            | `200`, `404`, `501`                     | <ul><li>[ ] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
-| `{ELAPSED}`                               | Amount of seconds taken for the request to complete                             | *Numeric*                               | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
-| <td colspan=3>**Retry Exclusive**</td>    |
-| `{RETRY_DELAY}`                           | How long Gracy will wait before repeating the request                           | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
-| `{CUR_ATTEMPT}`                           | Current attempt count for the current request                                   | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
-| `{MAX_ATTEMPT}`                           | Max attempt defined for the current request                                     | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
-| <td colspan=3>**Throttle Exclusive**</td> |
-| `{THROTTLE_LIMIT}`                        | How many reqs/s is defined for the current request                              | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
-| `{THROTTLE_TIME}`                         | How long Gracy will wait before calling the request                             | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
+| Placeholder        | Description                                                                     | Example                                 | Supported Events                                                                                                                                                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{URL}`            | Endpoint being targetted. Sometimes formatted, sometimes containg placeholders. | `/pokemon/{NAME}`, `/pokemon/{PIKACHU}` | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[x] Before retry</li><li>[x] After retry</li><li>[x] Retry exhausted</li><li>[x] Throttle limit reached</li><li>[x] Throttle limit available</li></ul> |
+| `{METHOD}`         | HTTP Request being used                                                         | `GET`, `POST`                           | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
+| `{STATUS}`         | Status code returned by the response                                            | `200`, `404`, `501`                     | <ul><li>[ ] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
+| `{ELAPSED}`        | Amount of seconds taken for the request to complete                             | *Numeric*                               | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
+| `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request                           | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
+| `{CUR_ATTEMPT}`    | Current attempt count for the current request                                   | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
+| `{MAX_ATTEMPT}`    | Max attempt defined for the current request                                     | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
+| `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request                              | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
+| `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request                             | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
 
 and you can set up the log events as follows:
 
@@ -184,4 +180,4 @@ GracefulThrottle(
 
 #### Reports
 
-#### Overriding request configs
+#### Overriding request configs per method
