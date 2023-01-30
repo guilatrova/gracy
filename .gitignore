@@ -1,4 +1,3 @@
-.vscode
 *.egg-info
 *.pyc
 *.log
