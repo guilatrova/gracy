@@ -79,9 +79,9 @@ def _process_log_throttle(
 
 def _process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, elapsed: timedelta):
     format_args = dict(
-        STATUS=response.status_code,
-        METHOD=response.request.method,
         URL=response.request.url,
+        METHOD=response.request.method,
+        STATUS=response.status_code,
         ELAPSED=elapsed,
     )
 
