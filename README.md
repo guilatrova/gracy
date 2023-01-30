@@ -30,6 +30,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Installation](#installation)
   - [Usage](#usage)
     - [Simple example](#simple-example)
+  - [Settings](#settings)
     - [Strict/Allowed status code](#strictallowed-status-code)
     - [Parsing](#parsing)
     - [Retry](#retry)
@@ -38,6 +39,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
     - [Logging](#logging)
     - [Reports](#reports)
     - [Overriding request configs per method](#overriding-request-configs-per-method)
+- [Credits](#credits)
 
 
 ## Get started
@@ -99,6 +101,8 @@ async def main():
 
 asyncio.run(main())
 ```
+
+### Settings
 
 #### Strict/Allowed status code
 
@@ -291,3 +295,11 @@ GracefulThrottle(
 #### Reports
 
 #### Overriding request configs per method
+
+## Credits
+
+Thanks to the last three startups I worked which forced me to do the same things and resolve the same problems over and over again. I got sick of it and built this lib.
+
+Most importantly: Thanks to God, who allowed me (a random 🇧🇷 guy) to work for many different 🇺🇸 startups.
+
+Also, thanks to the [httpx](https://github.com/encode/httpx) project for the beautiful and simple API.
