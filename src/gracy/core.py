@@ -315,7 +315,7 @@ class Gracy(Generic[Endpoint]):
         self,
         method: str,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
@@ -324,15 +324,15 @@ class Gracy(Generic[Endpoint]):
         if custom_config:
             active_config = GracyConfig.merge_config(self._base_config, custom_config)
 
-        if format:
-            final_endpoint = endpoint.format(**format)
+        if endpoint_args:
+            final_endpoint = endpoint.format(**endpoint_args)
         else:
             final_endpoint = endpoint
 
         graceful_request = _gracify(
             active_config,
             endpoint,
-            format,
+            endpoint_args,
             Gracy._report,
             Gracy._throttle_controller,
             GracefulRequest(
@@ -346,68 +346,68 @@ class Gracy(Generic[Endpoint]):
 
         return await graceful_request
 
-    async def _get(
+    async def get(
         self,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        return await self._request("GET", endpoint, format, *args, **kwargs)
+        return await self._request("GET", endpoint, endpoint_args, *args, **kwargs)
 
-    async def _post(
+    async def post(
         self,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        return await self._request("POST", endpoint, format, *args, **kwargs)
+        return await self._request("POST", endpoint, endpoint_args, *args, **kwargs)
 
-    async def _put(
+    async def put(
         self,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        return await self._request("PUT", endpoint, format, *args, **kwargs)
+        return await self._request("PUT", endpoint, endpoint_args, *args, **kwargs)
 
-    async def _patch(
+    async def patch(
         self,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        return await self._request("PATCH", endpoint, format, *args, **kwargs)
+        return await self._request("PATCH", endpoint, endpoint_args, *args, **kwargs)
 
-    async def _delete(
+    async def delete(
         self,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        return await self._request("DELETE", endpoint, format, *args, **kwargs)
+        return await self._request("DELETE", endpoint, endpoint_args, *args, **kwargs)
 
-    async def _head(
+    async def head(
         self,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        return await self._request("HEAD", endpoint, format, *args, **kwargs)
+        return await self._request("HEAD", endpoint, endpoint_args, *args, **kwargs)
 
-    async def _options(
+    async def options(
         self,
         endpoint: Endpoint | str,
-        format: dict[str, str] | None = None,
+        endpoint_args: dict[str, str] | None = None,
         *args: Any,
         **kwargs: Any,
     ):
-        return await self._request("OPTIONS", endpoint, format, *args, **kwargs)
+        return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
 
     @classmethod
     def report_status(cls):

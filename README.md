@@ -466,7 +466,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         },
     )
     async def maybe_get_pokemon_order(self, name: str):
-        val: str | None = await self._get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        val: str | None = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
         return val
 
     @graceful( # Retry and log_errors are still set for this one
@@ -474,7 +474,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
       parser={"default": lambda r: r.json()["order"]},
     )
     async def get_pokemon_order(self, name: str):
-      val: str = await self._get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+      val: str = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
       return val
 ```
 

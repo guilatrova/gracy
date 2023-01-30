@@ -20,7 +20,7 @@
   - [ ] Auto refresh
 - [ ] Docs
   - [x] Readme
+  - [x] Methods without `_`
   - [ ] Contributing
-  - [ ] Methods without `_`
 - [ ] Allow to specify status ranges
 ---

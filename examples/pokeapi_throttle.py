@@ -43,7 +43,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         )
 
     async def get_pokemon(self, name: str):
-        val = cast(str | None, await self._get(PokeApiEndpoint.GET_POKEMON, {"NAME": name}))
+        val = cast(str | None, await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name}))
 
         if val:
             print(f"{name} is #{val} in the pokedex")
