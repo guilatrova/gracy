@@ -34,6 +34,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
     - [Parsing](#parsing)
     - [Retry](#retry)
     - [Throttling](#throttling)
+    - [Custom Exceptions](#custom-exceptions)
     - [Logging](#logging)
     - [Reports](#reports)
     - [Overriding request configs per method](#overriding-request-configs-per-method)
@@ -101,12 +102,121 @@ asyncio.run(main())
 
 #### Strict/Allowed status code
 
+By default Gracy considers any successful status code (200-299) as successful.
+
+**Strict**
+
+You can modify this behavior by defining a strict status code or increase the range of allowed status codes:
+
+```py
+from http import HTTPStatus
+
+GracyConfig(
+  strict_status_code=HTTPStatus.CREATED
+)
+```
+
+or a list of values:
+
+```py
+from http import HTTPStatus
+
+GracyConfig(
+  strict_status_code={HTTPStatus.OK, HTTPStatus.CREATED}
+)
+```
+
+Using `strict_status_code` means that any other code no specified will raise an error regardless of being successful or not.
+
+**Allowed**
+
+You can also keep the behavior, but extend the range of allowed codes.
+
+```py
+from http import HTTPStatus
+
+GracyConfig(
+  allowed_status_code=HTTPStatus.NOT_FOUND
+)
+```
+
+or a list of values
+
+
+```py
+from http import HTTPStatus
+
+GracyConfig(
+  allowed_status_code={HTTPStatus.NOT_FOUND, HTTPStatus.FORBIDDEN}
+)
+```
+
+Using `allowed_status_code` means that all successful codes plus your defined codes will be considered successful.
+
+This is quite useful for parsing as you'll see soon.
+
+⚠️ Note that `strict_status_code` takes precedence over `allowed_status_code`, probably you don't want to combine those. Prefer one or the other.
+
 #### Parsing
+
+Parsing allows you to handle the request based on the status code returned.
+
+The basic example is parsing `json`:
+
+```py
+GracyConfig(
+  parser={
+    "default": lambda r: r.json()
+  }
+)
+```
+
+In this example all successful requests will automatically return the `json()` result.
+
+You can also narrow it down to handle specific status codes.
+
+```py
+class Config:
+  GracyConfig(
+    ...,
+    allowed_status_code: HTTPStatusCode.NOT_FOUND,
+    parser={
+      "default": lambda r: r.json()
+      HTTPStatusCode.NOT_FOUND: None
+    }
+  )
+
+async def get_pokemon(self, name: str) -> Awaitable[dict| None]:
+  # 👇 Returns either dict or None
+  return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+```
+
+Or even customize [exceptions to improve your code readability](https://guicommits.com/handling-exceptions-in-python-like-a-pro/):
+
+```py
+class PokemonNotFound(GracyUserDefinedException):
+  ... # More on exceptions below
+
+class Config:
+  GracyConfig(
+    ...,
+    allowed_status_code: HTTPStatusCode.NOT_FOUND,
+    parser={
+      "default": lambda r: r.json()
+      HTTPStatusCode.NOT_FOUND: PokemonNotFound
+    }
+  )
+
+async def get_pokemon(self, name: str) -> Awaitable[dict]:
+  # 👇 Returns either dict or raises PokemonNotFound
+  return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+```
 
 #### Retry
 
 #### Throttling
 
+#### Custom Exceptions
 
 #### Logging
 

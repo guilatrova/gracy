@@ -280,7 +280,6 @@ async def _gracify(
 
         if not isinstance(parse_result, Unset):
             if isinstance(parse_result, type) and issubclass(parse_result, Exception):
-                # if issubclass(parse_result, GracyUserDefinedException):
                 raise parse_result(endpoint, endpoint_args, result)
             elif callable(parse_result):
                 return parse_result(result)
