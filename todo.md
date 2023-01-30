@@ -2,7 +2,8 @@
 - [x] Strict status code
 - [x] Allowed status code
 - [x] Retry
-- [x] Retry but pass
+  - [x] Retry but pass
+  - [ ] Retry logging
 - [x] Metrics (% of successful calls)
   - [x] Status codes
   - [x] % per status code
@@ -18,5 +19,8 @@
   - [ ] Validate if token is still valid
   - [ ] Auto refresh
 - [ ] Docs
+  - [x] Readme
+  - [ ] Contributing
   - [ ] Methods without `_`
+- [ ] Allow to specify status ranges
 ---

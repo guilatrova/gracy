@@ -26,24 +26,29 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
 
 **Summary**
 
-- [Get started](#get-started)
+- [🧑‍💻 Get started](#-get-started)
   - [Installation](#installation)
   - [Usage](#usage)
     - [Simple example](#simple-example)
     - [More examples](#more-examples)
-  - [Settings](#settings)
-    - [Strict/Allowed status code](#strictallowed-status-code)
-    - [Parsing](#parsing)
-    - [Retry](#retry)
-    - [Throttling](#throttling)
-    - [Logging](#logging)
-    - [Custom Exceptions](#custom-exceptions)
-    - [Reports](#reports)
-    - [Overriding request configs per method](#overriding-request-configs-per-method)
+- [Settings](#settings)
+  - [Strict/Allowed status code](#strictallowed-status-code)
+  - [Parsing](#parsing)
+  - [Retry](#retry)
+  - [Throttling](#throttling)
+  - [Logging](#logging)
+  - [Custom Exceptions](#custom-exceptions)
+- [Reports](#reports)
+- [Advanced Usage](#advanced-usage)
+  - [Customizing/Overriding configs per method](#customizingoverriding-configs-per-method)
+  - [Customizing HTTPx client](#customizing-httpx-client)
+- [📚 Extra Resources](#-extra-resources)
+- [Change log](#change-log)
+- [License](#license)
 - [Credits](#credits)
 
 
-## Get started
+## 🧑‍💻 Get started
 
 ### Installation
 
@@ -108,9 +113,9 @@ asyncio.run(main())
 - [PokeAPI with retries, parsers, logs](./examples/pokeapi.py)
 - [PokeAPI with throttling](./examples/pokeapi_throttle.py)
 
-### Settings
+## Settings
 
-#### Strict/Allowed status code
+### Strict/Allowed status code
 
 By default Gracy considers any successful status code (200-299) as successful.
 
@@ -167,7 +172,7 @@ This is quite useful for parsing as you'll see soon.
 
 ⚠️ Note that `strict_status_code` takes precedence over `allowed_status_code`, probably you don't want to combine those. Prefer one or the other.
 
-#### Parsing
+### Parsing
 
 Parsing allows you to handle the request based on the status code returned.
 
@@ -222,7 +227,7 @@ async def get_pokemon(self, name: str) -> Awaitable[dict]:
   return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 ```
 
-#### Retry
+### Retry
 
 Who doesn't hate flaky APIs? 🙋
 
@@ -262,7 +267,7 @@ class Config:
 | `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure | `pass` or `break` (default)                                                                                  |
 
 
-#### Throttling
+### Throttling
 
 Rate limiting issues? No more.
 
@@ -299,7 +304,7 @@ class Config:
   )
 ```
 
-#### Logging
+### Logging
 
 You can **define and customize logs** for events by using `LogEvent` and `LogLevel`:
 
@@ -369,16 +374,147 @@ GracefulThrottle(
 )
 ```
 
-#### Custom Exceptions
+### Custom Exceptions
 
-#### Reports
+You can define custom exceptions for more [fine grained control over your exception messages/types](https://guicommits.com/how-to-structure-exception-in-python-like-a-pro/).
 
-#### Overriding request configs per method
+The simplest you can do is:
+
+```py
+from gracy import Gracy, GracyConfig
+from gracy.exceptions import GracyUserDefinedException
+
+class MyCustomException(GracyUserDefinedException):
+  pass
+
+class MyApi(Gracy[str]):
+  class Config:
+    SETTINGS = GracyConfig(
+      ...,
+      parser={
+        HTTPStatus.BAD_REQUEST: MyCustomException
+      }
+    )
+```
+
+This will raise your custom exception under the conditions defined in your parser.
+
+```py
+class PokemonNotFound(GracyUserDefinedException):
+    BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
+
+    def _format_message(self, base_endpoint: str, endpoint_args: dict[str, str], response: httpx.Response) -> str:
+        format_args = self._build_default_args()
+        name = endpoint_args.get("NAME", "Unknown")
+        return self.BASE_MESSAGE.format(NAME=name, **format_args)
+
+```
+
+## Reports
+
+Generate [Rich](https://github.com/Textualize/rich) reports and find out:
+
+- Your API success/fail rate
+- Average latency
+- Slowest endpoints
+- Times an endpoint got hit
+- Status group returned
+
+Here's an example of how it looks:
+
+![Report](img/report-example.png)
+
+## Advanced Usage
+
+### Customizing/Overriding configs per method
+
+APIs may return different responses/conditions/payloads based on the endpoint.
+
+You can override any `GracyConfig` on a per method basis by using the `graceful` decorator.
+
+```python
+from gracy import Gracy, GracyConfig, GracefulRetry, graceful
+
+retry = GracefulRetry(...)
+
+class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
+    class Config:  # type: ignore
+        BASE_URL = "https://pokeapi.co/api/v2/"
+        SETTINGS = GracyConfig(
+            retry=retry,
+            log_errors=LogEvent(
+                LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"
+            ),
+        )
+
+    @graceful(
+        retry=None, # Disables retry set in Config
+        log_errors=None, # Disables log_errors set in Config
+        parser={
+            "default": lambda r: r.json()["order"],
+            HTTPStatus.NOT_FOUND: None,
+        },
+    )
+    async def maybe_get_pokemon_order(self, name: str):
+        val: str | None = await self._get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return val
+
+    @graceful( # Retry and log_errors are still set for this one
+      strict_status_code=HTTPStatus.OK,
+      parser={"default": lambda r: r.json()["order"]},
+    )
+    async def get_pokemon_order(self, name: str):
+      val: str = await self._get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+      return val
+```
+
+### Customizing HTTPx client
+
+You might want to modify the HTTPx client settings, do so by:
+
+```py
+class YourAPIClient(Gracy[str]):
+    class Config:  # type: ignore
+        ...
+
+    def __init__(self, token: token) -> None:
+        self._token = token
+        super().__init__()
+
+    # 👇 Implement your logic here
+    def _create_client(self) -> httpx.AsyncClient:
+        client = super()._create_client()
+        client.headers = {"Authorization": f"token {self._token}"}  # type: ignore
+        return client
+```
+
+## 📚 Extra Resources
+
+Some good practices I learned over the past years guided Gracy's philosophy, you might benefit by reading:
+
+- [How to log](https://guicommits.com/how-to-log-in-python-like-a-pro/)
+- [How to handle exceptions](https://guicommits.com/handling-exceptions-in-python-like-a-pro/)
+  - [How to structure exceptions](https://guicommits.com/how-to-structure-exception-in-python-like-a-pro/)
+- [How to use Async correctly](https://guicommits.com/effective-python-async-like-a-pro/)
+- [Book: Python like a PRO](https://guilatrova.gumroad.com/l/python-like-a-pro)
+- [Book: Effective Python](https://amzn.to/3bEVHpG)
+
+<!-- ## Contributing -->
+<!-- Thank you for considering making Gracy better for everyone! -->
+<!-- Refer to [Contributing docs](docs/CONTRIBUTING.md).-->
+
+## Change log
+
+See [CHANGELOG](CHANGELOG.md).
+
+## License
+
+MIT
 
 ## Credits
 
 Thanks to the last three startups I worked which forced me to do the same things and resolve the same problems over and over again. I got sick of it and built this lib.
 
-Most importantly: Thanks to God, who allowed me (a random 🇧🇷 guy) to work for many different 🇺🇸 startups.
+Most importantly: **Thanks to God**, who allowed me (a random 🇧🇷 guy) to work for many different 🇺🇸 startups. This is ironic since due to God's grace, I was able to build Gracy. 🙌
 
-Also, thanks to the [httpx](https://github.com/encode/httpx) project for the beautiful and simple API.
+Also, thanks to the [httpx](https://github.com/encode/httpx) and [rich](https://github.com/Textualize/rich) projects for the beautiful and simple APIs that powers Gracy.
