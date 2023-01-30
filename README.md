@@ -399,6 +399,8 @@ class MyApi(Gracy[str]):
 
 This will raise your custom exception under the conditions defined in your parser.
 
+You can improve it even further by customizing your message:
+
 ```py
 class PokemonNotFound(GracyUserDefinedException):
     BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
