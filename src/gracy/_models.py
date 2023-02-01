@@ -6,11 +6,13 @@ import re
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, Type, Union
+from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, TypeVar
 
 import httpx
 
 from gracy.throttling import ThrottleController
+
+from ._types import PARSER_TYPE, UNSET_VALUE, Unset
 
 
 class LogLevel(IntEnum):
@@ -28,50 +30,42 @@ class LogEvent:
     custom_message: str | None = None
     """You can add some placeholders to be injected in the log.
 
-    Allowed placeholders:
-    - `STATUS`: Response status code
-    - `METHOD`: Method used in the request
-    - `URL`: URL request was made to
-    - `ELAPSED`: Elapsed milliseconds on request
-    - `THROTTLE_LIMIT`: Limit defined for the rule
-    - `THROTTLE_TIME`: Time the throttling decided to wait
-
     e.g.
       - `{URL} executed`
       - `API replied {STATUS} and took {ELAPSED}`
       - `{METHOD} {URL} returned {STATUS}`
       - `Becareful because {URL} is flaky`
+
+    Allowed placeholders:
+
+    | Placeholder        | Description                                                                     | Example                                 | Supported Events                                                                                                                             | # noqa: E501
+    | ------------------ | ------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | # noqa: E501
+    | `{URL}`            | Endpoint being targetted. Sometimes formatted, sometimes containg placeholders. | `/pokemon/{NAME}`, `/pokemon/{PIKACHU}` | Before request, After response, Response error, Before retry, After retry, Retry exhausted, Throttle limit reached, Throttle limit available | # noqa: E501
+    | `{METHOD}`         | HTTP Request being used                                                         | `GET`, `POST`                           | Before request, After response, Response error, After retry, Throttle limit reached, Throttle limit available                                | # noqa: E501
+    | `{STATUS}`         | Status code returned by the response                                            | `200`, `404`, `501`                     | After response Response error,  After retry, Throttle limit reached, Throttle limit available                                                | # noqa: E501
+    | `{ELAPSED}`        | Amount of seconds taken for the request to complete                             | *Numeric*                               | After response Response error,  After retry, Throttle limit reached, Throttle limit available                                                | # noqa: E501
+    | `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request                           | *Numeric*                               | *Any Retry event*                                                                                                                            | # noqa: E501
+    | `{CUR_ATTEMPT}`    | Current attempt count for the current request                                   | *Numeric*                               | *Any Retry event*                                                                                                                            | # noqa: E501
+    | `{MAX_ATTEMPT}`    | Max attempt defined for the current request                                     | *Numeric*                               | *Any Retry event*                                                                                                                            | # noqa: E501
+    | `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request                              | *Numeric*                               | *Any Throttle event*                                                                                                                         | # noqa: E501
+    | `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request                             | *Numeric*                               | *Any Throttle event*                                                                                                                         | # noqa: E501
     """
 
-
-class Unset:
-    """
-    The default "unset" state indicates that whatever default is set on the
-    client should be used. This is different to setting `None`, which
-    explicitly disables the parameter, possibly overriding a client default.
-    """
-
-    def __bool__(self):
-        return False
-
-
-UNSET_VALUE: Final = Unset()
 
 LOG_EVENT_TYPE = None | Unset | LogEvent
-
-PARSER_KEY = HTTPStatus | Literal["default"]
-PARSER_VALUE = Union[Type[Exception], Callable[[httpx.Response], Any], None]
-PARSER_TYPE = dict[PARSER_KEY, PARSER_VALUE] | Unset | None
 
 
 class GracefulRetryState:
     cur_attempt: int = 0
     success: bool = False
-    delay: float  # TODO: use property
 
     def __init__(self, retry_config: GracefulRetry) -> None:
         self._retry_config = retry_config
-        self.delay = retry_config.delay
+        self._delay = retry_config.delay
+
+    @property
+    def delay(self) -> float:
+        return self._delay
 
     @property
     def failed(self) -> bool:
@@ -93,7 +87,7 @@ class GracefulRetryState:
         self.cur_attempt += 1
 
         if self.cur_attempt > 1:
-            self.delay = self.delay * self._retry_config.delay_modifier
+            self._delay *= self._retry_config.delay_modifier
 
 
 @dataclass
@@ -253,6 +247,9 @@ DEFAULT_CONFIG: Final = GracyConfig(
 class BaseEndpoint(str, Enum):
     def __str__(self) -> str:
         return self.value
+
+
+Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 
 
 class GracefulRequest:

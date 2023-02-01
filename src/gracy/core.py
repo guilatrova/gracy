@@ -3,25 +3,12 @@ from __future__ import annotations
 import asyncio
 from asyncio import sleep
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, Generic, Iterable, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Iterable
 
 import httpx
 
 from gracy.context import custom_gracy_config, gracy_context
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
-from gracy.models import (
-    DEFAULT_CONFIG,
-    LOG_EVENT_TYPE,
-    PARSER_TYPE,
-    UNSET_VALUE,
-    BaseEndpoint,
-    GracefulRequest,
-    GracefulRetry,
-    GracefulRetryState,
-    GracyConfig,
-    LogEvent,
-    Unset,
-)
 from gracy.reports import GracyReport, GracyRequestResult
 from gracy.throttling import ThrottleController
 
@@ -32,9 +19,19 @@ from ._loggers import (
     process_log_retry,
     process_log_throttle,
 )
-
-Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
-RequestResult = TypeVar("RequestResult", bound=httpx.Response | None | dict[str, Any])
+from ._models import (
+    DEFAULT_CONFIG,
+    LOG_EVENT_TYPE,
+    PARSER_TYPE,
+    UNSET_VALUE,
+    Endpoint,
+    GracefulRequest,
+    GracefulRetry,
+    GracefulRetryState,
+    GracyConfig,
+    LogEvent,
+    Unset,
+)
 
 
 async def _gracefully_throttle(active_config: GracyConfig, controller: ThrottleController, url: str):

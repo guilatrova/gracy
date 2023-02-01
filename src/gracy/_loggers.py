@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from gracy.models import GracefulRetryState, LogEvent, ThrottleRule
+from gracy._models import GracefulRetryState, LogEvent, ThrottleRule
 
 logger = logging.getLogger("gracy")
 

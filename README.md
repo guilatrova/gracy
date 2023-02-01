@@ -79,7 +79,7 @@ class PokeApiEndpoint(BaseEndpoint):
     GET_POKEMON = "/pokemon/{NAME}" # 👈 Put placeholders as needed
 
 # 2. Define your Graceful API
-class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
+class GracefulPokeAPI(Gracy[str]):
     class Config:  # type: ignore
         BASE_URL = "https://pokeapi.co/api/v2/" # 👈 Optional BASE_URL
         # 👇 Define settings to apply for every request

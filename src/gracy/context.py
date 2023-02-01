@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from .models import GracyConfig
+from ._models import GracyConfig
 
 gracy_context: ContextVar[GracyConfig | None] = ContextVar("gracy_context", default=None)
 
