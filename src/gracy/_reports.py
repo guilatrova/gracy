@@ -1,14 +1,15 @@
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from http import HTTPStatus
 from statistics import mean
-from typing import Dict, List, Literal, Set, TypedDict
+from typing import List, Literal, Set, TypedDict
 
 import httpx
 from rich.console import Console
 from rich.table import Table
 
-from ._models import GracyRequestContext
+from ._models import GracyRequestContext, ThrottleController
 
 
 class FooterTotals(TypedDict):
@@ -22,6 +23,7 @@ class FooterTotals(TypedDict):
     resp_3xx: int
     resp_4xx: int
     resp_5xx: int
+    req_rates: list[float]
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,19 @@ class GracyRequestResult:
     response: httpx.Response
 
 
+ANY_REGEX = r".+"
+
+
+def unformatted_url_fits_formatted(unformatted: str, formatted: str) -> bool:
+    unformatted_pattern = re.sub(r"{(\w+)}", ANY_REGEX, unformatted)
+    match = re.fullmatch(unformatted_pattern, formatted)
+    return bool(match)
+
+
+REQUEST_SUM_KEY = HTTPStatus | Literal["total"]
+REQUEST_SUM_PER_STATUS_TYPE = dict[str, defaultdict[REQUEST_SUM_KEY, int]]
+
+
 class GracyReport:
     def __init__(self) -> None:
         self._results: List[GracyRequestResult] = []
@@ -39,11 +54,14 @@ class GracyReport:
     def track(self, request_context: GracyRequestContext, response: httpx.Response):
         self._results.append(GracyRequestResult(request_context.unformatted_url, response))
 
-    def print(self):
+    def _calculate_req_rate_for_url(self, unformatted_url: str, throttle_controller: ThrottleController) -> float:
+        pattern = re.compile(re.sub(r"{(\w+)}", ANY_REGEX, unformatted_url))
+        rate = throttle_controller.calculate_requests_rate(pattern)
+        return rate
+
+    def print(self, throttle_controller: ThrottleController):
         requests_by_url = defaultdict[str, Set[httpx.Response]](set)
-        requests_sum = defaultdict[str, Dict[HTTPStatus | Literal["total"], int]](
-            lambda: defaultdict[HTTPStatus | Literal["total"], int](int)
-        )
+        requests_sum: REQUEST_SUM_PER_STATUS_TYPE = defaultdict(lambda: defaultdict(int))
 
         for result in self._results:
             requests_by_url[result.url].add(result.response)
@@ -64,6 +82,7 @@ class GracyReport:
         table.add_column("3xx Responses", justify="right")
         table.add_column("4xx Responses", justify="right")
         table.add_column(">5xx Responses", justify="right")
+        table.add_column("Avg Reqs/sec", justify="right")
 
         footer_totals = FooterTotals(
             URL="[b]TOTAL[/b]",
@@ -76,6 +95,7 @@ class GracyReport:
             resp_3xx=0,
             resp_4xx=0,
             resp_5xx=0,
+            req_rates=[],
         )
 
         for url, data in requests_sum.items():
@@ -107,6 +127,9 @@ class GracyReport:
             color_5xx = "red" if responses_5xx else "white"
             # fmt:on
 
+            # Rate
+            rate = self._calculate_req_rate_for_url(url, throttle_controller)
+
             # Footer
             footer_totals["total"] += total_requests
             footer_totals["success"] += successful_requests
@@ -117,35 +140,39 @@ class GracyReport:
             footer_totals["resp_3xx"] += responses_3xx
             footer_totals["resp_4xx"] += responses_4xx
             footer_totals["resp_5xx"] += responses_5xx
+            footer_totals["req_rates"].append(rate)
 
             # Row
             table.add_row(
                 url,
-                f"[bold]{total_requests}[/bold]",
-                f"[green]{success_rate:.2f}%[/green]",
-                f"[bold][{failed_color}]{failed_rate:.2f}%[/bold][/{failed_color}]",
-                f"{avg_latency:.2f}",
-                f"{max_latency:.2f}",
+                f"[bold]{total_requests:,}[/bold]",
+                f"[green]{success_rate:,.2f}%[/green]",
+                f"[bold][{failed_color}]{failed_rate:,.2f}%[/bold][/{failed_color}]",
+                f"{avg_latency:,.2f}",
+                f"{max_latency:,.2f}",
                 str(responses_2xx),
                 str(responses_3xx),
                 f"[{color_4xx}]{responses_4xx}[/{color_4xx}]",
                 f"[{color_5xx}]{responses_5xx}[/{color_5xx}]",
+                f"{rate:,.1f} reqs/s",
             )
 
         # Handle div by 0
         footer_total = footer_totals["total"] or 1
         footer_avg_latency = footer_totals["avg_latency"] or [0]
+        footer_avg_rate = footer_totals["req_rates"] or [0]
         table.add_row(
             footer_totals["URL"],
-            str(footer_totals["total"]),
-            f"{((footer_totals['success'] / footer_total) * 100):.2f}%",
-            f"{((footer_totals['failed'] / footer_total) * 100):.2f}%",
-            f"{mean(footer_avg_latency):.2f}",
-            f"{footer_totals['max_latency']:.2f}",
+            f"{footer_totals['total']:,}",
+            f"{((footer_totals['success'] / footer_total) * 100):,.2f}%",
+            f"{((footer_totals['failed'] / footer_total) * 100):,.2f}%",
+            f"{mean(footer_avg_latency):,.2f}",
+            f"{footer_totals['max_latency']:,.2f}",
             str(footer_totals["resp_2xx"]),
             str(footer_totals["resp_3xx"]),
             str(footer_totals["resp_4xx"]),
             str(footer_totals["resp_5xx"]),
+            f"{mean(footer_avg_rate):,.1f} reqs/s",
         )
 
         console.print(table)

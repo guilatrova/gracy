@@ -202,6 +202,19 @@ class ThrottleController:
 
             return requests_per_second
 
+    def calculate_requests_rate(self, url_pattern: Pattern[str]) -> float:
+        with throttle_lock:
+            requests_per_second = 0.0
+            coalesced_started_ats = sorted(
+                itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])
+            )
+
+            if coalesced_started_ats:
+                elapsed = coalesced_started_ats[-1] - coalesced_started_ats[0]
+                requests_per_second = len(coalesced_started_ats) / elapsed
+
+            return requests_per_second
+
     def debug_print(self):
         console = Console()
         table = Table(title="Throttling Summary")

@@ -330,7 +330,7 @@ class Gracy(Generic[Endpoint]):
 
     @classmethod
     def report_status(cls):
-        cls._report.print()
+        cls._report.print(cls._throttle_controller)
 
 
 def graceful(

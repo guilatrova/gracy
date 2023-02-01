@@ -36,7 +36,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
                 HTTPStatus.NOT_FOUND: None,
             },
             throttling=GracefulThrottle(
-                rules=ThrottleRule(r".*", 2),
+                rules=ThrottleRule(r".*", 4),
                 log_limit_reached=LogEvent(LogLevel.ERROR),
                 log_wait_over=LogEvent(LogLevel.WARNING),
             ),
