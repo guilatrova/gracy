@@ -5,6 +5,7 @@ import itertools
 import logging
 import re
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, IntEnum
@@ -18,8 +19,6 @@ from rich.console import Console
 from rich.table import Table
 
 from ._types import PARSER_TYPE, UNSET_VALUE, Unset
-
-throttle_lock = Lock()
 
 
 class LogLevel(IntEnum):
@@ -164,6 +163,28 @@ class ThrottleRule:
         return 0.0
 
 
+class ThrottleLocker:
+    def __init__(self) -> None:
+        self._regex_lock = defaultdict[Pattern[str], Lock](Lock)
+        self._generic_lock = Lock()
+
+    @contextmanager
+    def lock_rule(self, rule: ThrottleRule):
+        with self._regex_lock[rule.url_pattern] as lock:
+            yield lock
+
+    @contextmanager
+    def lock_check(self):
+        with self._generic_lock as lock:
+            yield lock
+
+    def is_rule_throttled(self, rule: ThrottleRule) -> bool:
+        return self._regex_lock[rule.url_pattern].locked()
+
+
+THROTTLE_LOCKER: Final = ThrottleLocker()
+
+
 class GracefulThrottle:
     rules: list[ThrottleRule] = []
     log_limit_reached: None | LogEvent = None
@@ -185,11 +206,11 @@ class ThrottleController:
         self._control: dict[str, list[float]] = defaultdict[str, list[float]](list)
 
     def init_request(self, request_context: GracyRequestContext):
-        with throttle_lock:
+        with THROTTLE_LOCKER.lock_check():
             self._control[request_context.url].append(time())  # This should always keep it sorted asc
 
     def calculate_requests_per_second(self, url_pattern: Pattern[str]) -> float:
-        with throttle_lock:
+        with THROTTLE_LOCKER.lock_check():
             up_to_one_sec = time() - 1
             requests_per_second = 0.0
             coalesced_started_ats = sorted(
@@ -203,7 +224,7 @@ class ThrottleController:
             return requests_per_second
 
     def calculate_requests_rate(self, url_pattern: Pattern[str]) -> float:
-        with throttle_lock:
+        with THROTTLE_LOCKER.lock_check():
             requests_per_second = 0.0
             coalesced_started_ats = sorted(
                 itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])

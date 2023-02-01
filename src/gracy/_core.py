@@ -19,6 +19,7 @@ from ._models import (
     DEFAULT_CONFIG,
     LOG_EVENT_TYPE,
     PARSER_TYPE,
+    THROTTLE_LOCKER,
     UNSET_VALUE,
     Endpoint,
     GracefulRequest,
@@ -50,6 +51,9 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
 
             if wait_per_rule:
                 rule, await_time = max(wait_per_rule, key=lambda x: x[1])
+                if THROTTLE_LOCKER.is_rule_throttled(rule):
+                    await asyncio.sleep(await_time)
+                    continue
 
                 if throttling.log_limit_reached:
                     process_log_throttle(
@@ -60,7 +64,8 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
                         request_context,
                     )
 
-                await asyncio.sleep(await_time)
+                with THROTTLE_LOCKER.lock_rule(rule):
+                    await asyncio.sleep(await_time)
 
                 if throttling.log_wait_over:
                     process_log_throttle(
