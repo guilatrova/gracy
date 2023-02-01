@@ -317,6 +317,9 @@ class GracyRequestContext:
         endpoint_args: dict[str, str] | None,
         active_config: GracyConfig,
     ) -> None:
+        if base_url.endswith("/"):
+            base_url = base_url[:-1]
+
         final_endpoint = endpoint.format(**endpoint_args) if endpoint_args else endpoint
 
         self.endpoint_args = endpoint_args or {}
