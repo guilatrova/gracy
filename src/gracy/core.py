@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from asyncio import sleep
-from datetime import timedelta
-from enum import Enum
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable, Generic, Iterable, TypeVar
 
@@ -23,74 +20,21 @@ from gracy.models import (
     GracefulRetryState,
     GracyConfig,
     LogEvent,
-    ThrottleRule,
     Unset,
 )
 from gracy.reports import GracyReport, GracyRequestResult
 from gracy.throttling import ThrottleController
 
-logger = logging.getLogger(__name__)
-
+from ._loggers import (
+    DefaultLogMessage,
+    process_log,
+    process_log_before_request,
+    process_log_retry,
+    process_log_throttle,
+)
 
 Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 RequestResult = TypeVar("RequestResult", bound=httpx.Response | None | dict[str, Any])
-
-
-class DefaultLogMessage(str, Enum):
-    BEFORE = "Request on {URL} is ongoing"
-    AFTER = "[{METHOD}] {URL} returned {STATUS}"
-    ERRORS = "[{METHOD}] {URL} returned a bad status ({STATUS})"
-
-    THROTTLE_HIT = "{URL} hit {THROTTLE_LIMIT} reqs/s"
-    THROTTLE_DONE = "Done waiting {THROTTLE_TIME}s to hit {URL}"
-
-
-def _process_log_request(logevent: LogEvent, url: str):
-    format_args = dict(URL=url)
-
-    if logevent.custom_message:
-        message = logevent.custom_message.format(**format_args)
-    else:
-        message = DefaultLogMessage.BEFORE.format(**format_args)
-
-    logger.log(logevent.level, message, extra=format_args)
-
-
-def _process_log_throttle(
-    logevent: LogEvent,
-    await_time: float,
-    url: str,
-    rule: ThrottleRule,
-    default_message: str,
-):
-    format_args = dict(
-        URL=url,
-        THROTTLE_TIME=await_time,
-        THROTTLE_LIMIT=rule.requests_per_second_limit,
-    )
-
-    if logevent.custom_message:
-        message = logevent.custom_message.format(**format_args)
-    else:
-        message = default_message.format(**format_args)
-
-    logger.log(logevent.level, message, extra=format_args)
-
-
-def _process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, elapsed: timedelta):
-    format_args = dict(
-        URL=response.request.url,
-        METHOD=response.request.method,
-        STATUS=response.status_code,
-        ELAPSED=elapsed,
-    )
-
-    if logevent.custom_message:
-        message = logevent.custom_message.format(**format_args)
-    else:
-        message = defaultmsg.format(**format_args)
-
-    logger.log(logevent.level, message, extra=format_args)
 
 
 async def _gracefully_throttle(active_config: GracyConfig, controller: ThrottleController, url: str):
@@ -108,7 +52,7 @@ async def _gracefully_throttle(active_config: GracyConfig, controller: ThrottleC
                 rule, await_time = max(wait_per_rule, key=lambda x: x[1])
 
                 if throttling.log_limit_reached:
-                    _process_log_throttle(
+                    process_log_throttle(
                         throttling.log_limit_reached,
                         await_time,
                         url,
@@ -119,7 +63,7 @@ async def _gracefully_throttle(active_config: GracyConfig, controller: ThrottleC
                 await asyncio.sleep(await_time)
 
                 if throttling.log_wait_over:
-                    _process_log_throttle(
+                    process_log_throttle(
                         throttling.log_wait_over,
                         await_time,
                         url,
@@ -145,11 +89,7 @@ async def _gracefully_retry(
 
     while failing:
         if retry.log_before:
-            logger.log(
-                retry.log_before.level.value,
-                f"GracefulRetry: {url} will wait {state.delay}s before next attempt "
-                f"({state.cur_attempt} out of {state.max_attempts})",
-            )
+            process_log_retry(retry.log_before, DefaultLogMessage.RETRY_BEFORE, url, state)
 
         state.increment()
 
@@ -166,17 +106,10 @@ async def _gracefully_retry(
         failing = not state.success
 
         if retry.log_after:
-            logger.log(
-                retry.log_after.level.value,
-                f"GracefulRetry: {url} {'SUCCESS' if state.success else 'FAIL'} "
-                f"({state.cur_attempt} out of {state.max_attempts})",
-            )
+            process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, url, state)
 
     if state.cant_retry and retry.log_exhausted:
-        logger.log(
-            retry.log_exhausted.level.value,
-            f"GracefulRetry: {url} exhausted the maximum attempts of {state.max_attempts})",
-        )
+        process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, url, state)
 
     return state
 
@@ -218,7 +151,7 @@ async def _gracify(
 ):
     final_url = endpoint if endpoint_args is None else endpoint.format(**endpoint_args)
     if active_config.log_request and isinstance(active_config.log_request, LogEvent):
-        _process_log_request(active_config.log_request, final_url)
+        process_log_before_request(active_config.log_request, final_url)
 
     await _gracefully_throttle(active_config, throttle_controller, final_url)
     throttle_controller.init_request(final_url)
@@ -226,7 +159,7 @@ async def _gracify(
     report.track(GracyRequestResult(endpoint, result))
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
-        _process_log(active_config.log_response, DefaultLogMessage.AFTER, result, result.elapsed)
+        process_log(active_config.log_response, DefaultLogMessage.AFTER, result, result.elapsed)
 
     strict_pass = _check_strictness(active_config, result)
     if strict_pass is False:
@@ -246,7 +179,7 @@ async def _gracify(
         if not retry_result or retry_result.failed:
             strict_codes: HTTPStatus | Iterable[HTTPStatus] = active_config.strict_status_code  # type: ignore
             if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-                _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
+                process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
 
             if active_config.retry.behavior == "break":  # type: ignore
                 raise UnexpectedResponse(str(result.url), result, strict_codes)
@@ -269,7 +202,7 @@ async def _gracify(
 
             if not retry_result or retry_result.failed:
                 if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-                    _process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
+                    process_log(active_config.log_errors, DefaultLogMessage.ERRORS, result, result.elapsed)
 
                 if active_config.retry.behavior == "break":  # type: ignore
                     raise NonOkResponse(str(result.url), result)
