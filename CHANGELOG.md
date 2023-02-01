@@ -2,6 +2,23 @@
 
 <!--next-version-placeholder-->
 
+## v1.2.0 (2023-02-01)
+### Feature
+* Simplify req/s rate to the user ([`1b428c7`](https://github.com/guilatrova/gracy/commit/1b428c788f192e0e23c49b27d9a46438d20d230a))
+* Include req rate in report ([`e387a25`](https://github.com/guilatrova/gracy/commit/e387a25f831a27f031ebc1625ac642beb3895678))
+* Clear base urls with ending slash ([`51fb8ee`](https://github.com/guilatrova/gracy/commit/51fb8ee9e369eecd951fb31da92edc3317e63483))
+* Implement retry logging ([`f2d3238`](https://github.com/guilatrova/gracy/commit/f2d3238830bbda163b8b55f874f2ae7ecb11d6df))
+
+### Fix
+* Consider retry is unset ([`0ca1ed9`](https://github.com/guilatrova/gracy/commit/0ca1ed9e65faa8e1e7efd024a7264dbc328a3259))
+* Retry must start with 1 ([`3e3e750`](https://github.com/guilatrova/gracy/commit/3e3e75003092bca7f4181c17b68a873ec77c31d1))
+
+### Documentation
+* Fix download badge ([`22a9d7a`](https://github.com/guilatrova/gracy/commit/22a9d7a132b86c6da084b6f59ddba74f64814238))
+* Improve examples ([`4ca1f7d`](https://github.com/guilatrova/gracy/commit/4ca1f7df80b6b1bba9f255983a6be5b906b09a85))
+* Add new placeholders ([`8eba619`](https://github.com/guilatrova/gracy/commit/8eba619dd73544861960b0a9a381fe97d2c5468f))
+* Add some notes for custom exceptions ([`225f008`](https://github.com/guilatrova/gracy/commit/225f00828697d8a611bb596e1f3119570a1b363e))
+
 ## v1.1.0 (2023-01-30)
 ### Feature
 * Change api to be public ([`3b0c828`](https://github.com/guilatrova/gracy/commit/3b0c8281c3e164d9a7f01770c698fa825afe562a))
