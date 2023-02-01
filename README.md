@@ -64,7 +64,7 @@ poetry add gracy
 
 ### Usage
 
-Example will use the [PokeAPI](https://pokeapi.co).
+Examples will be shown using the [PokeAPI](https://pokeapi.co).
 
 #### Simple example
 
@@ -141,7 +141,7 @@ GracyConfig(
 )
 ```
 
-Using `strict_status_code` means that any other code no specified will raise an error regardless of being successful or not.
+Using `strict_status_code` means that any other code not specified will raise an error regardless of being successful or not.
 
 **Allowed**
 
@@ -201,7 +201,7 @@ class Config:
     }
   )
 
-async def get_pokemon(self, name: str) -> Awaitable[dict| None]:
+async def get_pokemon(self, name: str) -> dict| None:
   # 👇 Returns either dict or None
   return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 ```
@@ -237,7 +237,7 @@ Using tenacity, backoff, retry, aiohttp_retry, and any other retry libs is **NOT
 
 You still would need to code the implementation for each request which is annoying.
 
-Here's how Gracy allows you to gracefully code your retry logic:
+Here's how Gracy allows you to implement your retry logic:
 
 ```py
 class Config:
@@ -435,7 +435,7 @@ pokeapi.report_status()
 
 Here's an example of how it looks:
 
-![Report](img/report-example.png)
+![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-example.png)
 
 ## Advanced Usage
 
@@ -461,8 +461,8 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         )
 
     @graceful(
-        retry=None, # Disables retry set in Config
-        log_errors=None, # Disables log_errors set in Config
+        retry=None, # 👈 Disables retry set in Config
+        log_errors=None, # 👈 Disables log_errors set in Config
         allowed_status_code=HTTPStatus.NOT_FOUND,
         parser={
             "default": lambda r: r.json()["order"],
@@ -473,7 +473,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         val: str | None = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
         return val
 
-    @graceful( # Retry and log_errors are still set for this one
+    @graceful( # 👈 Retry and log_errors are still set for this one
       strict_status_code=HTTPStatus.OK,
       parser={"default": lambda r: r.json()["order"]},
     )
