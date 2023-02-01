@@ -35,6 +35,9 @@ from .exceptions import NonOkResponse, UnexpectedResponse
 
 
 async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
+    if isinstance(request_context.active_config.throttling, Unset):
+        return
+
     if throttling := request_context.active_config.throttling:
         has_been_throttled = True
 
@@ -124,17 +127,17 @@ def _check_strictness(active_config: GracyConfig, result: httpx.Response) -> boo
 
 
 def _check_allowed(active_config: GracyConfig, result: httpx.Response) -> bool:
-    if not result.is_success:
-        if active_config.allowed_status_code:
-            if not isinstance(active_config.allowed_status_code, Unset):
-                allowed = active_config.allowed_status_code
-                if not isinstance(allowed, Iterable):
-                    allowed = {allowed}
+    successful = result.is_success
+    if not successful and active_config.allowed_status_code:
+        if not isinstance(active_config.allowed_status_code, Unset):
+            allowed = active_config.allowed_status_code
+            if not isinstance(allowed, Iterable):
+                allowed = {allowed}
 
-                if HTTPStatus(result.status_code) not in allowed:
-                    return False
+            if HTTPStatus(result.status_code) not in allowed:
+                return False
 
-    return True
+    return successful
 
 
 async def _gracify(

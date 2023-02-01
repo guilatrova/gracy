@@ -266,7 +266,7 @@ class GracyConfig:
         - `HTTPStatus.INTERNAL_SERVER_ERROR: UserDefinedServerException`
     """
 
-    throttling: GracefulThrottle | None = None
+    throttling: GracefulThrottle | None | Unset = UNSET_VALUE
 
     def should_retry(self, response_status: int) -> bool:
         if self.has_retry:
