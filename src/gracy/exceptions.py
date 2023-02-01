@@ -3,6 +3,8 @@ from typing import Any, Iterable
 
 import httpx
 
+from ._models import GracyRequestContext
+
 
 class GracyException(Exception):
     pass
@@ -44,31 +46,37 @@ class NonOkResponse(BadResponse):
 class GracyUserDefinedException(GracyException):
     BASE_MESSAGE: str = "[{METHOD}] {URL} returned {}"
 
-    def __init__(self, base_endpoint: str, endpoint_args: dict[str, str] | None, response: httpx.Response) -> None:
-        self._base_endpoint = base_endpoint
-        self._endpoint_args = endpoint_args or {}
+    def __init__(self, request_context: GracyRequestContext, response: httpx.Response) -> None:
+        self._request_context = request_context
         self._response = response
-        super().__init__(self._format_message(base_endpoint, self._endpoint_args, response))
+        super().__init__(self._format_message(request_context, response))
 
     def _build_default_args(self) -> dict[str, Any]:
+        request_context = self._request_context
+
         return dict(
-            STATUS=self.response.status_code,
-            METHOD=self.response.request.method,
+            # Context
+            ENDPOINT=request_context.endpoint,
+            UURL=request_context.unformatted_url,
+            UENDPOINT=request_context.unformatted_endpoint,
+            # Response
             URL=self.response.request.url,
+            METHOD=self.response.request.method,
+            STATUS=self.response.status_code,
             ELAPSED=self.response.elapsed,
         )
 
-    def _format_message(self, base_endpoint: str, endpoint_args: dict[str, str], response: httpx.Response) -> str:
+    def _format_message(self, request_context: GracyRequestContext, response: httpx.Response) -> str:
         format_args = self._build_default_args()
         return self.BASE_MESSAGE.format(**format_args)
 
     @property
-    def base_endpoint(self):
-        return self._base_endpoint
+    def url(self):
+        return self._request_context.url
 
     @property
-    def endpoint_args(self):
-        return self._endpoint_args
+    def endpoint(self):
+        return self._request_context.url
 
     @property
     def response(self):

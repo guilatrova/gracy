@@ -8,6 +8,7 @@ from ._models import (
     GracefulRetry,
     GracefulThrottle,
     GracyConfig,
+    GracyRequestContext,
     LogEvent,
     LogLevel,
     ThrottleRule,
@@ -23,6 +24,7 @@ __all__ = [
     # Models
     "BaseEndpoint",
     "GracefulRetry",
+    "GracyRequestContext",
     "LogEvent",
     "LogLevel",
     "GracefulThrottle",

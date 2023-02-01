@@ -263,3 +263,29 @@ class GracefulRequest:
 
     def __call__(self) -> Awaitable[httpx.Response]:
         return self.request(*self.args, **self.kwargs)
+
+
+class GracyRequestContext:
+    def __init__(
+        self,
+        method: str,
+        base_url: str,
+        endpoint: str,
+        endpoint_args: dict[str, str] | None,
+        active_config: GracyConfig,
+    ) -> None:
+        final_endpoint = endpoint.format(**endpoint_args) if endpoint_args else endpoint
+
+        self.endpoint_args = endpoint_args or {}
+        self.endpoint = final_endpoint
+        self.unformatted_endpoint = endpoint
+
+        self.url = f"{base_url}{self.endpoint}"
+        self.unformatted_url = f"{base_url}{self.unformatted_endpoint}"
+
+        self.method = method
+        self._active_config = active_config
+
+    @property
+    def active_config(self) -> GracyConfig:
+        return self._active_config

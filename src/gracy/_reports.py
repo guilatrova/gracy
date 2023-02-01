@@ -8,6 +8,8 @@ import httpx
 from rich.console import Console
 from rich.table import Table
 
+from ._models import GracyRequestContext
+
 
 class FooterTotals(TypedDict):
     URL: str
@@ -34,8 +36,8 @@ class GracyReport:
     def __init__(self) -> None:
         self._results: List[GracyRequestResult] = []
 
-    def track(self, request_result: GracyRequestResult):
-        self._results.append(request_result)
+    def track(self, request_context: GracyRequestContext, response: httpx.Response):
+        self._results.append(GracyRequestResult(request_context.unformatted_url, response))
 
     def print(self):
         requests_by_url = defaultdict[str, Set[httpx.Response]](set)

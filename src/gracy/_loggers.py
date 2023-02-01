@@ -1,11 +1,10 @@
 import logging
-from datetime import timedelta
 from enum import Enum
 from typing import Any
 
 import httpx
 
-from ._models import GracefulRetryState, LogEvent, ThrottleRule
+from ._models import GracefulRetryState, GracyRequestContext, LogEvent, ThrottleRule
 
 logger = logging.getLogger("gracy")
 
@@ -34,20 +33,30 @@ def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, Any]):
     logger.log(logevent.level, message, extra=format_args)
 
 
-def process_log_before_request(logevent: LogEvent, url: str):
-    format_args = dict(URL=url)
+def _extract_base_format_args(request_context: GracyRequestContext) -> dict[str, str]:
+    return dict(
+        URL=request_context.url,
+        ENDPOINT=request_context.endpoint,
+        UURL=request_context.unformatted_url,
+        UENDPOINT=request_context.unformatted_endpoint,
+        METHOD=request_context.method,
+    )
+
+
+def process_log_before_request(logevent: LogEvent, request_context: GracyRequestContext):
+    format_args = _extract_base_format_args(request_context)
     _do_log(logevent, DefaultLogMessage.BEFORE, format_args)
 
 
 def process_log_throttle(
     logevent: LogEvent,
-    await_time: float,
-    url: str,
-    rule: ThrottleRule,
     default_message: str,
+    await_time: float,
+    rule: ThrottleRule,
+    request_context: GracyRequestContext,
 ):
     format_args = dict(
-        URL=url,
+        **_extract_base_format_args(request_context),
         THROTTLE_TIME=await_time,
         THROTTLE_LIMIT=rule.requests_per_second_limit,
     )
@@ -55,9 +64,14 @@ def process_log_throttle(
     _do_log(logevent, default_message, format_args)
 
 
-def process_log_retry(logevent: LogEvent, defaultmsg: str, url: str, state: GracefulRetryState):
+def process_log_retry(
+    logevent: LogEvent,
+    defaultmsg: str,
+    request_context: GracyRequestContext,
+    state: GracefulRetryState,
+):
     format_args = dict(
-        URL=url,
+        **_extract_base_format_args(request_context),
         RETRY_DELAY=state.delay,
         CUR_ATTEMPT=state.cur_attempt,
         MAX_ATTEMPT=state.max_attempts,
@@ -66,12 +80,16 @@ def process_log_retry(logevent: LogEvent, defaultmsg: str, url: str, state: Grac
     _do_log(logevent, defaultmsg, format_args)
 
 
-def process_log(logevent: LogEvent, defaultmsg: str, response: httpx.Response, elapsed: timedelta):
+def process_log(
+    logevent: LogEvent,
+    defaultmsg: str,
+    request_context: GracyRequestContext,
+    response: httpx.Response,
+):
     format_args = dict(
-        URL=response.request.url,
-        METHOD=response.request.method,
+        **_extract_base_format_args(request_context),
         STATUS=response.status_code,
-        ELAPSED=elapsed,
+        ELAPSED=response.elapsed,
     )
 
     _do_log(logevent, defaultmsg, format_args)

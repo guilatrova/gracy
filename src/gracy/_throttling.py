@@ -8,6 +8,8 @@ from typing import Pattern
 from rich.console import Console
 from rich.table import Table
 
+from ._models import GracyRequestContext
+
 lock = Lock()
 
 
@@ -15,9 +17,9 @@ class ThrottleController:
     def __init__(self) -> None:
         self._control: dict[str, list[float]] = defaultdict[str, list[float]](list)
 
-    def init_request(self, url: str):
+    def init_request(self, request_context: GracyRequestContext):
         with lock:
-            self._control[url].append(time())  # This should always keep it sorted asc
+            self._control[request_context.url].append(time())  # This should always keep it sorted asc
 
     def calculate_requests_per_second(self, url_pattern: Pattern[str]) -> float:
         with lock:
