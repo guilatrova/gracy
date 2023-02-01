@@ -165,7 +165,10 @@ class GracyReport:
             # fmt:on
 
             # Rate
-            rate = self._calculate_req_rate_for_url(url, throttle_controller)
+            # Use min to handle scenarios like:
+            # 10 reqs in a 2 millisecond window would produce a number >1,000 leading the user to think that we're
+            # producing 1,000 requests which isn't true.
+            rate = min(self._calculate_req_rate_for_url(url, throttle_controller), total_requests)
 
             # Footer
             footer_totals["total"] += total_requests

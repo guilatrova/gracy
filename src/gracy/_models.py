@@ -210,7 +210,9 @@ class ThrottleController:
             )
 
             if coalesced_started_ats:
-                elapsed = coalesced_started_ats[-1] - coalesced_started_ats[0]
+                last = coalesced_started_ats[-1]
+                start = coalesced_started_ats[0]
+                elapsed = last - start
                 requests_per_second = len(coalesced_started_ats) / elapsed
 
             return requests_per_second
@@ -219,11 +221,12 @@ class ThrottleController:
         console = Console()
         table = Table(title="Throttling Summary")
         table.add_column("URL", overflow="fold")
+        table.add_column("Count", justify="right")
         table.add_column("Times", justify="right")
 
         for url, times in self._control.items():
             human_times = [datetime.fromtimestamp(ts).strftime("%H:%M:%S.%f") for ts in times]
-            table.add_row(url, str(human_times))
+            table.add_row(url, f"{len(times):,}", str(human_times))
 
         console.print(table)
 
