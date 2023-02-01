@@ -43,19 +43,22 @@ class LogEvent:
       - `{METHOD} {URL} returned {STATUS}`
       - `Becareful because {URL} is flaky`
 
-    Allowed placeholders:
+    ### Allowed placeholders:
 
-    | Placeholder        | Description                                                                     | Example                                 | Supported Events                                                                                                                             | # noqa: E501
-    | ------------------ | ------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | # noqa: E501
-    | `{URL}`            | Endpoint being targetted. Sometimes formatted, sometimes containg placeholders. | `/pokemon/{NAME}`, `/pokemon/{PIKACHU}` | Before request, After response, Response error, Before retry, After retry, Retry exhausted, Throttle limit reached, Throttle limit available | # noqa: E501
-    | `{METHOD}`         | HTTP Request being used                                                         | `GET`, `POST`                           | Before request, After response, Response error, After retry, Throttle limit reached, Throttle limit available                                | # noqa: E501
-    | `{STATUS}`         | Status code returned by the response                                            | `200`, `404`, `501`                     | After response Response error,  After retry, Throttle limit reached, Throttle limit available                                                | # noqa: E501
-    | `{ELAPSED}`        | Amount of seconds taken for the request to complete                             | *Numeric*                               | After response Response error,  After retry, Throttle limit reached, Throttle limit available                                                | # noqa: E501
-    | `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request                           | *Numeric*                               | *Any Retry event*                                                                                                                            | # noqa: E501
-    | `{CUR_ATTEMPT}`    | Current attempt count for the current request                                   | *Numeric*                               | *Any Retry event*                                                                                                                            | # noqa: E501
-    | `{MAX_ATTEMPT}`    | Max attempt defined for the current request                                     | *Numeric*                               | *Any Retry event*                                                                                                                            | # noqa: E501
-    | `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request                              | *Numeric*                               | *Any Throttle event*                                                                                                                         | # noqa: E501
-    | `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request                             | *Numeric*                               | *Any Throttle event*                                                                                                                         | # noqa: E501
+    | Placeholder        | Description                                           | Example                                     | Supported Events     |
+    | ------------------ | ----------------------------------------------------- | ------------------------------------------- | -------------------- |
+    | `{URL}`            | Full url being targetted                              | `https://pokeapi.co/api/v2/pokemon/pikachu` | *All*                | # noqa: E501
+    | `{UURL}`           | Full **Unformatted** url being targetted              | `https://pokeapi.co/api/v2/pokemon/{NAME}`  | *All*                |
+    | `{ENDPOINT}`       | Endpoint being targetted                              | `/pokemon/pikachu`                          | *All*                |
+    | `{UENDPOINT}`      | **Unformatted** endpoint being targetted              | `/pokemon/{NAME}`                           | *All*                |
+    | `{METHOD}`         | HTTP Request being used                               | `GET`, `POST`                               | *All*                |
+    | `{STATUS}`         | Status code returned by the response                  | `200`, `404`, `501`                         | *All*                |
+    | `{ELAPSED}`        | Amount of seconds taken for the request to complete   | *Numeric*                                   | *All*                |
+    | `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request | *Numeric*                                   | *Any Retry event*    |
+    | `{CUR_ATTEMPT}`    | Current attempt count for the current request         | *Numeric*                                   | *Any Retry event*    |
+    | `{MAX_ATTEMPT}`    | Max attempt defined for the current request           | *Numeric*                                   | *Any Retry event*    |
+    | `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request    | *Numeric*                                   | *Any Throttle event* |
+    | `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request   | *Numeric*                                   | *Any Throttle event* |
     """
 
 
