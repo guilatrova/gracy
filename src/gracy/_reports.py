@@ -180,7 +180,8 @@ class GracyReport:
             footer_totals["resp_3xx"] += responses_3xx
             footer_totals["resp_4xx"] += responses_4xx
             footer_totals["resp_5xx"] += responses_5xx
-            footer_totals["req_rates"].append(rate)
+            if rate > 0:
+                footer_totals["req_rates"].append(rate)
 
             # Row
             table.add_row(

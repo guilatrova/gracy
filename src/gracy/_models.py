@@ -210,10 +210,13 @@ class ThrottleController:
             )
 
             if coalesced_started_ats:
-                last = coalesced_started_ats[-1]
+                # Best effort to measure rate if we just performed 1 request
+                last = coalesced_started_ats[-1] if len(coalesced_started_ats) > 1 else time()
                 start = coalesced_started_ats[0]
                 elapsed = last - start
-                requests_per_second = len(coalesced_started_ats) / elapsed
+
+                if elapsed > 0:
+                    requests_per_second = len(coalesced_started_ats) / elapsed
 
             return requests_per_second
 
