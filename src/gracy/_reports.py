@@ -43,6 +43,47 @@ def unformatted_url_fits_formatted(unformatted: str, formatted: str) -> bool:
     return bool(match)
 
 
+def _format_value(
+    val: float,
+    color: str | None = None,
+    isset_color: str | None = None,
+    precision: int = 2,
+    bold: bool = False,
+    suffix: str = "",
+) -> str:
+    cur = f"{val:,.{precision}f}{suffix}"
+
+    if bold:
+        cur = f"[bold]{cur}[/bold]"
+
+    if val and isset_color:
+        cur = f"[{isset_color}]{cur}[/{isset_color}]"
+    elif color:
+        cur = f"[{color}]{cur}[/{color}]"
+
+    return cur
+
+
+def _format_int(
+    val: int,
+    color: str | None = None,
+    isset_color: str | None = None,
+    bold: bool = False,
+    suffix: str = "",
+) -> str:
+    cur = f"{val:,}{suffix}"
+
+    if bold:
+        cur = f"[bold]{cur}[/bold]"
+
+    if val and isset_color:
+        cur = f"[{isset_color}]{cur}[/{isset_color}]"
+    elif color:
+        cur = f"[{color}]{cur}[/{color}]"
+
+    return cur
+
+
 REQUEST_SUM_KEY = HTTPStatus | Literal["total"]
 REQUEST_SUM_PER_STATUS_TYPE = dict[str, defaultdict[REQUEST_SUM_KEY, int]]
 
@@ -114,7 +155,6 @@ class GracyReport:
             failed_requests = total_requests - successful_requests
             success_rate = (successful_requests / total_requests) * 100
             failed_rate = (failed_requests / total_requests) * 100
-            failed_color = "red" if failed_requests else "white"
 
             # Status Ranges
             # fmt:off
@@ -122,9 +162,6 @@ class GracyReport:
             responses_3xx = sum(count for status, count in data.items() if status != "total" and 300 <= status.value < 400)  # noqa: E501
             responses_4xx = sum(count for status, count in data.items() if status != "total" and 400 <= status.value < 500)  # noqa: E501
             responses_5xx = sum(count for status, count in data.items() if status != "total" and 500 <= status.value)
-
-            color_4xx = "red" if responses_4xx else "white"
-            color_5xx = "red" if responses_5xx else "white"
             # fmt:on
 
             # Rate
@@ -146,15 +183,15 @@ class GracyReport:
             table.add_row(
                 url,
                 f"[bold]{total_requests:,}[/bold]",
-                f"[green]{success_rate:,.2f}%[/green]",
-                f"[bold][{failed_color}]{failed_rate:,.2f}%[/bold][/{failed_color}]",
-                f"{avg_latency:,.2f}",
-                f"{max_latency:,.2f}",
-                str(responses_2xx),
-                str(responses_3xx),
-                f"[{color_4xx}]{responses_4xx}[/{color_4xx}]",
-                f"[{color_5xx}]{responses_5xx}[/{color_5xx}]",
-                f"{rate:,.1f} reqs/s",
+                _format_value(success_rate, "green", suffix="%"),
+                _format_value(failed_rate, None, "red", bold=True, suffix="%"),
+                _format_value(avg_latency),
+                _format_value(max_latency),
+                _format_int(responses_2xx),
+                _format_int(responses_3xx),
+                _format_int(responses_4xx, isset_color="red"),
+                _format_int(responses_5xx, isset_color="red"),
+                _format_value(rate, precision=1, suffix=" reqs/s"),
             )
 
         # Handle div by 0
