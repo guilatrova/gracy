@@ -158,7 +158,10 @@ async def _gracify(
 
     strict_pass = _check_strictness(active_config, result)
     if strict_pass is False:
+        strict_codes: HTTPStatus | Iterable[HTTPStatus] = active_config.strict_status_code  # type: ignore
         retry_result = None
+        must_break = True
+
         if active_config.should_retry(result.status_code):
             retry_result = await _gracefully_retry(
                 report,
@@ -169,32 +172,38 @@ async def _gracify(
             )
 
         if not retry_result or retry_result.failed:
-            strict_codes: HTTPStatus | Iterable[HTTPStatus] = active_config.strict_status_code  # type: ignore
             if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
                 process_log(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
-            if active_config.retry.behavior == "break":  # type: ignore
-                raise UnexpectedResponse(str(result.url), result, strict_codes)
+            if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
+                must_break = False
+
+        if must_break:
+            raise UnexpectedResponse(str(result.url), result, strict_codes)
 
     allowed_pass = _check_allowed(active_config, result)
     if allowed_pass is False:
+        retry_result = None
+        must_break = True
+
         if active_config.should_retry(result.status_code):
-            retry_result = None
-            if active_config.has_retry:
-                retry_result = await _gracefully_retry(
-                    report,
-                    throttle_controller,
-                    request,
-                    request_context,
-                    check_func=_check_allowed,
-                )
+            retry_result = await _gracefully_retry(
+                report,
+                throttle_controller,
+                request,
+                request_context,
+                check_func=_check_allowed,
+            )
 
-            if not retry_result or retry_result.failed:
-                if isinstance(active_config.log_errors, LogEvent):
-                    process_log(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
+        if not retry_result or retry_result.failed:
+            if isinstance(active_config.log_errors, LogEvent):
+                process_log(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
-                if active_config.retry.behavior == "break":  # type: ignore
-                    raise NonOkResponse(str(result.url), result)
+            if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
+                must_break = False
+
+            if must_break:
+                raise NonOkResponse(str(result.url), result)
 
     if active_config.parser and not isinstance(active_config.parser, Unset):
         default_fallback = active_config.parser.get("default", UNSET_VALUE)

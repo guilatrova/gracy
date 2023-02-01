@@ -43,7 +43,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         strict_status_code={HTTPStatus.OK},
         retry=retry,
         log_request=LogEvent(LogLevel.WARNING),
-        log_response=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
+        log_errors=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
         parser={
             "default": lambda r: r.json()["name"],
             HTTPStatus.NOT_FOUND: PokemonNotFound,
