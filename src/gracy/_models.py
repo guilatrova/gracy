@@ -10,8 +10,7 @@ from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, 
 
 import httpx
 
-from gracy.throttling import ThrottleController
-
+from ._throttling import ThrottleController
 from ._types import PARSER_TYPE, UNSET_VALUE, Unset
 
 

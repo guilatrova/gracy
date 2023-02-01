@@ -7,10 +7,6 @@ from typing import Any, Awaitable, Callable, Generic, Iterable
 
 import httpx
 
-from gracy.exceptions import NonOkResponse, UnexpectedResponse
-from gracy.reports import GracyReport, GracyRequestResult
-from gracy.throttling import ThrottleController
-
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
     DefaultLogMessage,
@@ -32,6 +28,9 @@ from ._models import (
     LogEvent,
     Unset,
 )
+from ._reports import GracyReport, GracyRequestResult
+from ._throttling import ThrottleController
+from .exceptions import NonOkResponse, UnexpectedResponse
 
 
 async def _gracefully_throttle(active_config: GracyConfig, controller: ThrottleController, url: str):

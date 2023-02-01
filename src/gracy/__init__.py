@@ -1,6 +1,7 @@
 """Gracefully manage your API interactions"""
 
 from . import exceptions
+from ._core import Gracy, graceful
 from ._models import (
     DEFAULT_CONFIG,
     BaseEndpoint,
@@ -11,7 +12,6 @@ from ._models import (
     LogLevel,
     ThrottleRule,
 )
-from .core import Gracy, graceful
 
 __version__ = "1.1.0"
 
