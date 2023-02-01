@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v1.3.0 (2023-02-01)
+### Feature
+* Use locks for throttled requests ([`b2db6a7`](https://github.com/guilatrova/gracy/commit/b2db6a760b097b27142f17bf533d760e4e99605c))
+
+### Fix
+* Throttling/allowed not working ([`cb0251b`](https://github.com/guilatrova/gracy/commit/cb0251b49c43f9376783e6f457073410f6d326a1))
+
 ## v1.2.1 (2023-02-01)
 ### Fix
 * Handle scenarios for just 1 request per url ([`f4f799b`](https://github.com/guilatrova/gracy/commit/f4f799bbc03ae318fba69dd299fb423800a18651))
