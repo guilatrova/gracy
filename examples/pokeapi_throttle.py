@@ -36,7 +36,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
                 HTTPStatus.NOT_FOUND: None,
             },
             throttling=GracefulThrottle(
-                rules=ThrottleRule(r".*", 2),
+                rules=ThrottleRule(r".*", 9),
                 log_limit_reached=LogEvent(LogLevel.ERROR),
                 log_wait_over=LogEvent(LogLevel.WARNING),
             ),
@@ -63,8 +63,8 @@ async def main():
         await asyncio.gather(*t)
 
     finally:
-        pokeapi.report_status()
         pokeapi._throttle_controller.debug_print()  # type: ignore
+        pokeapi.report_status()
 
 
 asyncio.run(main())

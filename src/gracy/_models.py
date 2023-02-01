@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 import copy
+import itertools
 import logging
 import re
+from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, IntEnum
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, Type, Union
+from threading import Lock
+from time import time
+from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, TypeVar
 
 import httpx
+from rich.console import Console
+from rich.table import Table
 
-from gracy.throttling import ThrottleController
+from ._types import PARSER_TYPE, UNSET_VALUE, Unset
+
+throttle_lock = Lock()
 
 
 class LogLevel(IntEnum):
@@ -28,50 +37,45 @@ class LogEvent:
     custom_message: str | None = None
     """You can add some placeholders to be injected in the log.
 
-    Allowed placeholders:
-    - `STATUS`: Response status code
-    - `METHOD`: Method used in the request
-    - `URL`: URL request was made to
-    - `ELAPSED`: Elapsed milliseconds on request
-    - `THROTTLE_LIMIT`: Limit defined for the rule
-    - `THROTTLE_TIME`: Time the throttling decided to wait
-
     e.g.
       - `{URL} executed`
       - `API replied {STATUS} and took {ELAPSED}`
       - `{METHOD} {URL} returned {STATUS}`
       - `Becareful because {URL} is flaky`
+
+    ### Allowed placeholders:
+
+    | Placeholder        | Description                                           | Example                                     | Supported Events     |
+    | ------------------ | ----------------------------------------------------- | ------------------------------------------- | -------------------- |
+    | `{URL}`            | Full url being targetted                              | `https://pokeapi.co/api/v2/pokemon/pikachu` | *All*                | # noqa: E501
+    | `{UURL}`           | Full **Unformatted** url being targetted              | `https://pokeapi.co/api/v2/pokemon/{NAME}`  | *All*                |
+    | `{ENDPOINT}`       | Endpoint being targetted                              | `/pokemon/pikachu`                          | *All*                |
+    | `{UENDPOINT}`      | **Unformatted** endpoint being targetted              | `/pokemon/{NAME}`                           | *All*                |
+    | `{METHOD}`         | HTTP Request being used                               | `GET`, `POST`                               | *All*                |
+    | `{STATUS}`         | Status code returned by the response                  | `200`, `404`, `501`                         | *All*                |
+    | `{ELAPSED}`        | Amount of seconds taken for the request to complete   | *Numeric*                                   | *All*                |
+    | `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request | *Numeric*                                   | *Any Retry event*    |
+    | `{CUR_ATTEMPT}`    | Current attempt count for the current request         | *Numeric*                                   | *Any Retry event*    |
+    | `{MAX_ATTEMPT}`    | Max attempt defined for the current request           | *Numeric*                                   | *Any Retry event*    |
+    | `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request    | *Numeric*                                   | *Any Throttle event* |
+    | `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request   | *Numeric*                                   | *Any Throttle event* |
     """
 
-
-class Unset:
-    """
-    The default "unset" state indicates that whatever default is set on the
-    client should be used. This is different to setting `None`, which
-    explicitly disables the parameter, possibly overriding a client default.
-    """
-
-    def __bool__(self):
-        return False
-
-
-UNSET_VALUE: Final = Unset()
 
 LOG_EVENT_TYPE = None | Unset | LogEvent
 
-PARSER_KEY = HTTPStatus | Literal["default"]
-PARSER_VALUE = Union[Type[Exception], Callable[[httpx.Response], Any], None]
-PARSER_TYPE = dict[PARSER_KEY, PARSER_VALUE] | Unset | None
-
 
 class GracefulRetryState:
-    cur_attempt: int = 0
+    cur_attempt: int = 1
     success: bool = False
-    delay: float  # TODO: use property
 
     def __init__(self, retry_config: GracefulRetry) -> None:
         self._retry_config = retry_config
-        self.delay = retry_config.delay
+        self._delay = retry_config.delay
+
+    @property
+    def delay(self) -> float:
+        return self._delay
 
     @property
     def failed(self) -> bool:
@@ -93,7 +97,7 @@ class GracefulRetryState:
         self.cur_attempt += 1
 
         if self.cur_attempt > 1:
-            self.delay = self.delay * self._retry_config.delay_modifier
+            self._delay *= self._retry_config.delay_modifier
 
 
 @dataclass
@@ -176,6 +180,57 @@ class GracefulThrottle:
         self.log_wait_over = log_wait_over
 
 
+class ThrottleController:
+    def __init__(self) -> None:
+        self._control: dict[str, list[float]] = defaultdict[str, list[float]](list)
+
+    def init_request(self, request_context: GracyRequestContext):
+        with throttle_lock:
+            self._control[request_context.url].append(time())  # This should always keep it sorted asc
+
+    def calculate_requests_per_second(self, url_pattern: Pattern[str]) -> float:
+        with throttle_lock:
+            up_to_one_sec = time() - 1
+            requests_per_second = 0.0
+            coalesced_started_ats = sorted(
+                itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])
+            )
+
+            if coalesced_started_ats:
+                requests = [request for request in coalesced_started_ats if request >= up_to_one_sec]
+                requests_per_second = len(requests) / 1
+
+            return requests_per_second
+
+    def calculate_requests_rate(self, url_pattern: Pattern[str]) -> float:
+        with throttle_lock:
+            requests_per_second = 0.0
+            coalesced_started_ats = sorted(
+                itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])
+            )
+
+            if coalesced_started_ats:
+                last = coalesced_started_ats[-1]
+                start = coalesced_started_ats[0]
+                elapsed = last - start
+                requests_per_second = len(coalesced_started_ats) / elapsed
+
+            return requests_per_second
+
+    def debug_print(self):
+        console = Console()
+        table = Table(title="Throttling Summary")
+        table.add_column("URL", overflow="fold")
+        table.add_column("Count", justify="right")
+        table.add_column("Times", justify="right")
+
+        for url, times in self._control.items():
+            human_times = [datetime.fromtimestamp(ts).strftime("%H:%M:%S.%f") for ts in times]
+            table.add_row(url, f"{len(times):,}", str(human_times))
+
+        console.print(table)
+
+
 @dataclass
 class GracyConfig:
     log_request: LOG_EVENT_TYPE = UNSET_VALUE
@@ -255,6 +310,9 @@ class BaseEndpoint(str, Enum):
         return self.value
 
 
+Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
+
+
 class GracefulRequest:
     request: Callable[..., Awaitable[httpx.Response]]
     args: tuple[Any, ...]
@@ -267,3 +325,32 @@ class GracefulRequest:
 
     def __call__(self) -> Awaitable[httpx.Response]:
         return self.request(*self.args, **self.kwargs)
+
+
+class GracyRequestContext:
+    def __init__(
+        self,
+        method: str,
+        base_url: str,
+        endpoint: str,
+        endpoint_args: dict[str, str] | None,
+        active_config: GracyConfig,
+    ) -> None:
+        if base_url.endswith("/"):
+            base_url = base_url[:-1]
+
+        final_endpoint = endpoint.format(**endpoint_args) if endpoint_args else endpoint
+
+        self.endpoint_args = endpoint_args or {}
+        self.endpoint = final_endpoint
+        self.unformatted_endpoint = endpoint
+
+        self.url = f"{base_url}{self.endpoint}"
+        self.unformatted_url = f"{base_url}{self.unformatted_endpoint}"
+
+        self.method = method
+        self._active_config = active_config
+
+    @property
+    def active_config(self) -> GracyConfig:
+        return self._active_config

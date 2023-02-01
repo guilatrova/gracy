@@ -9,8 +9,8 @@
   <!-- PyPI --><a href="https://pypi.org/project/gracy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/gracy"/></a>
   <!-- Supported Python versions --><img src="https://badgen.net/pypi/python/gracy" />
   <!-- Alternative Python versioning: <img alt="python version" src="https://img.shields.io/badge/python-3.9%20%7C%203.10-blue"> -->
+  <!-- PyPI downloads --><a href="https://pepy.tech/project/gracy/"><img alt="Downloads" src="https://static.pepy.tech/badge/gracy/week"/></a>
   <!-- LICENSE --><a href="https://github.com/guilatrova/gracy/blob/main/LICENSE"><img alt="GitHub" src="https://img.shields.io/github/license/guilatrova/gracy"/></a>
-  <!-- PyPI downloads --><a href="https://pepy.tech/project/gracy/"><img alt="Downloads" src="https://static.pepy.tech/personalized-badge/gracy?period=total&units=international_system&left_color=grey&right_color=blue&left_text=%F0%9F%A6%96%20Downloads"/></a>
   <!-- Formatting --><a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"/></a>
   <!-- Tryceratops --><a href="https://github.com/guilatrova/tryceratops"><img alt="try/except style: tryceratops" src="https://img.shields.io/badge/try%2Fexcept%20style-tryceratops%20%F0%9F%A6%96%E2%9C%A8-black" /></a>
   <!-- Typing --><a href="https://github.com/python/mypy"><img alt="Types: mypy" src="https://img.shields.io/badge/types-mypy-blue.svg"/></a>
@@ -64,7 +64,7 @@ poetry add gracy
 
 ### Usage
 
-Example will use the [PokeAPI](https://pokeapi.co).
+Examples will be shown using the [PokeAPI](https://pokeapi.co).
 
 #### Simple example
 
@@ -79,7 +79,7 @@ class PokeApiEndpoint(BaseEndpoint):
     GET_POKEMON = "/pokemon/{NAME}" # 👈 Put placeholders as needed
 
 # 2. Define your Graceful API
-class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
+class GracefulPokeAPI(Gracy[str]):
     class Config:  # type: ignore
         BASE_URL = "https://pokeapi.co/api/v2/" # 👈 Optional BASE_URL
         # 👇 Define settings to apply for every request
@@ -141,7 +141,7 @@ GracyConfig(
 )
 ```
 
-Using `strict_status_code` means that any other code no specified will raise an error regardless of being successful or not.
+Using `strict_status_code` means that any other code not specified will raise an error regardless of being successful or not.
 
 **Allowed**
 
@@ -201,7 +201,7 @@ class Config:
     }
   )
 
-async def get_pokemon(self, name: str) -> Awaitable[dict| None]:
+async def get_pokemon(self, name: str) -> dict| None:
   # 👇 Returns either dict or None
   return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 ```
@@ -237,7 +237,7 @@ Using tenacity, backoff, retry, aiohttp_retry, and any other retry libs is **NOT
 
 You still would need to code the implementation for each request which is annoying.
 
-Here's how Gracy allows you to gracefully code your retry logic:
+Here's how Gracy allows you to implement your retry logic:
 
 ```py
 class Config:
@@ -318,17 +318,20 @@ Note that placeholders are formatted and replaced later on by Gracy based on the
 
 **Placeholders per event**
 
-| Placeholder        | Description                                                                     | Example                                 | Supported Events                                                                                                                                                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `{URL}`            | Endpoint being targetted. Sometimes formatted, sometimes containg placeholders. | `/pokemon/{NAME}`, `/pokemon/{PIKACHU}` | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[x] Before retry</li><li>[x] After retry</li><li>[x] Retry exhausted</li><li>[x] Throttle limit reached</li><li>[x] Throttle limit available</li></ul> |
-| `{METHOD}`         | HTTP Request being used                                                         | `GET`, `POST`                           | <ul><li>[x] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
-| `{STATUS}`         | Status code returned by the response                                            | `200`, `404`, `501`                     | <ul><li>[ ] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
-| `{ELAPSED}`        | Amount of seconds taken for the request to complete                             | *Numeric*                               | <ul><li>[ ] Before request</li><li>[x] After response</li><li>[x] Response error</li><li>[ ] Before retry</li><li>[ ] After retry</li><li>[ ] Retry exhausted</li><li>[ ] Throttle limit reached</li><li>[ ] Throttle limit available</li></ul> |
-| `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request                           | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
-| `{CUR_ATTEMPT}`    | Current attempt count for the current request                                   | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
-| `{MAX_ATTEMPT}`    | Max attempt defined for the current request                                     | *Numeric*                               | *Any Retry event*                                                                                                                                                                                                                               |
-| `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request                              | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
-| `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request                             | *Numeric*                               | *Any Throttle event*                                                                                                                                                                                                                            |
+| Placeholder        | Description                                           | Example                                     | Supported Events     |
+| ------------------ | ----------------------------------------------------- | ------------------------------------------- | -------------------- |
+| `{URL}`            | Full url being targetted                              | `https://pokeapi.co/api/v2/pokemon/pikachu` | *All*                |
+| `{UURL}`           | Full **Unformatted** url being targetted              | `https://pokeapi.co/api/v2/pokemon/{NAME}`  | *All*                |
+| `{ENDPOINT}`       | Endpoint being targetted                              | `/pokemon/pikachu`                          | *All*                |
+| `{UENDPOINT}`      | **Unformatted** endpoint being targetted              | `/pokemon/{NAME}`                           | *All*                |
+| `{METHOD}`         | HTTP Request being used                               | `GET`, `POST`                               | *All*                |
+| `{STATUS}`         | Status code returned by the response                  | `200`, `404`, `501`                         | *All*                |
+| `{ELAPSED}`        | Amount of seconds taken for the request to complete   | *Numeric*                                   | *All*                |
+| `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request | *Numeric*                                   | *Any Retry event*    |
+| `{CUR_ATTEMPT}`    | Current attempt count for the current request         | *Numeric*                                   | *Any Retry event*    |
+| `{MAX_ATTEMPT}`    | Max attempt defined for the current request           | *Numeric*                                   | *Any Retry event*    |
+| `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request    | *Numeric*                                   | *Any Throttle event* |
+| `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request   | *Numeric*                                   | *Any Throttle event* |
 
 and you can set up the log events as follows:
 
@@ -405,11 +408,10 @@ You can improve it even further by customizing your message:
 class PokemonNotFound(GracyUserDefinedException):
     BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
 
-    def _format_message(self, base_endpoint: str, endpoint_args: dict[str, str], response: httpx.Response) -> str:
+    def _format_message(self, request_context: GracyRequestContext, response: httpx.Response) -> str:
         format_args = self._build_default_args()
-        name = endpoint_args.get("NAME", "Unknown")
+        name = request_context.endpoint_args.get("NAME", "Unknown")
         return self.BASE_MESSAGE.format(NAME=name, **format_args)
-
 ```
 
 ## Reports
@@ -433,7 +435,7 @@ pokeapi.report_status()
 
 Here's an example of how it looks:
 
-![Report](img/report-example.png)
+![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-example.png)
 
 ## Advanced Usage
 
@@ -459,8 +461,8 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         )
 
     @graceful(
-        retry=None, # Disables retry set in Config
-        log_errors=None, # Disables log_errors set in Config
+        retry=None, # 👈 Disables retry set in Config
+        log_errors=None, # 👈 Disables log_errors set in Config
         allowed_status_code=HTTPStatus.NOT_FOUND,
         parser={
             "default": lambda r: r.json()["order"],
@@ -471,7 +473,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         val: str | None = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
         return val
 
-    @graceful( # Retry and log_errors are still set for this one
+    @graceful( # 👈 Retry and log_errors are still set for this one
       strict_status_code=HTTPStatus.OK,
       parser={"default": lambda r: r.json()["order"]},
     )

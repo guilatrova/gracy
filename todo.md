@@ -3,7 +3,7 @@
 - [x] Allowed status code
 - [x] Retry
   - [x] Retry but pass
-  - [ ] Retry logging
+  - [x] Retry logging
 - [x] Metrics (% of successful calls)
   - [x] Status codes
   - [x] % per status code
@@ -23,4 +23,3 @@
   - [x] Methods without `_`
   - [ ] Contributing
 - [ ] Allow to specify status ranges
----

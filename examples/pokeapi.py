@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy import BaseEndpoint, GracefulRetry, Gracy, LogEvent, LogLevel, graceful
+from gracy import BaseEndpoint, GracefulRetry, Gracy, GracyRequestContext, LogEvent, LogLevel, graceful
 from gracy.exceptions import GracyUserDefinedException
 
 retry = GracefulRetry(
@@ -21,9 +21,9 @@ retry = GracefulRetry(
 class PokemonNotFound(GracyUserDefinedException):
     BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
 
-    def _format_message(self, base_endpoint: str, endpoint_args: dict[str, str], response: httpx.Response) -> str:
+    def _format_message(self, request_context: GracyRequestContext, response: httpx.Response) -> str:
         format_args = self._build_default_args()
-        name = endpoint_args.get("NAME", "Unknown")
+        name = request_context.endpoint_args.get("NAME", "Unknown")
         return self.BASE_MESSAGE.format(NAME=name, **format_args)
 
 
@@ -43,7 +43,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         strict_status_code={HTTPStatus.OK},
         retry=retry,
         log_request=LogEvent(LogLevel.WARNING),
-        log_response=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
+        log_errors=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
         parser={
             "default": lambda r: r.json()["name"],
             HTTPStatus.NOT_FOUND: PokemonNotFound,

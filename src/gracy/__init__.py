@@ -1,13 +1,14 @@
 """Gracefully manage your API interactions"""
 
 from . import exceptions
-from .core import Gracy, graceful
-from .models import (
+from ._core import Gracy, graceful
+from ._models import (
     DEFAULT_CONFIG,
     BaseEndpoint,
     GracefulRetry,
     GracefulThrottle,
     GracyConfig,
+    GracyRequestContext,
     LogEvent,
     LogLevel,
     ThrottleRule,
@@ -23,6 +24,7 @@ __all__ = [
     # Models
     "BaseEndpoint",
     "GracefulRetry",
+    "GracyRequestContext",
     "LogEvent",
     "LogLevel",
     "GracefulThrottle",
