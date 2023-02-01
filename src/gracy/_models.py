@@ -1,17 +1,25 @@
 from __future__ import annotations
 
 import copy
+import itertools
 import logging
 import re
+from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, IntEnum
 from http import HTTPStatus
+from threading import Lock
+from time import time
 from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, TypeVar
 
 import httpx
+from rich.console import Console
+from rich.table import Table
 
-from ._throttling import ThrottleController
 from ._types import PARSER_TYPE, UNSET_VALUE, Unset
+
+throttle_lock = Lock()
 
 
 class LogLevel(IntEnum):
@@ -167,6 +175,41 @@ class GracefulThrottle:
         self.rules = rules if isinstance(rules, Iterable) else [rules]
         self.log_limit_reached = log_limit_reached
         self.log_wait_over = log_wait_over
+
+
+class ThrottleController:
+    def __init__(self) -> None:
+        self._control: dict[str, list[float]] = defaultdict[str, list[float]](list)
+
+    def init_request(self, request_context: GracyRequestContext):
+        with throttle_lock:
+            self._control[request_context.url].append(time())  # This should always keep it sorted asc
+
+    def calculate_requests_per_second(self, url_pattern: Pattern[str]) -> float:
+        with throttle_lock:
+            up_to_one_sec = time() - 1
+            requests_per_second = 0.0
+            coalesced_started_ats = sorted(
+                itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])
+            )
+
+            if coalesced_started_ats:
+                requests = [request for request in coalesced_started_ats if request >= up_to_one_sec]
+                requests_per_second = len(requests) / 1
+
+            return requests_per_second
+
+    def debug_print(self):
+        console = Console()
+        table = Table(title="Throttling Summary")
+        table.add_column("URL", overflow="fold")
+        table.add_column("Times", justify="right")
+
+        for url, times in self._control.items():
+            human_times = [datetime.fromtimestamp(ts).strftime("%H:%M:%S.%f") for ts in times]
+            table.add_row(url, str(human_times))
+
+        console.print(table)
 
 
 @dataclass

@@ -27,10 +27,10 @@ from ._models import (
     GracyConfig,
     GracyRequestContext,
     LogEvent,
+    ThrottleController,
     Unset,
 )
 from ._reports import GracyReport
-from ._throttling import ThrottleController
 from .exceptions import NonOkResponse, UnexpectedResponse
 
 
