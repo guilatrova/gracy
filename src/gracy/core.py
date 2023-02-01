@@ -7,11 +7,11 @@ from typing import Any, Awaitable, Callable, Generic, Iterable
 
 import httpx
 
-from gracy.context import custom_gracy_config, gracy_context
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
 from gracy.reports import GracyReport, GracyRequestResult
 from gracy.throttling import ThrottleController
 
+from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
     DefaultLogMessage,
     process_log,
@@ -249,7 +249,7 @@ class Gracy(Generic[Endpoint]):
         *args: Any,
         **kwargs: Any,
     ):
-        custom_config = gracy_context.get()
+        custom_config = custom_config_context.get()
         active_config = self._base_config
         if custom_config:
             active_config = GracyConfig.merge_config(self._base_config, custom_config)
