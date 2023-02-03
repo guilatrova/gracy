@@ -10,7 +10,7 @@ import httpx
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
     DefaultLogMessage,
-    process_log,
+    process_log_after_request,
     process_log_before_request,
     process_log_retry,
     process_log_throttle,
@@ -162,7 +162,7 @@ async def _gracify(
     report.track(request_context, result)
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
-        process_log(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
+        process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
 
     strict_pass = _check_strictness(active_config, result)
     if strict_pass is False:
@@ -181,7 +181,7 @@ async def _gracify(
 
         if not retry_result or retry_result.failed:
             if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-                process_log(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
+                process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
             if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
                 must_break = False
@@ -205,7 +205,7 @@ async def _gracify(
 
         if not retry_result or retry_result.failed:
             if isinstance(active_config.log_errors, LogEvent):
-                process_log(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
+                process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
             if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
                 must_break = False

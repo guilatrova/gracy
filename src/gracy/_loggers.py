@@ -80,7 +80,7 @@ def process_log_retry(
     _do_log(logevent, defaultmsg, format_args)
 
 
-def process_log(
+def process_log_after_request(
     logevent: LogEvent,
     defaultmsg: str,
     request_context: GracyRequestContext,
