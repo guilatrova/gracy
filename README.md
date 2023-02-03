@@ -194,7 +194,7 @@ You can also narrow it down to handle specific status codes.
 class Config:
   GracyConfig(
     ...,
-    allowed_status_code: HTTPStatusCode.NOT_FOUND,
+    allowed_status_code=HTTPStatusCode.NOT_FOUND,
     parser={
       "default": lambda r: r.json()
       HTTPStatusCode.NOT_FOUND: None
@@ -215,7 +215,7 @@ class PokemonNotFound(GracyUserDefinedException):
 class Config:
   GracyConfig(
     ...,
-    allowed_status_code: HTTPStatusCode.NOT_FOUND,
+    allowed_status_code=HTTPStatusCode.NOT_FOUND,
     parser={
       "default": lambda r: r.json()
       HTTPStatusCode.NOT_FOUND: PokemonNotFound
@@ -310,7 +310,7 @@ You can **define and customize logs** for events by using `LogEvent` and `LogLev
 
 ```py
 verbose_log = LogEvent(LogLevel.CRITICAL)
-custom_warn_log = LogEvent(LogLevel.WARNING. custom_message="{METHOD} {URL} is quite slow and flaky")
+custom_warn_log = LogEvent(LogLevel.WARNING, custom_message="{METHOD} {URL} is quite slow and flaky")
 custom_error_log = LogEvent(LogLevel.INFO, custom_message="{URL} returned a bad status code {STATUS}, but that's fine")
 ```
 
