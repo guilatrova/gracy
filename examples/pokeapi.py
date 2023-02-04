@@ -33,6 +33,7 @@ class ServerIsOutError(Exception):
 
 class PokeApiEndpoint(BaseEndpoint):
     GET_POKEMON = "/pokemon/{NAME}"
+    GET_GENERATION = "/generation/{ID}/"
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
@@ -53,6 +54,9 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     async def get_pokemon(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
+    async def get_generation(self, gen: int):
+        return await self.get(PokeApiEndpoint.GET_GENERATION, {"ID": str(gen)})
+
 
 pokeapi = GracefulPokeAPI()
 pokeapi_two = GracefulPokeAPI()
@@ -61,10 +65,11 @@ pokeapi_two = GracefulPokeAPI()
 async def main():
     try:
         p1: str | None = await pokeapi.get_pokemon("pikachu")
-        p2: str | None = await pokeapi_two.get_pokemon("doesnt-exist")
+        await pokeapi.get_generation(1)
+        # p2: str | None = await pokeapi_two.get_pokemon("doesnt-exist")
 
         print("P1: result of get_pokemon:", p1)
-        print("P2: result of get_pokemon:", p2)
+        # print("P2: result of get_pokemon:", p2)
 
     finally:
         pokeapi.report_status()

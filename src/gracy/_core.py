@@ -31,7 +31,7 @@ from ._models import (
     ThrottleController,
     Unset,
 )
-from ._reports import GracyReport
+from ._reports import ReportBuilder
 from .exceptions import NonOkResponse, UnexpectedResponse
 
 
@@ -80,7 +80,7 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
 
 
 async def _gracefully_retry(
-    report: GracyReport,
+    report: ReportBuilder,
     throttle_controller: ThrottleController,
     request: GracefulRequest,
     request_context: GracyRequestContext,
@@ -146,7 +146,7 @@ def _check_allowed(active_config: GracyConfig, result: httpx.Response) -> bool:
 
 
 async def _gracify(
-    report: GracyReport,
+    report: ReportBuilder,
     throttle_controller: ThrottleController,
     request: GracefulRequest,
     request_context: GracyRequestContext,
@@ -233,7 +233,7 @@ class Gracy(Generic[Endpoint]):
     inheritance.
     """
 
-    _report: GracyReport = GracyReport()
+    _report: ReportBuilder = ReportBuilder()
     _throttle_controller: ThrottleController = ThrottleController()
 
     class Config:
