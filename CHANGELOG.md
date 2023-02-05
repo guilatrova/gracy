@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v1.5.0 (2023-02-05)
+### Feature
+* Protect lambda custom msg from unknown keys ([`d6da853`](https://github.com/guilatrova/gracy/commit/d6da8536d1b561fd606d2911749d99309aa92460))
+* Implement lambda for loggers ([`e7d9248`](https://github.com/guilatrova/gracy/commit/e7d9248475ce9dab92913cc7fa7eb6554c9676d7))
+
+### Fix
+* Use correct typing for coroutine ([`65296cd`](https://github.com/guilatrova/gracy/commit/65296cdddf925126ea47e591f7def242b0e6b6da))
+
+### Documentation
+* Add report examples ([`269810c`](https://github.com/guilatrova/gracy/commit/269810c4d205e5356672287f08c3d34d3bc0c3f0))
+
 ## v1.4.0 (2023-02-05)
 ### Feature
 * Implement the logger printer ([`40298f5`](https://github.com/guilatrova/gracy/commit/40298f5204a499730f93d2d79bbfed43dc754b0c))
