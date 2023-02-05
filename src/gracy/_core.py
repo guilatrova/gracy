@@ -31,7 +31,8 @@ from ._models import (
     ThrottleController,
     Unset,
 )
-from ._reports import ReportBuilder
+from ._reports._builders import ReportBuilder
+from ._reports._printers import PRINTERS, print_report
 from .exceptions import NonOkResponse, UnexpectedResponse
 
 
@@ -233,7 +234,7 @@ class Gracy(Generic[Endpoint]):
     inheritance.
     """
 
-    _report: ReportBuilder = ReportBuilder()
+    _reporter: ReportBuilder = ReportBuilder()
     _throttle_controller: ThrottleController = ThrottleController()
 
     class Config:
@@ -268,7 +269,7 @@ class Gracy(Generic[Endpoint]):
         )
 
         graceful_request = _gracify(
-            Gracy._report,
+            Gracy._reporter,
             Gracy._throttle_controller,
             GracefulRequest(
                 self._client.request,
@@ -346,8 +347,13 @@ class Gracy(Generic[Endpoint]):
         return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
 
     @classmethod
-    def report_status(cls):
-        cls._report.print(cls._throttle_controller)
+    def get_report(cls):
+        return cls._reporter.build(cls._throttle_controller)
+
+    @classmethod
+    def report_status(cls, printer: PRINTERS):
+        report = cls.get_report()
+        print_report(report, printer)
 
 
 def graceful(

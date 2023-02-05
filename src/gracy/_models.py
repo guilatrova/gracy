@@ -15,8 +15,6 @@ from time import time
 from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, TypeVar
 
 import httpx
-from rich.console import Console
-from rich.table import Table
 
 from ._types import PARSER_TYPE, UNSET_VALUE, Unset
 
@@ -242,6 +240,10 @@ class ThrottleController:
             return requests_per_second
 
     def debug_print(self):
+        # Intended only for local development
+        from rich.console import Console
+        from rich.table import Table
+
         console = Console()
         table = Table(title="Throttling Summary")
         table.add_column("URL", overflow="fold")

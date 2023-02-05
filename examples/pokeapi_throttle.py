@@ -64,7 +64,7 @@ async def main():
 
     finally:
         pokeapi._throttle_controller.debug_print()  # type: ignore
-        pokeapi.report_status()
+        pokeapi.report_status("rich")
 
 
 asyncio.run(main())

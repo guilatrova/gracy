@@ -102,7 +102,7 @@ async def main():
       print(pokemon)
 
     finally:
-        pokeapi.report_status()
+        pokeapi.report_status("rich")
 
 
 asyncio.run(main())
@@ -430,7 +430,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
 pokeapi = GracefulPokeAPI()
 # do stuff with your API
-pokeapi.report_status()
+pokeapi.report_status("rich")
 ```
 
 Here's an example of how it looks:

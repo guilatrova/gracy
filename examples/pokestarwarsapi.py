@@ -50,7 +50,7 @@ async def main():
         print("SW: result of get_person:", sw)
 
     finally:
-        pokeapi.report_status()
+        pokeapi.report_status("rich")
 
 
 asyncio.run(main())
