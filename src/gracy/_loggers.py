@@ -9,6 +9,11 @@ from ._models import GracefulRetryState, GracyRequestContext, LogEvent, Throttle
 logger = logging.getLogger("gracy")
 
 
+class SafeDict(dict[str, str]):
+    def __missing__(self, key: str):
+        return "{" + key + "}"
+
+
 class DefaultLogMessage(str, Enum):
     BEFORE = "Request on {URL} is ongoing"
     AFTER = "[{METHOD}] {URL} returned {STATUS}"
@@ -29,7 +34,8 @@ def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, Any], re
         if isinstance(logevent.custom_message, str):
             message = logevent.custom_message.format(**format_args)
         else:
-            message = logevent.custom_message(response)
+            # Let's protect ourselves against potential customizations with undefined {key}
+            message = logevent.custom_message(response).format_map(SafeDict(**format_args))
     else:
         message = defaultmsg.format(**format_args)
 

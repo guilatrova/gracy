@@ -367,6 +367,23 @@ GracefulRetry(
 )
 ```
 
+You can customize it even further by passing a lambda:
+
+```py
+LogEvent(
+    LogLevel.ERROR,
+    lambda r: "Request failed with {STATUS}" f" and it was {'redirected' if r.is_redirect else 'NOT redirected'}"
+    if r
+    else "",
+)
+```
+
+Consider that:
+
+- Not all log events have the response available, so you need to guard yourself against it
+- Placeholders still works (e.g. `{STATUS}`)
+- You need to be watch out for some attrs that might break the formatting logic (e.g. `r.headers`)
+
 **Throttling**
 
 1. When reqs/s limit is reached

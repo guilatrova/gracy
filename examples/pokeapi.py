@@ -44,7 +44,12 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         strict_status_code={HTTPStatus.OK},
         retry=retry,
         log_request=LogEvent(LogLevel.WARNING),
-        log_errors=LogEvent(LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"),
+        log_errors=LogEvent(
+            LogLevel.ERROR,
+            lambda r: "Request failed with {STATUS}" f" and it was {'' if r.is_redirect else 'NOT'} redirected"
+            if r
+            else "",
+        ),
         parser={
             "default": lambda r: r.json()["name"],
             HTTPStatus.NOT_FOUND: PokemonNotFound,
@@ -65,11 +70,11 @@ pokeapi_two = GracefulPokeAPI()
 async def main():
     try:
         p1: str | None = await pokeapi.get_pokemon("pikachu")
+        p2: str | None = await pokeapi_two.get_pokemon("doesnt-exist")
         await pokeapi.get_generation(1)
-        # p2: str | None = await pokeapi_two.get_pokemon("doesnt-exist")
 
         print("P1: result of get_pokemon:", p1)
-        # print("P2: result of get_pokemon:", p2)
+        print("P2: result of get_pokemon:", p2)
 
     finally:
         pokeapi.report_status("list")
