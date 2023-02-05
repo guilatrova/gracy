@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from asyncio import sleep
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, Generic, Iterable, cast
+from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
@@ -358,6 +358,9 @@ class Gracy(Generic[Endpoint]):
         print_report(report, printer)
 
 
+ANY_COROUTINE = Coroutine[Any, Any, Any]
+
+
 def graceful(
     strict_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
     allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
@@ -377,7 +380,7 @@ def graceful(
         parser=parser,
     )
 
-    def _wrapper(wrapped_function: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+    def _wrapper(wrapped_function: Callable[..., ANY_COROUTINE]) -> Callable[..., ANY_COROUTINE]:
         async def _inner_wrapper(*args: Any, **kwargs: Any):
             with custom_gracy_config(config):
                 res = await wrapped_function(*args, **kwargs)
