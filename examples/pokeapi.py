@@ -33,7 +33,7 @@ class ServerIsOutError(Exception):
 
 class PokeApiEndpoint(BaseEndpoint):
     GET_POKEMON = "/pokemon/{NAME}"
-    GET_GENERATION = "/generation/{ID}/"
+    GET_GENERATION = "/generation/{ID}"
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
@@ -72,7 +72,7 @@ async def main():
         # print("P2: result of get_pokemon:", p2)
 
     finally:
-        pokeapi.report_status("logger")
+        pokeapi.report_status("list")
 
 
 asyncio.run(main())

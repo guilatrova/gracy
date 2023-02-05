@@ -4,7 +4,17 @@ from typing import cast
 
 from rich import print
 
-from gracy import BaseEndpoint, GracefulRetry, GracefulThrottle, Gracy, GracyConfig, LogEvent, LogLevel, ThrottleRule
+from gracy import (
+    BaseEndpoint,
+    GracefulRetry,
+    GracefulThrottle,
+    Gracy,
+    GracyConfig,
+    LogEvent,
+    LogLevel,
+    ThrottleRule,
+    graceful,
+)
 
 retry = GracefulRetry(
     delay=1,
@@ -20,6 +30,7 @@ retry = GracefulRetry(
 
 class PokeApiEndpoint(BaseEndpoint):
     GET_POKEMON = "/pokemon/{NAME}"
+    GET_GENERATION = "/generation/{ID}"
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
@@ -32,7 +43,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             ),
             retry=retry,
             parser={
-                "default": lambda r: r.json()["order"],
+                "default": lambda r: r.json(),
                 HTTPStatus.NOT_FOUND: None,
             },
             throttling=GracefulThrottle(
@@ -42,6 +53,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             ),
         )
 
+    @graceful(parser={"default": lambda r: r.json()["order"], HTTPStatus.NOT_FOUND: None})
     async def get_pokemon(self, name: str):
         val = cast(str | None, await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name}))
 
@@ -49,6 +61,9 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             print(f"{name} is #{val} in the pokedex")
         else:
             print(f"{name} was not found")
+
+    async def get_generation(self, gen: int):
+        return await self.get(PokeApiEndpoint.GET_GENERATION, {"ID": str(gen)})
 
 
 pokeapi = GracefulPokeAPI()
@@ -58,9 +73,10 @@ async def main():
     names = ["blaziken", "pikachu", "lugia", "bulbasaur", "charmander", "venusaur", "charizard", "blastoise", "bad"] * 2
     print(names, len(names))
     try:
-        t = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in names]
+        pokemon_reqs = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in names]
+        gen_reqs = [asyncio.create_task(pokeapi.get_generation(gen)) for gen in range(1, 4)]
 
-        await asyncio.gather(*t)
+        await asyncio.gather(*pokemon_reqs, *gen_reqs)
 
     finally:
         pokeapi._throttle_controller.debug_print()  # type: ignore

@@ -39,6 +39,9 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Logging](#logging)
   - [Custom Exceptions](#custom-exceptions)
 - [Reports](#reports)
+  - [Logger](#logger)
+  - [List](#list)
+  - [Table](#table)
 - [Advanced Usage](#advanced-usage)
   - [Customizing/Overriding configs per method](#customizingoverriding-configs-per-method)
   - [Customizing HTTPx client](#customizing-httpx-client)
@@ -416,18 +419,84 @@ class PokemonNotFound(GracyUserDefinedException):
 
 ## Reports
 
-Generate [Rich](https://github.com/Textualize/rich) reports and find out:
+### Logger
 
-- Your API success/fail rate
-- Average latency
-- Slowest endpoints
-- Times an endpoint got hit
-- Status group returned
+Recommended for production environments.
+
+Gracy reports a short summary using `logger.info`.
+
+```python
+pokeapi = GracefulPokeAPI()
+# do stuff with your API
+pokeapi.report_status("logger")
+
+# OUTPUT
+❯ Gracy tracked that 'https://pokeapi.co/api/v2/pokemon/{NAME}' was hit 1 time(s) with a success rate of 100.00%, avg latency of 0.45s, and a rate of 1.0 reqs/s.
+❯ Gracy tracked a total of 2 requests with a success rate of 100.00%, avg latency of 0.24s, and a rate of 1.0 reqs/s.
+```
+
+### List
+
+Uses `print` to generate a short list with all attributes:
+
+```python
+pokeapi = GracefulPokeAPI()
+# do stuff with your API
+pokeapi.report_status("list")
+
+# OUTPUT
+   ____
+  / ___|_ __ __ _  ___ _   _
+ | |  _| '__/ _` |/ __| | | |
+ | |_| | | | (_| | (__| |_| |
+  \____|_|  \__,_|\___|\__, |
+                       |___/  Requests Summary Report
+
+
+1. https://pokeapi.co/api/v2/pokemon/{NAME}
+    Total Reqs (#): 1
+       Success (%): 100.00%
+          Fail (%): 0.00%
+   Avg Latency (s): 0.39
+   Max Latency (s): 0.39
+         2xx Resps: 1
+         3xx Resps: 0
+         4xx Resps: 0
+         5xx Resps: 0
+      Avg Reqs/sec: 1.0 reqs/s
+
+
+2. https://pokeapi.co/api/v2/generation/{ID}/
+    Total Reqs (#): 1
+       Success (%): 100.00%
+          Fail (%): 0.00%
+   Avg Latency (s): 0.04
+   Max Latency (s): 0.04
+         2xx Resps: 1
+         3xx Resps: 0
+         4xx Resps: 0
+         5xx Resps: 0
+      Avg Reqs/sec: 1.0 reqs/s
+
+
+TOTAL
+    Total Reqs (#): 2
+       Success (%): 100.00%
+          Fail (%): 0.00%
+   Avg Latency (s): 0.21
+   Max Latency (s): 0.00
+         2xx Resps: 2
+         3xx Resps: 0
+         4xx Resps: 0
+         5xx Resps: 0
+      Avg Reqs/sec: 1.0 reqs/s
+```
+
+### Table
+
+It requires you to install [Rich](https://github.com/Textualize/rich).
 
 ```py
-class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-  ...
-
 pokeapi = GracefulPokeAPI()
 # do stuff with your API
 pokeapi.report_status("rich")
