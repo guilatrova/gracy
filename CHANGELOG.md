@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v1.4.0 (2023-02-05)
+### Feature
+* Implement the logger printer ([`40298f5`](https://github.com/guilatrova/gracy/commit/40298f5204a499730f93d2d79bbfed43dc754b0c))
+* Implement the list printer ([`9adee2d`](https://github.com/guilatrova/gracy/commit/9adee2d9ea78a569ab1541724b86fb73b06a4f2e))
+* Split rich as optional dep ([`ae169df`](https://github.com/guilatrova/gracy/commit/ae169df066871d4095b95c032e7ec06b85ab3249))
+
+### Documentation
+* Fix bad information ([`e1a6746`](https://github.com/guilatrova/gracy/commit/e1a67466a9403dc87719cde9079a0f2b0ed7b16f))
+* Fix bad syntax example ([`116b9bf`](https://github.com/guilatrova/gracy/commit/116b9bf0e1ed6fabdb9e5d365ade7d92ab8d3429))
+
 ## v1.3.0 (2023-02-01)
 ### Feature
 * Use locks for throttled requests ([`b2db6a7`](https://github.com/guilatrova/gracy/commit/b2db6a760b097b27142f17bf533d760e4e99605c))
