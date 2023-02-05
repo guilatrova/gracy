@@ -1,7 +1,10 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Final, Literal
 
-from ._models import GracyReport, GracyReportTotal
+from ._models import GracyAggregatedTotal, GracyReport
+
+logger = logging.getLogger("gracy")
 
 PRINTERS = Literal["rich", "list", "logger"]
 
@@ -106,7 +109,7 @@ class RichPrinter(BasePrinter):
         rows.append(report.total)
 
         for idx, request_row in enumerate(rows):
-            is_last_line_before_footer = idx < len(rows) - 1 and isinstance(rows[idx + 1], GracyReportTotal)
+            is_last_line_before_footer = idx < len(rows) - 1 and isinstance(rows[idx + 1], GracyAggregatedTotal)
 
             table.add_row(
                 request_row.uurl,
@@ -161,12 +164,35 @@ class ListPrinter(BasePrinter):
             )
 
 
+class LoggerPrinter(BasePrinter):
+    def print_report(self, report: GracyReport) -> None:
+        # the first entry should be the most frequent URL hit
+        first_entry, *_ = report.requests
+        total = report.total
+
+        logger.info(
+            f"Gracy tracked that '{first_entry.uurl}' was hit {_format_int(first_entry.total_requests)} time(s) "
+            f"with a success rate of {_format_value(first_entry.success_rate, suffix='%')}, "
+            f"avg latency of {_format_value(first_entry.avg_latency)}s, "
+            f"and a rate of {_format_value(first_entry.req_rate_per_sec, precision=1, suffix=' reqs/s')}."
+        )
+
+        logger.info(
+            f"Gracy tracked a total of {_format_int(total.total_requests)} requests "
+            f"with a success rate of {_format_value(total.success_rate, suffix='%')}, "
+            f"avg latency of {_format_value(total.avg_latency)}s, "
+            f"and a rate of {_format_value(total.req_rate_per_sec, precision=1, suffix=' reqs/s')}."
+        )
+
+
 def print_report(report: GracyReport, method: PRINTERS):
     printer: BasePrinter | None = None
     if method == "rich":
         printer = RichPrinter()
     elif method == "list":
         printer = ListPrinter()
+    elif method == "logger":
+        printer = LoggerPrinter()
 
     if printer:
         printer.print_report(report)

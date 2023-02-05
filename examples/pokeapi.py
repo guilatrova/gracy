@@ -72,7 +72,7 @@ async def main():
         # print("P2: result of get_pokemon:", p2)
 
     finally:
-        pokeapi.report_status("list")
+        pokeapi.report_status("logger")
 
 
 asyncio.run(main())

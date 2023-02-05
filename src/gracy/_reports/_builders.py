@@ -7,7 +7,7 @@ from typing import Final, List, Literal, Set
 import httpx
 
 from .._models import GracyRequestContext, ThrottleController
-from ._models import GracyReport, GracyRequestResult, ReportAggregatedRequest
+from ._models import GracyAggregatedRequest, GracyReport, GracyRequestResult
 
 ANY_REGEX: Final = r".+"
 
@@ -52,7 +52,7 @@ class ReportBuilder:
             # producing 1,000 requests which isn't true.
             rate = min(self._calculate_req_rate_for_url(uurl, throttle_controller), total_requests)
 
-            report_request = ReportAggregatedRequest(
+            report_request = GracyAggregatedRequest(
                 uurl,
                 total_requests,
                 # fmt:off

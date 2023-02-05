@@ -42,13 +42,13 @@ class ReportGenericAggregatedRequest:
 
 
 @dataclass
-class ReportAggregatedRequest(ReportGenericAggregatedRequest):
+class GracyAggregatedRequest(ReportGenericAggregatedRequest):
     avg_latency: float = 0
     req_rate_per_sec: float = 0
 
 
 @dataclass
-class GracyReportTotal(ReportGenericAggregatedRequest):
+class GracyAggregatedTotal(ReportGenericAggregatedRequest):
     all_avg_latency: list[float] = field(default_factory=list)
     all_req_rates: list[float] = field(default_factory=list)
 
@@ -62,7 +62,7 @@ class GracyReportTotal(ReportGenericAggregatedRequest):
         entries = self.all_req_rates or [0]
         return mean(entries)
 
-    def increment_result(self, row: ReportAggregatedRequest) -> None:
+    def increment_result(self, row: GracyAggregatedRequest) -> None:
         self.total_requests += row.total_requests
         self.resp_2xx += row.resp_2xx
         self.resp_3xx += row.resp_3xx
@@ -76,8 +76,8 @@ class GracyReportTotal(ReportGenericAggregatedRequest):
 
 class GracyReport:
     def __init__(self) -> None:
-        self.requests: list[ReportAggregatedRequest | GracyReportTotal] = []
-        self.total = GracyReportTotal(
+        self.requests: list[GracyAggregatedRequest | GracyAggregatedTotal] = []
+        self.total = GracyAggregatedTotal(
             "TOTAL",  # serves as title
             total_requests=0,
             resp_2xx=0,
@@ -87,6 +87,6 @@ class GracyReport:
             max_latency=0,
         )
 
-    def add_request(self, request: ReportAggregatedRequest) -> None:
+    def add_request(self, request: GracyAggregatedRequest) -> None:
         self.requests.append(request)
         self.total.increment_result(request)
