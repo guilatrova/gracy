@@ -29,6 +29,7 @@ from ._models import (
     GracyRequestContext,
     LogEvent,
     ThrottleController,
+    ThrottleRule,
     Unset,
 )
 from ._reports._builders import ReportBuilder
@@ -44,7 +45,7 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
         has_been_throttled = True
 
         while has_been_throttled:
-            wait_per_rule = [
+            wait_per_rule: list[tuple[ThrottleRule, float]] = [
                 (rule, wait_time)
                 for rule in throttling.rules
                 if (wait_time := rule.calculate_await_time(controller)) > 0.0
@@ -90,6 +91,7 @@ async def _gracefully_retry(
     retry = cast(GracefulRetry, request_context.active_config.retry)
     state = retry.create_state()
     config = request_context.active_config
+    result = None
 
     failing = True
     while failing:
@@ -111,10 +113,10 @@ async def _gracefully_retry(
         failing = not state.success
 
         if retry.log_after:
-            process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state)
+            process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, result)
 
     if state.cant_retry and retry.log_exhausted:
-        process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state)
+        process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, result)
 
     return state
 

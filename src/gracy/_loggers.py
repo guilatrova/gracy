@@ -24,9 +24,12 @@ class DefaultLogMessage(str, Enum):
     RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT})"
 
 
-def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, Any]):
+def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, Any], response: httpx.Response | None = None):
     if logevent.custom_message:
-        message = logevent.custom_message.format(**format_args)
+        if isinstance(logevent.custom_message, str):
+            message = logevent.custom_message.format(**format_args)
+        else:
+            message = logevent.custom_message(response)
     else:
         message = defaultmsg.format(**format_args)
 
@@ -69,6 +72,7 @@ def process_log_retry(
     defaultmsg: str,
     request_context: GracyRequestContext,
     state: GracefulRetryState,
+    response: httpx.Response | None = None,
 ):
     format_args = dict(
         **_extract_base_format_args(request_context),
@@ -77,7 +81,7 @@ def process_log_retry(
         MAX_ATTEMPT=state.max_attempts,
     )
 
-    _do_log(logevent, defaultmsg, format_args)
+    _do_log(logevent, defaultmsg, format_args, response)
 
 
 def process_log_after_request(
@@ -92,4 +96,4 @@ def process_log_after_request(
         ELAPSED=response.elapsed,
     )
 
-    _do_log(logevent, defaultmsg, format_args)
+    _do_log(logevent, defaultmsg, format_args, response)

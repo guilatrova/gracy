@@ -31,7 +31,7 @@ class LogLevel(IntEnum):
 @dataclass
 class LogEvent:
     level: LogLevel
-    custom_message: str | None = None
+    custom_message: Callable[[httpx.Response | None], str] | str | None = None
     """You can add some placeholders to be injected in the log.
 
     e.g.
