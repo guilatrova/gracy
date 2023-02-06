@@ -195,7 +195,7 @@ You can also narrow it down to handle specific status codes.
 
 ```py
 class Config:
-  GracyConfig(
+  SETTINGS = GracyConfig(
     ...,
     allowed_status_code=HTTPStatusCode.NOT_FOUND,
     parser={
