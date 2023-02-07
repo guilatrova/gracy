@@ -23,3 +23,4 @@
   - [x] Methods without `_`
   - [ ] Contributing
 - [ ] Allow to specify status ranges
+- [ ] Custom exception for parsing errors
