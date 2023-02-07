@@ -34,8 +34,6 @@ packages = [
 [tool.poetry.urls]
 "Changelog" = "https://github.com/guilatrova/gracy/blob/main/CHANGELOG.md"
 
-[tool.poetry.group.dev.dependencies]
-python-semantic-release = "^7.33.0"
 
 [tool.semantic_release]
 version_variable = [
@@ -54,17 +52,19 @@ python = "^3.10"
 httpx = "^0.23.3"
 rich = { version = "*", optional = true }
 
-[tool.poetry.extras]
-rich = ["rich"]
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+python-semantic-release = "^7.33.0"
+mypy = "^1.0.0"
 black = "^23.1a1"
 flake8 = "^6.0.0"
-mypy = "^0.991"
 isort = "^5.12.0"
 tryceratops = "^1.1.0"
 pre-commit = "^3.0.1"
 rich = "^13.2.0"
+
+[tool.poetry.extras]
+rich = ["rich"]
 
 [tool.black]
 line-length = 120
