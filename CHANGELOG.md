@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v1.6.0 (2023-02-07)
+### Feature
+* Handle parsing failures ([`ac48952`](https://github.com/guilatrova/gracy/commit/ac489522a98412d65b85ac3317dbe6083d8819ad))
+
+### Documentation
+* Fix syntax ([`9996b39`](https://github.com/guilatrova/gracy/commit/9996b39f505d3221f2e63d78bd311e90f2608349))
+
 ## v1.5.0 (2023-02-05)
 ### Feature
 * Protect lambda custom msg from unknown keys ([`d6da853`](https://github.com/guilatrova/gracy/commit/d6da8536d1b561fd606d2911749d99309aa92460))
