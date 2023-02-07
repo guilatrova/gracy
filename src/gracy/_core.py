@@ -34,7 +34,7 @@ from ._models import (
 )
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
-from .exceptions import NonOkResponse, UnexpectedResponse
+from .exceptions import GracyParseFailed, NonOkResponse, UnexpectedResponse
 
 
 async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
@@ -148,6 +148,27 @@ def _check_allowed(active_config: GracyConfig, result: httpx.Response) -> bool:
     return successful
 
 
+def _maybe_parse_result(active_config: GracyConfig, request_context: GracyRequestContext, result: httpx.Response):
+    if active_config.parser and not isinstance(active_config.parser, Unset):
+        default_fallback = active_config.parser.get("default", UNSET_VALUE)
+        parse_result = active_config.parser.get(HTTPStatus(result.status_code), default_fallback)
+
+        if not isinstance(parse_result, Unset):
+            if isinstance(parse_result, type) and issubclass(parse_result, Exception):
+                raise parse_result(request_context, result)
+
+            elif callable(parse_result):
+                try:
+                    return parse_result(result)
+                except Exception as ex:
+                    raise GracyParseFailed(result) from ex
+
+            else:
+                return parse_result
+
+    return result
+
+
 async def _gracify(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
@@ -216,19 +237,9 @@ async def _gracify(
             if must_break:
                 raise NonOkResponse(str(result.url), result)
 
-    if active_config.parser and not isinstance(active_config.parser, Unset):
-        default_fallback = active_config.parser.get("default", UNSET_VALUE)
-        parse_result = active_config.parser.get(HTTPStatus(result.status_code), default_fallback)
+    final_result = _maybe_parse_result(active_config, request_context, result)
 
-        if not isinstance(parse_result, Unset):
-            if isinstance(parse_result, type) and issubclass(parse_result, Exception):
-                raise parse_result(request_context, result)
-            elif callable(parse_result):
-                return parse_result(result)
-            else:
-                return parse_result
-
-    return result
+    return final_result
 
 
 class Gracy(Generic[Endpoint]):

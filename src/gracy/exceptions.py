@@ -10,6 +10,19 @@ class GracyException(Exception):
     pass
 
 
+class GracyParseFailed(Exception):
+    def __init__(self, response: httpx.Response) -> None:
+        msg = (
+            f"Unable to parse result from [{response.request.method}] {response.url} ({response.status_code}). "
+            f"Response content is: {response.text}"
+        )
+
+        self.url = response.request.url
+        self.response = response
+
+        super().__init__(msg)
+
+
 class BadResponse(GracyException):
     def __init__(
         self,
