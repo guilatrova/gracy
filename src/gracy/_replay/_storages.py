@@ -9,6 +9,8 @@ from pathlib import Path
 
 import httpx
 
+from gracy.exceptions import GracyReplayRequestNotFound
+
 from . import _sqlite_schema as schema
 from ._models import GracyRecording
 
@@ -97,6 +99,9 @@ class SQLiteReplayStorage(GracyReplayStorage):
             cur.execute(schema.FIND_REQUEST_WITHOUT_REQ_BODY, params)
 
         fetch_res = cur.fetchone()
+        if fetch_res is None:
+            raise GracyReplayRequestNotFound(request)
+
         serialized_response: bytes = fetch_res[0]
         response: httpx.Response = pickle.loads(serialized_response)
 

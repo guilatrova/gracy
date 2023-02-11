@@ -94,3 +94,11 @@ class GracyUserDefinedException(GracyException):
     @property
     def response(self):
         return self._response
+
+
+class GracyReplayRequestNotFound(GracyException):
+    def __init__(self, request: httpx.Request) -> None:
+        self.request = request
+
+        msg = f"Gracy was unable to replay {request.method} {request.url} - did you forget to record it?"
+        super().__init__(msg)
