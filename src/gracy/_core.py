@@ -373,13 +373,11 @@ class Gracy(Generic[Endpoint]):
     ):
         return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
 
-    @classmethod
-    def get_report(cls):
-        return cls._reporter.build(cls._throttle_controller)
+    def get_report(self):
+        return self._reporter.build(self._throttle_controller, self._replay)
 
-    @classmethod
-    def report_status(cls, printer: PRINTERS):
-        report = cls.get_report()
+    def report_status(self, printer: PRINTERS):
+        report = self.get_report()
         print_report(report, printer)
 
 

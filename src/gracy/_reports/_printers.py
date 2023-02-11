@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Final, Literal
 
+from .._replay._storages import GracyReplay
 from ._models import GracyAggregatedTotal, GracyReport
 
 logger = logging.getLogger("gracy")
@@ -21,6 +22,16 @@ class Titles:
     resp_4xx: Final = "4xx Resps"
     resp_5xx: Final = "5xx Resps"
     req_rate_per_sec: Final = "Avg Reqs/sec"
+
+
+def _get_replay_warn(replay_settings: GracyReplay | None) -> str:
+    if replay_settings:
+        if replay_settings.mode == "record":
+            return "All Requests Recorded"
+        else:
+            return "REPLAY MODE"
+
+    return ""
 
 
 def _format_value(
@@ -68,13 +79,13 @@ def _format_int(
     return cur
 
 
-def _print_header():
+def _print_header(report: GracyReport):
     print("   ____")
     print("  / ___|_ __ __ _  ___ _   _")
     print(" | |  _| '__/ _` |/ __| | | |")
     print(" | |_| | | | (_| | (__| |_| |")
     print("  \\____|_|  \\__,_|\\___|\\__, |")
-    print("                       |___/  Requests Summary Report")
+    print(f"                       |___/  Requests Summary Report {_get_replay_warn(report.replay_settings)}")
 
 
 class BasePrinter(ABC):
@@ -90,7 +101,8 @@ class RichPrinter(BasePrinter):
         from rich.table import Table
 
         console = Console()
-        table = Table(title="Gracy Requests Summary")
+        title_warn = f"[yellow]{_get_replay_warn(report.replay_settings)}[/yellow]" if report.replay_settings else ""
+        table = Table(title=f"Gracy Requests Summary {title_warn}")
 
         table.add_column(Titles.url, overflow="fold")
         table.add_column(Titles.total_requests, justify="right")
@@ -131,7 +143,7 @@ class RichPrinter(BasePrinter):
 
 class ListPrinter(BasePrinter):
     def print_report(self, report: GracyReport) -> None:
-        _print_header()
+        _print_header(report)
 
         entries = report.requests
         entries.append(report.total)
@@ -183,6 +195,12 @@ class LoggerPrinter(BasePrinter):
             f"avg latency of {_format_value(total.avg_latency)}s, "
             f"and a rate of {_format_value(total.req_rate_per_sec, precision=1, suffix=' reqs/s')}."
         )
+
+        if replay := report.replay_settings:
+            if replay.mode == "record":
+                logger.info("All requests were recorded with GracyReplay")
+            else:
+                logger.warning("All requests were REPLAYED (no HTTP interaction) with GracyReplay")
 
 
 def print_report(report: GracyReport, method: PRINTERS):

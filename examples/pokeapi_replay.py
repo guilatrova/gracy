@@ -83,6 +83,10 @@ async def main(replay_mode: GracyReplay):
 
     finally:
         pokeapi.report_status("rich")
+        print("-" * 100)
+        pokeapi.report_status("list")
+        print("-" * 100)
+        pokeapi.report_status("logger")
 
 
 asyncio.run(main(replay_mode))
