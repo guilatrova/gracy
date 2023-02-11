@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.6.1 (2023-02-11)
+### Fix
+* Gracy supports Python >=3.8 ([`a3623a9`](https://github.com/guilatrova/gracy/commit/a3623a98a7459dcba3dc78ca11917be5c6c5a82d))
+
 ## v1.6.0 (2023-02-07)
 ### Feature
 * Handle parsing failures ([`ac48952`](https://github.com/guilatrova/gracy/commit/ac489522a98412d65b85ac3317dbe6083d8819ad))
