@@ -7,7 +7,7 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
-from gracy._replay.wrappers import record_replay_result
+from gracy._replay.wrappers import read_replay, record_replay_result
 
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
@@ -289,8 +289,11 @@ class Gracy(Generic[Endpoint]):
         )
 
         httpx_request_func = self._client.request
-        if self._replay and self._replay.mode == "record":
-            httpx_request_func = record_replay_result(self._replay.strategy, httpx_request_func)
+        if self._replay:
+            if self._replay.mode == "record":
+                httpx_request_func = record_replay_result(self._replay.strategy, httpx_request_func)
+            else:
+                httpx_request_func = read_replay(self._replay.strategy, self._client, httpx_request_func)
 
         graceful_request = _gracify(
             Gracy._reporter,

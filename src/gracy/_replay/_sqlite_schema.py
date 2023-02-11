@@ -27,3 +27,19 @@ INSERT_RECORDING_BASE: Final = f"""
 INSERT OR REPLACE INTO {TABLE_NAME}
 VALUES (?, ?, ?, ?, ?)
 """
+
+FIND_REQUEST_WITH_REQ_BODY: Final = f"""
+SELECT response FROM {TABLE_NAME}
+WHERE
+url = ? AND
+method = ? AND
+request_body = ?
+"""
+
+FIND_REQUEST_WITHOUT_REQ_BODY: Final = f"""
+SELECT response FROM {TABLE_NAME}
+WHERE
+url = ? AND
+method = ? AND
+request_body IS NULL
+"""

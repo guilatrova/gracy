@@ -27,7 +27,8 @@ retry = GracefulRetry(
     behavior="pass",
 )
 
-record_replay = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))
+record_mode = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))
+replay_mode = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
 
 
 class PokemonNotFound(GracyUserDefinedException):
@@ -70,10 +71,8 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         return await self.get(PokeApiEndpoint.GET_GENERATION, {"ID": str(gen)})
 
 
-pokeapi = GracefulPokeAPI(record_replay)
-
-
-async def main():
+async def main(replay_mode: GracyReplay):
+    pokeapi = GracefulPokeAPI(replay_mode)
     poke_names = {"pikachu", "elekid", "charmander", "blaziken", "hitmonchan"}
 
     try:
@@ -86,4 +85,4 @@ async def main():
         pokeapi.report_status("rich")
 
 
-asyncio.run(main())
+asyncio.run(main(replay_mode))

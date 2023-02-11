@@ -24,7 +24,7 @@ class GracyReplayStorage(ABC):
         pass
 
     @abstractmethod
-    async def load(self, url: str, request_body: t.Any) -> GracyRecording:
+    async def load(self, url: str, method: str, request_body: t.Any) -> httpx.Response:
         pass
 
     def post(self) -> None:
@@ -87,5 +87,18 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         return recording
 
-    async def load(self, url: str, request_body: t.Any) -> GracyRecording:
-        raise NotImplementedError()
+    async def load(self, url: str, method: str, request_body: t.Any) -> httpx.Response:
+        cur = self._con.cursor()
+        params: t.Iterable[str]
+        if bool(request_body):
+            params = (url, method, request_body)
+            cur.execute(schema.FIND_REQUEST_WITH_REQ_BODY, params)
+        else:
+            params = (url, method)
+            cur.execute(schema.FIND_REQUEST_WITHOUT_REQ_BODY, params)
+
+        fetch_res = cur.fetchone()
+        serialized_response: bytes = fetch_res[0]
+        response: httpx.Response = pickle.loads(serialized_response)
+
+        return response
