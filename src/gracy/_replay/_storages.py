@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 
 class GracyReplayStorage(ABC):
     def prepare(self) -> None:
+        """(Optional) Executed upon API instance creation."""
         pass
 
     @abstractmethod
-    async def record(self, response: httpx.Response) -> GracyRecording:
+    async def record(self, response: httpx.Response) -> None:
+        """Logic to store the response object. Note the httpx.Response has request data"""
         pass
 
     @abstractmethod
-    async def load(self, url: str, method: str, request_body: t.Any) -> httpx.Response:
-        pass
-
-    def post(self) -> None:
+    async def load(self, request: httpx.Request) -> httpx.Response:
+        """Logic to load a response object based on the request"""
         pass
 
 
@@ -72,7 +72,7 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         self._con = sqlite3.connect(str(self.db_file))
 
-    async def record(self, response: httpx.Response) -> GracyRecording:
+    async def record(self, response: httpx.Response) -> None:
         response_serialized = pickle.dumps(response)
 
         recording = GracyRecording(
@@ -85,16 +85,15 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         self._insert_into_db(recording)
 
-        return recording
-
-    async def load(self, url: str, method: str, request_body: t.Any) -> httpx.Response:
+    async def load(self, request: httpx.Request) -> httpx.Response:
         cur = self._con.cursor()
-        params: t.Iterable[str]
-        if bool(request_body):
-            params = (url, method, request_body)
+        params: t.Iterable[str | bytes]
+
+        if bool(request.content):
+            params = (str(request.url), request.method, request.content)
             cur.execute(schema.FIND_REQUEST_WITH_REQ_BODY, params)
         else:
-            params = (url, method)
+            params = (str(request.url), request.method)
             cur.execute(schema.FIND_REQUEST_WITHOUT_REQ_BODY, params)
 
         fetch_res = cur.fetchone()

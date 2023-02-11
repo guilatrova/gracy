@@ -24,11 +24,7 @@ def read_replay(strategy: GracyReplayStorage, client: httpx.AsyncClient, httpx_r
     async def _wrapper(*args: t.Any, **kwargs: t.Any):
         request = client.build_request(*args, **kwargs)
 
-        stored_response = await strategy.load(
-            str(request.url),
-            request.method,
-            request.content,
-        )
+        stored_response = await strategy.load(request)
 
         return stored_response
 

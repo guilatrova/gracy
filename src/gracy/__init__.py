@@ -14,6 +14,7 @@ from ._models import (
     LogLevel,
     ThrottleRule,
 )
+from ._replay._models import GracyRecording
 from ._replay._storages import GracyReplay, GracyReplayStorage, SQLiteReplayStorage
 from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, GracyReport
 
@@ -37,6 +38,7 @@ __all__ = [
     "GracyConfig",
     "DEFAULT_CONFIG",
     # Replay
+    "GracyRecording",
     "GracyReplay",
     "GracyReplayStorage",
     "SQLiteReplayStorage",
