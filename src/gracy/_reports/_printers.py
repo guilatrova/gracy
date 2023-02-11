@@ -179,6 +179,10 @@ class ListPrinter(BasePrinter):
 class LoggerPrinter(BasePrinter):
     def print_report(self, report: GracyReport) -> None:
         # the first entry should be the most frequent URL hit
+        if not report.requests:
+            logger.warning("No requests were triggered")
+            return
+
         first_entry, *_ = report.requests
         total = report.total
 
