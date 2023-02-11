@@ -23,4 +23,10 @@
   - [x] Methods without `_`
   - [ ] Contributing
 - [ ] Allow to specify status ranges
-- [ ] Custom exception for parsing errors
+- [x] Custom exception for parsing errors
+- [ ] Replay/Record payloads
+  - [ ] Define custom storage
+    - [ ] SQLite by default
+    - [ ] File System
+    - [ ] Mongo
+    - [ ] Custom Storage
