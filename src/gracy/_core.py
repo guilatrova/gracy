@@ -7,7 +7,7 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
-from gracy._replay.wrappers import read_replay, record_replay_result
+from gracy._replay._wrappers import read_replay, record_replay_result
 
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
