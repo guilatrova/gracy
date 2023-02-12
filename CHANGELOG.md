@@ -2,6 +2,20 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.0 (2023-02-12)
+### Feature
+* Handle missing replays ([`4395b83`](https://github.com/guilatrova/gracy/commit/4395b832cd9f75a88d696d5cba2eb7bd9f7ce61d))
+* Report show replay mode ([`b488975`](https://github.com/guilatrova/gracy/commit/b4889755c75c3f3a14507b27b3d57ba243b5c828))
+* Implement replay load w/ sqlite ([`4fa4cf6`](https://github.com/guilatrova/gracy/commit/4fa4cf6983ed64d82560d47c813bfeb4cfa5ed66))
+* Implement replay (store only) w/ sqlite ([`797c2b9`](https://github.com/guilatrova/gracy/commit/797c2b95334f5ebfd9b17555278b1be44b7eeef2))
+
+### Fix
+* Handle 0 requests for logger printer ([`09e471c`](https://github.com/guilatrova/gracy/commit/09e471c791e34c9b30427c6903bb19c8c25338aa))
+
+### Documentation
+* Add details about custom replay storage ([`f03407f`](https://github.com/guilatrova/gracy/commit/f03407fbd66a40850d679541b0616fc7847c8b5c))
+* Add brief explanation about replay ([`edd1a24`](https://github.com/guilatrova/gracy/commit/edd1a24fb255d8ed23288f277769b923e6af218b))
+
 ## v1.6.1 (2023-02-11)
 ### Fix
 * Gracy supports Python >=3.8 ([`a3623a9`](https://github.com/guilatrova/gracy/commit/a3623a98a7459dcba3dc78ca11917be5c6c5a82d))
