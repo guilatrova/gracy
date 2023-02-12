@@ -7,6 +7,8 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
+from gracy._replay._wrappers import read_replay, record_replay_result
+
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
     DefaultLogMessage,
@@ -32,6 +34,7 @@ from ._models import (
     ThrottleRule,
     Unset,
 )
+from ._replay._storages import GracyReplay
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
 from .exceptions import GracyParseFailed, NonOkResponse, UnexpectedResponse
@@ -255,11 +258,15 @@ class Gracy(Generic[Endpoint]):
         REQUEST_TIMEOUT: float | None = None
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, replay: GracyReplay | None = None, **kwargs: Any) -> None:
         self._base_config: GracyConfig = getattr(self.Config, "SETTINGS", DEFAULT_CONFIG)
-        self._client = self._create_client(*args, **kwargs)
+        self._client = self._create_client(**kwargs)
+        self._replay = replay
 
-    def _create_client(self, *args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        if replay:
+            replay.strategy.prepare()
+
+    def _create_client(self, **kwargs: Any) -> httpx.AsyncClient:
         base_url = getattr(self.Config, "BASE_URL", "")
         request_timeout = getattr(self.Config, "REQUEST_TIMEOUT", None)
         return httpx.AsyncClient(base_url=base_url, timeout=request_timeout)
@@ -281,11 +288,18 @@ class Gracy(Generic[Endpoint]):
             method, str(self._client.base_url), endpoint, endpoint_args, active_config
         )
 
+        httpx_request_func = self._client.request
+        if self._replay:
+            if self._replay.mode == "record":
+                httpx_request_func = record_replay_result(self._replay.strategy, httpx_request_func)
+            else:
+                httpx_request_func = read_replay(self._replay.strategy, self._client, httpx_request_func)
+
         graceful_request = _gracify(
             Gracy._reporter,
             Gracy._throttle_controller,
             GracefulRequest(
-                self._client.request,
+                httpx_request_func,
                 request_context.method,
                 request_context.endpoint,
                 *args,
@@ -359,13 +373,11 @@ class Gracy(Generic[Endpoint]):
     ):
         return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
 
-    @classmethod
-    def get_report(cls):
-        return cls._reporter.build(cls._throttle_controller)
+    def get_report(self):
+        return self._reporter.build(self._throttle_controller, self._replay)
 
-    @classmethod
-    def report_status(cls, printer: PRINTERS):
-        report = cls.get_report()
+    def report_status(self, printer: PRINTERS):
+        report = self.get_report()
         print_report(report, printer)
 
 

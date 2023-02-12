@@ -7,6 +7,7 @@ from typing import Final, List, Literal, Set
 import httpx
 
 from .._models import GracyRequestContext, ThrottleController
+from .._replay._storages import GracyReplay
 from ._models import GracyAggregatedRequest, GracyReport, GracyRequestResult
 
 ANY_REGEX: Final = r".+"
@@ -27,7 +28,7 @@ class ReportBuilder:
         rate = throttle_controller.calculate_requests_rate(pattern)
         return rate
 
-    def build(self, throttle_controller: ThrottleController) -> GracyReport:
+    def build(self, throttle_controller: ThrottleController, replay_settings: GracyReplay | None) -> GracyReport:
         requests_by_uurl = defaultdict[str, Set[httpx.Response]](set)
         requests_sum: REQUEST_SUM_PER_STATUS_TYPE = defaultdict(lambda: defaultdict(int))
 
@@ -38,7 +39,7 @@ class ReportBuilder:
 
         requests_sum = dict(sorted(requests_sum.items(), key=lambda item: item[1]["total"], reverse=True))
 
-        report = GracyReport()
+        report = GracyReport(replay_settings)
 
         for uurl, data in requests_sum.items():
             all_requests = requests_by_uurl[uurl]

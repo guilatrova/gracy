@@ -39,12 +39,16 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Logging](#logging)
   - [Custom Exceptions](#custom-exceptions)
 - [Reports](#reports)
+- [Replay requests](#replay-requests)
+  - [Recording](#recording)
+  - [Replay](#replay)
   - [Logger](#logger)
   - [List](#list)
   - [Table](#table)
 - [Advanced Usage](#advanced-usage)
   - [Customizing/Overriding configs per method](#customizingoverriding-configs-per-method)
   - [Customizing HTTPx client](#customizing-httpx-client)
+  - [Creating a custom Replay data source](#creating-a-custom-replay-data-source)
 - [📚 Extra Resources](#-extra-resources)
 - [Change log](#change-log)
 - [License](#license)
@@ -115,6 +119,7 @@ asyncio.run(main())
 
 - [PokeAPI with retries, parsers, logs](./examples/pokeapi.py)
 - [PokeAPI with throttling](./examples/pokeapi_throttle.py)
+- [PokeAPI with replay](./examples/pokeapi_replay.py)
 
 ## Settings
 
@@ -436,6 +441,44 @@ class PokemonNotFound(GracyUserDefinedException):
 
 ## Reports
 
+## Replay requests
+
+Gracy allows you to replay requests and responses from previous interactions.
+
+This is powerful because it allows you to test APIs without latency or consuming your rate limit. It also allows writing unit tests that relies on third-party APIs doable.
+
+It works in two steps:
+
+| **Step**     | **Description**                                                                | **Hits the API?** |
+| ------------ | ------------------------------------------------------------------------------ | ----------------- |
+| 1. Recording | Stores all requests/responses to be later replayed                             | **Yes**           |
+| 2. Replay    | Returns all previously generated responses based on your request as a "replay" | No                |
+
+### Recording
+
+The effort to record requests/responses is ZERO. You just need to pass a recording config to your Graceful API:
+
+```py
+record_mode = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))
+pokeapi = GracefulPokeAPI(record_mode)
+```
+
+**Every request** will be recorded to the defined data source.
+
+### Replay
+
+Once you have recorded all your requests you can enable the replay mode:
+
+```py
+replay_mode = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
+pokeapi = GracefulPokeAPI(replay_mode)
+```
+
+**Every request** will be routed to the defined data source resulting in faster responses.
+
+**Note that parsers, retries, throttling, and similar configs will work as usual**.
+
+
 ### Logger
 
 Recommended for production environments.
@@ -523,6 +566,7 @@ Here's an example of how it looks:
 
 ![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-example.png)
 
+
 ## Advanced Usage
 
 ### Customizing/Overriding configs per method
@@ -586,6 +630,34 @@ class YourAPIClient(Gracy[str]):
         client = super()._create_client()
         client.headers = {"Authorization": f"token {self._token}"}  # type: ignore
         return client
+```
+
+### Creating a custom Replay data source
+
+Gracy was built with extensibility in mind.
+
+You can create your own storage to store/load anywhere (e.g. Mongo Database), here's an example:
+
+```py
+import httpx
+from gracy import GracyReplayStorage, GracyRecording
+
+class MyCustomStorage(GracyReplayStorage):
+  def prepare(self) -> None: # (Optional) Executed upon API instance creation.
+    ...
+
+  async def record(self, response: httpx.Response) -> None:
+    ... # REQUIRED. Your logic to store the response object. Note the httpx.Response has request data.
+
+  async def load(self, request: httpx.Request) -> httpx.Response:
+    ... # REQUIRED. Your logic to load a response object based on the request.
+
+
+# Usage
+record_mode = GracyReplay("record", MyCustomStorage())
+replay_mode = GracyReplay("replay", MyCustomStorage())
+
+pokeapi = GracefulPokeAPI(record_mode)
 ```
 
 ## 📚 Extra Resources

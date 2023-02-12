@@ -3,6 +3,8 @@ from statistics import mean
 
 import httpx
 
+from .._replay._storages import GracyReplay
+
 
 @dataclass(frozen=True)
 class GracyRequestResult:
@@ -75,7 +77,7 @@ class GracyAggregatedTotal(ReportGenericAggregatedRequest):
 
 
 class GracyReport:
-    def __init__(self) -> None:
+    def __init__(self, replay_settings: GracyReplay | None) -> None:
         self.requests: list[GracyAggregatedRequest | GracyAggregatedTotal] = []
         self.total = GracyAggregatedTotal(
             "TOTAL",  # serves as title
@@ -86,6 +88,7 @@ class GracyReport:
             resp_5xx=0,
             max_latency=0,
         )
+        self.replay_settings = replay_settings
 
     def add_request(self, request: GracyAggregatedRequest) -> None:
         self.requests.append(request)

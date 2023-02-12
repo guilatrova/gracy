@@ -24,9 +24,7 @@
   - [ ] Contributing
 - [ ] Allow to specify status ranges
 - [x] Custom exception for parsing errors
-- [ ] Replay/Record payloads
-  - [ ] Define custom storage
-    - [ ] SQLite by default
-    - [ ] File System
-    - [ ] Mongo
-    - [ ] Custom Storage
+- [x] Replay/Record payloads
+  - [x] SQLite
+  - [ ] Mongo
+  - [ ] Custom Storage
