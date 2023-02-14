@@ -15,7 +15,9 @@ from ._models import (
     ThrottleRule,
 )
 from ._replay._models import GracyRecording
-from ._replay._storages import GracyReplay, GracyReplayStorage, SQLiteReplayStorage
+from ._replay._storages._base import GracyReplay, GracyReplayStorage
+from ._replay._storages._pymongo_storage import MongoReplayStorage
+from ._replay._storages._sqlite import SQLiteReplayStorage
 from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, GracyReport
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -40,6 +42,7 @@ __all__ = [
     # Replay
     "GracyRecording",
     "GracyReplay",
+    "MongoReplayStorage",
     "GracyReplayStorage",
     "SQLiteReplayStorage",
     # Reports

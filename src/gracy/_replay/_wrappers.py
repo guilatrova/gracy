@@ -3,7 +3,7 @@ from functools import wraps
 
 import httpx
 
-from ._storages import GracyReplayStorage
+from ._storages._base import GracyReplayStorage
 
 httpx_func_type = t.Callable[..., t.Awaitable[httpx.Response]]
 

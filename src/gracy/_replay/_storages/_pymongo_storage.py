@@ -8,7 +8,7 @@ import httpx
 
 from gracy.exceptions import GracyReplayRequestNotFound
 
-from .._storages import GracyReplayStorage
+from ._base import GracyReplayStorage
 
 try:
     import pymongo

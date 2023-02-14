@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Final, Literal
 
-from .._replay._storages import GracyReplay
+from .._replay._storages._base import GracyReplay
 from ._models import GracyAggregatedTotal, GracyReport
 
 logger = logging.getLogger("gracy")

@@ -2,8 +2,6 @@ import logging
 import pickle
 import sqlite3
 import typing as t
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -11,36 +9,11 @@ import httpx
 
 from gracy.exceptions import GracyReplayRequestNotFound
 
-from . import _sqlite_schema as schema
-from ._models import GracyRecording
+from .. import _sqlite_schema as schema
+from .._models import GracyRecording
+from ._base import GracyReplayStorage
 
 logger = logging.getLogger(__name__)
-
-
-class GracyReplayStorage(ABC):
-    def prepare(self) -> None:
-        """(Optional) Executed upon API instance creation."""
-        pass
-
-    @abstractmethod
-    async def record(self, response: httpx.Response) -> None:
-        """Logic to store the response object. Note the httpx.Response has request data"""
-        pass
-
-    @abstractmethod
-    async def load(self, request: httpx.Request) -> httpx.Response:
-        """Logic to load a response object based on the request"""
-        pass
-
-    def flush(self) -> None:
-        """(Optional) Executed during close (preferably once all requests were made)."""
-        pass
-
-
-@dataclass
-class GracyReplay:
-    mode: t.Literal["record", "replay"]
-    strategy: GracyReplayStorage
 
 
 class SQLiteReplayStorage(GracyReplayStorage):

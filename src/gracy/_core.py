@@ -34,7 +34,7 @@ from ._models import (
     ThrottleRule,
     Unset,
 )
-from ._replay._storages import GracyReplay
+from ._replay._storages._base import GracyReplay
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
 from .exceptions import GracyParseFailed, NonOkResponse, UnexpectedResponse
