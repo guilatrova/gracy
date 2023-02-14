@@ -90,8 +90,9 @@ class SQLiteReplayStorage(GracyReplayStorage):
         if fetch_res is None:
             raise GracyReplayRequestNotFound(request)
 
-        # if discard_before and doc["updated_at"] < discard_before:
-        #     raise GracyReplayRequestNotFound(request)
+        updated_at: datetime = fetch_res[1]
+        if discard_before and updated_at < discard_before:
+            raise GracyReplayRequestNotFound(request)
 
         serialized_response: bytes = fetch_res[0]
         response: httpx.Response = pickle.loads(serialized_response)
