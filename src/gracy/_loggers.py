@@ -25,8 +25,8 @@ class DefaultLogMessage(str, Enum):
     RETRY_BEFORE = (
         "GracefulRetry: {URL} will wait {RETRY_DELAY}s before next attempt ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
     )
-    RETRY_AFTER = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT})"
-    RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT})"
+    RETRY_AFTER = "GracefulRetry: {URL} attempt ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
+    RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT}"
 
 
 def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, Any], response: httpx.Response | None = None):
