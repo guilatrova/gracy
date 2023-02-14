@@ -2,6 +2,7 @@ import logging
 import typing as t
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 
 import httpx
 
@@ -19,7 +20,7 @@ class GracyReplayStorage(ABC):
         pass
 
     @abstractmethod
-    async def load(self, request: httpx.Request) -> httpx.Response:
+    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
         """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
         pass
 
@@ -30,5 +31,17 @@ class GracyReplayStorage(ABC):
 
 @dataclass
 class GracyReplay:
-    mode: t.Literal["record", "replay"]
-    strategy: GracyReplayStorage
+    mode: t.Literal["record", "replay", "smart-replay"]
+    """
+    `record`: Will record all requests made to the API
+    `replay`: Will read all responses from the defined storage
+    `smart-replay`: Will read all responses (like `replay`), but if it's missing it will `record` for future replays
+    """
+
+    storage: GracyReplayStorage
+    """
+    Where to read/write requests and responses
+    """
+
+    discard_replays_older_than: datetime | None = None
+    """If set, Gracy will treat all replays older than defined value as not found"""

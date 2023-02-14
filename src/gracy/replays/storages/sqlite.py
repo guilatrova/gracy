@@ -75,7 +75,7 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         self._insert_into_db(recording)
 
-    async def load(self, request: httpx.Request) -> httpx.Response:
+    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
         cur = self._con.cursor()
         params: t.Iterable[str | bytes]
 
@@ -89,6 +89,9 @@ class SQLiteReplayStorage(GracyReplayStorage):
         fetch_res = cur.fetchone()
         if fetch_res is None:
             raise GracyReplayRequestNotFound(request)
+
+        # if discard_before and doc["updated_at"] < discard_before:
+        #     raise GracyReplayRequestNotFound(request)
 
         serialized_response: bytes = fetch_res[0]
         response: httpx.Response = pickle.loads(serialized_response)

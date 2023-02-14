@@ -99,11 +99,14 @@ class MongoReplayStorage(GracyReplayStorage):
 
         self._create_or_batch(doc)
 
-    async def load(self, request: httpx.Request) -> httpx.Response:
+    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
         filter = get_unique_keys_from_request(request)
         doc = self._collection.find_one(filter)
 
         if doc is None:
+            raise GracyReplayRequestNotFound(request)
+
+        if discard_before and doc["updated_at"] < discard_before:
             raise GracyReplayRequestNotFound(request)
 
         serialized_response = doc["response"]

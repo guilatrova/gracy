@@ -7,7 +7,7 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
-from gracy.replays._wrappers import readreplays, recordreplays_result
+from gracy.replays._wrappers import record_mode, replay_mode, smart_replay_mode
 
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
@@ -264,7 +264,7 @@ class Gracy(Generic[Endpoint]):
         self.replays = replay
 
         if replay:
-            replay.strategy.prepare()
+            replay.storage.prepare()
 
     def _create_client(self, **kwargs: Any) -> httpx.AsyncClient:
         base_url = getattr(self.Config, "BASE_URL", "")
@@ -289,11 +289,13 @@ class Gracy(Generic[Endpoint]):
         )
 
         httpx_request_func = self._client.request
-        if self.replays:
-            if self.replays.mode == "record":
-                httpx_request_func = recordreplays_result(self.replays.strategy, httpx_request_func)
+        if replays := self.replays:
+            if replays.mode == "record":
+                httpx_request_func = record_mode(replays, httpx_request_func)
+            elif replays.mode == "replay":
+                httpx_request_func = replay_mode(replays, self._client, httpx_request_func)
             else:
-                httpx_request_func = readreplays(self.replays.strategy, self._client, httpx_request_func)
+                httpx_request_func = smart_replay_mode(replays, self._client, httpx_request_func)
 
         graceful_request = _gracify(
             Gracy._reporter,
