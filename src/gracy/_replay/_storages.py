@@ -32,6 +32,10 @@ class GracyReplayStorage(ABC):
         """Logic to load a response object based on the request"""
         pass
 
+    def flush(self) -> None:
+        """(Optional) Executed during close (preferably once all requests were made)."""
+        pass
+
 
 @dataclass
 class GracyReplay:
