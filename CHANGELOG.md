@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.1 (2023-02-14)
+### Fix
+* **retry:** Remove duplicated default msg ([`963d7e8`](https://github.com/guilatrova/gracy/commit/963d7e8237a85c5f5692a01d7a3d1c0eb733b752))
+
+### Documentation
+* Fix reports/replay order ([`b4ddf79`](https://github.com/guilatrova/gracy/commit/b4ddf792fe29ae49e981fda5b1fca0bec4aca0f9))
+
 ## v1.7.0 (2023-02-12)
 ### Feature
 * Handle missing replays ([`4395b83`](https://github.com/guilatrova/gracy/commit/4395b832cd9f75a88d696d5cba2eb7bd9f7ce61d))
