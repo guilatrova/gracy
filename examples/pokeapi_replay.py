@@ -3,18 +3,9 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy import (
-    BaseEndpoint,
-    GracefulRetry,
-    Gracy,
-    GracyReplay,
-    GracyRequestContext,
-    LogEvent,
-    LogLevel,
-    SQLiteReplayStorage,
-    graceful,
-)
+from gracy import BaseEndpoint, GracefulRetry, Gracy, GracyReplay, GracyRequestContext, LogEvent, LogLevel, graceful
 from gracy.exceptions import GracyUserDefinedException
+from gracy.replays.storages.sqlite import SQLiteReplayStorage
 
 retry = GracefulRetry(
     delay=1,

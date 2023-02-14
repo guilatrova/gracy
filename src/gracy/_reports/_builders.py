@@ -7,7 +7,7 @@ from typing import Final, List, Literal, Set
 import httpx
 
 from .._models import GracyRequestContext, ThrottleController
-from .._replay._storages._base import GracyReplay
+from ..replays.storages._base import GracyReplay
 from ._models import GracyAggregatedRequest, GracyReport, GracyRequestResult
 
 ANY_REGEX: Final = r".+"

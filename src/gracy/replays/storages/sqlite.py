@@ -2,6 +2,7 @@ import logging
 import pickle
 import sqlite3
 import typing as t
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -9,11 +10,21 @@ import httpx
 
 from gracy.exceptions import GracyReplayRequestNotFound
 
-from .. import _sqlite_schema as schema
-from .._models import GracyRecording
+from . import _sqlite_schema as schema
 from ._base import GracyReplayStorage
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class GracyRecording:
+    url: str
+    method: str
+
+    request_body: bytes | None
+    response: bytes
+
+    updated_at: datetime
 
 
 class SQLiteReplayStorage(GracyReplayStorage):

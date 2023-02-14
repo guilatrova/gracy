@@ -7,7 +7,7 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
-from gracy._replay._wrappers import read_replay, record_replay_result
+from gracy.replays._wrappers import readreplays, recordreplays_result
 
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
@@ -34,10 +34,10 @@ from ._models import (
     ThrottleRule,
     Unset,
 )
-from ._replay._storages._base import GracyReplay
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
 from .exceptions import GracyParseFailed, NonOkResponse, UnexpectedResponse
+from .replays.storages._base import GracyReplay
 
 
 async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
@@ -261,7 +261,7 @@ class Gracy(Generic[Endpoint]):
     def __init__(self, replay: GracyReplay | None = None, **kwargs: Any) -> None:
         self._base_config: GracyConfig = getattr(self.Config, "SETTINGS", DEFAULT_CONFIG)
         self._client = self._create_client(**kwargs)
-        self._replay = replay
+        self.replays = replay
 
         if replay:
             replay.strategy.prepare()
@@ -289,11 +289,11 @@ class Gracy(Generic[Endpoint]):
         )
 
         httpx_request_func = self._client.request
-        if self._replay:
-            if self._replay.mode == "record":
-                httpx_request_func = record_replay_result(self._replay.strategy, httpx_request_func)
+        if self.replays:
+            if self.replays.mode == "record":
+                httpx_request_func = recordreplays_result(self.replays.strategy, httpx_request_func)
             else:
-                httpx_request_func = read_replay(self._replay.strategy, self._client, httpx_request_func)
+                httpx_request_func = readreplays(self.replays.strategy, self._client, httpx_request_func)
 
         graceful_request = _gracify(
             Gracy._reporter,
@@ -374,7 +374,7 @@ class Gracy(Generic[Endpoint]):
         return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
 
     def get_report(self):
-        return self._reporter.build(self._throttle_controller, self._replay)
+        return self._reporter.build(self._throttle_controller, self.replays)
 
     def report_status(self, printer: PRINTERS):
         report = self.get_report()

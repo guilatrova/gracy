@@ -3,7 +3,7 @@ from statistics import mean
 
 import httpx
 
-from .._replay._storages._base import GracyReplay
+from ..replays.storages._base import GracyReplay
 
 
 @dataclass(frozen=True)
