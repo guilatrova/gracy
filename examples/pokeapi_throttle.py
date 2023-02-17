@@ -18,17 +18,15 @@ from gracy import (
 )
 
 RETRY = GracefulRetry(
-    delay=1,
+    delay=0,  # Force throttling to work
     max_attempts=3,
-    delay_modifier=1.5,
     retry_on=None,
-    log_before=LogEvent(LogLevel.WARNING),
     log_after=LogEvent(LogLevel.WARNING),
     log_exhausted=LogEvent(LogLevel.CRITICAL),
     behavior="pass",
 )
 
-THROTTLE_RULE = ThrottleRule(r".*", 3, timedelta(seconds=2))
+THROTTLE_RULE = ThrottleRule(r".*", 4, timedelta(seconds=2))
 
 
 class PokeApiEndpoint(BaseEndpoint):
@@ -41,9 +39,6 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             strict_status_code={HTTPStatus.OK},
-            log_errors=LogEvent(
-                LogLevel.ERROR, "How can I become a pokemon master if {URL} keeps failing with {STATUS}"
-            ),
             retry=RETRY,
             parser={
                 "default": lambda r: r.json(),
@@ -108,7 +103,7 @@ async def main():
         "lucario",
         "garchomp",
         "darkrai",
-        "giratina",
+        "giratina",  # (1) this fails, so good to test retry
         "arceus",
         "snivy",
         "tepig",
@@ -121,7 +116,7 @@ async def main():
         "froakie",
         "xerneas",
         "yveltal",
-        "zygarde",
+        "zygarde",  # (2) this fails, so good to test retry
         "decidueye",
         "incineroar",
     ]
