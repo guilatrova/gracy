@@ -180,7 +180,7 @@ class ThrottleRule:
             return ", ".join(parts[:-1]) + " and " + parts[-1]
 
     def __str__(self) -> str:
-        return f"{self.max_requests} per {self.readable_time_range} for URLs matching {self.url_pattern}"
+        return f"{self.max_requests} requests per {self.readable_time_range} for URLs matching {self.url_pattern}"
 
     def calculate_await_time(self, controller: ThrottleController) -> float:
         """
