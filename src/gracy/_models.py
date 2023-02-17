@@ -62,7 +62,7 @@ LOG_EVENT_TYPE = None | Unset | LogEvent
 
 
 class GracefulRetryState:
-    cur_attempt: int = 1
+    cur_attempt: int = 0
     success: bool = False
 
     def __init__(self, retry_config: GracefulRetry) -> None:

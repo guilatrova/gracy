@@ -98,13 +98,12 @@ async def _gracefully_retry(
 
     failing = True
     while failing:
-        if retry.log_before:
-            process_log_retry(retry.log_before, DefaultLogMessage.RETRY_BEFORE, request_context, state)
-
         state.increment()
-
         if state.cant_retry:
             break
+
+        if retry.log_before:
+            process_log_retry(retry.log_before, DefaultLogMessage.RETRY_BEFORE, request_context, state)
 
         await sleep(state.delay)
         await _gracefully_throttle(throttle_controller, request_context)
@@ -137,7 +136,13 @@ def _check_strictness(active_config: GracyConfig, result: httpx.Response) -> boo
     return True
 
 
-def _check_allowed(active_config: GracyConfig, result: httpx.Response) -> bool:
+def _check_allowed(active_config: GracyConfig, result: httpx.Response, strict_pass: bool | None = None) -> bool:
+    if strict_pass is False:
+        # We do this because we don't have to check allowed statuses if strict failed
+        # Otherwise retry logic might be triggered twice
+        # If this is None we assume strict pass either passed or is unset
+        return True
+
     successful = result.is_success
     if not successful and active_config.allowed_status_code:
         if not isinstance(active_config.allowed_status_code, Unset):
@@ -216,7 +221,7 @@ async def _gracify(
         if must_break:
             raise UnexpectedResponse(str(result.url), result, strict_codes)
 
-    allowed_pass = _check_allowed(active_config, result)
+    allowed_pass = _check_allowed(active_config, result, strict_pass=strict_pass)
     if allowed_pass is False:
         retry_result = None
         must_break = True
@@ -379,6 +384,15 @@ class Gracy(Generic[Endpoint]):
     def report_status(self, printer: PRINTERS):
         report = self.get_report()
         print_report(report, printer)
+
+    @classmethod
+    def dangerously_reset_report(cls):
+        """
+        Doing this will reset throttling rules and metrics.
+        So be sure you know what you're doing.
+        """
+        cls._throttle_controller = ThrottleController()
+        cls._reporter = ReportBuilder()
 
 
 ANY_COROUTINE = Coroutine[Any, Any, Any]
