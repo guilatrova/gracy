@@ -135,7 +135,7 @@ class ThrottleRule:
         - `"http(s)?://myapi.com/.*"`
     """
 
-    max_requests: float
+    max_requests: int
     """
     How many requests should be run `per_time_range`
     """
@@ -149,6 +149,9 @@ class ThrottleRule:
         self.url_pattern = re.compile(url_regex)
         self.max_requests = max_requests
         self.per_time_range = per_time
+
+        if isinstance(max_requests, float):
+            raise TypeError(f"{max_requests=} should be an integer")
 
     @property
     def readable_time_range(self) -> str:
