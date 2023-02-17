@@ -152,7 +152,32 @@ class ThrottleRule:
 
     @property
     def readable_time_range(self) -> str:
-        return ""  # TODO
+        seconds = self.per_time_range.total_seconds()
+        periods = {
+            ("hour", 3600),
+            ("minute", 60),
+            ("second", 1),
+        }
+
+        parts: list[str] = []
+        for period_name, period_seconds in periods:
+            if seconds >= period_seconds:
+                period_value, seconds = divmod(seconds, period_seconds)
+                if period_value == 1:
+                    parts.append(period_name)
+                else:
+                    parts.append(f"{int(period_value)} {period_name}s")
+
+            if seconds < 1:
+                break
+
+        if len(parts) == 1:
+            return parts[0]
+        else:
+            return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+    def __str__(self) -> str:
+        return f"{self.max_requests} per {self.readable_time_range} for URLs matching {self.url_pattern}"
 
     def calculate_await_time(self, controller: ThrottleController) -> float:
         """
@@ -274,7 +299,7 @@ class ThrottleController:
 
         for url, times in self._control.items():
             human_times = [time.strftime("%H:%M:%S.%f") for time in times]
-            table.add_row(url, f"{len(times):,}", str(human_times))
+            table.add_row(url, f"{len(times):,}", f"[yellow]{human_times}[/yellow]")
 
         console.print(table)
 
