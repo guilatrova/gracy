@@ -145,8 +145,8 @@ class ThrottleRule:
     Used in combination with `max_requests` to measure throttle
     """
 
-    def __init__(self, url_regex: str, max_requests: int, per_time: timedelta = timedelta(seconds=1)) -> None:
-        self.url_pattern = re.compile(url_regex)
+    def __init__(self, url_pattern: str, max_requests: int, per_time: timedelta = timedelta(seconds=1)) -> None:
+        self.url_pattern = re.compile(url_pattern)
         self.max_requests = max_requests
         self.per_time_range = per_time
 
