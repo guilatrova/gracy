@@ -60,26 +60,26 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
                     await asyncio.sleep(await_time)
                     continue
 
-                if throttling.log_limit_reached:
-                    process_log_throttle(
-                        throttling.log_limit_reached,
-                        DefaultLogMessage.THROTTLE_HIT,
-                        await_time,
-                        rule,
-                        request_context,
-                    )
-
                 with THROTTLE_LOCKER.lock_rule(rule):
+                    if throttling.log_limit_reached:
+                        process_log_throttle(
+                            throttling.log_limit_reached,
+                            DefaultLogMessage.THROTTLE_HIT,
+                            await_time,
+                            rule,
+                            request_context,
+                        )
+
                     await asyncio.sleep(await_time)
 
-                if throttling.log_wait_over:
-                    process_log_throttle(
-                        throttling.log_wait_over,
-                        DefaultLogMessage.THROTTLE_DONE,
-                        await_time,
-                        rule,
-                        request_context,
-                    )
+                    if throttling.log_wait_over:
+                        process_log_throttle(
+                            throttling.log_wait_over,
+                            DefaultLogMessage.THROTTLE_DONE,
+                            await_time,
+                            rule,
+                            request_context,
+                        )
             else:
                 has_been_throttled = False
 
