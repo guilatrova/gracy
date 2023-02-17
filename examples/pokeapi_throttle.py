@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 from http import HTTPStatus
 from typing import cast
 
@@ -16,7 +17,7 @@ from gracy import (
     graceful,
 )
 
-retry = GracefulRetry(
+RETRY = GracefulRetry(
     delay=1,
     max_attempts=3,
     delay_modifier=1.5,
@@ -26,6 +27,8 @@ retry = GracefulRetry(
     log_exhausted=LogEvent(LogLevel.CRITICAL),
     behavior="pass",
 )
+
+ANY_URL_3_REQS_PER_2_SECS = ThrottleRule(r".*", 3, timedelta(seconds=2))
 
 
 class PokeApiEndpoint(BaseEndpoint):
@@ -41,13 +44,13 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             log_errors=LogEvent(
                 LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"
             ),
-            retry=retry,
+            retry=RETRY,
             parser={
                 "default": lambda r: r.json(),
                 HTTPStatus.NOT_FOUND: None,
             },
             throttling=GracefulThrottle(
-                rules=ThrottleRule(r".*", 9),
+                rules=ANY_URL_3_REQS_PER_2_SECS,
                 log_limit_reached=LogEvent(LogLevel.ERROR),
                 log_wait_over=LogEvent(LogLevel.WARNING),
             ),
@@ -70,17 +73,70 @@ pokeapi = GracefulPokeAPI()
 
 
 async def main():
-    names = ["blaziken", "pikachu", "lugia", "bulbasaur", "charmander", "venusaur", "charizard", "blastoise", "bad"] * 2
-    print(names, len(names))
+    pokemon_names = [
+        "bulbasaur",
+        "charmander",
+        "squirtle",
+        "pikachu",
+        "jigglypuff",
+        "mewtwo",
+        "gyarados",
+        "dragonite",
+        "mew",
+        "chikorita",
+        "cyndaquil",
+        "totodile",
+        "pichu",
+        "togepi",
+        "ampharos",
+        "typhlosion",
+        "feraligatr",
+        "espeon",
+        "umbreon",
+        "lugia",
+        "ho-oh",
+        "treecko",
+        "torchic",
+        "mudkip",
+        "gardevoir",
+        "sceptile",
+        "blaziken",
+        "swampert",
+        "rayquaza",
+        "latias",
+        "latios",
+        "lucario",
+        "garchomp",
+        "darkrai",
+        "giratina",
+        "arceus",
+        "snivy",
+        "tepig",
+        "oshawott",
+        "zekrom",
+        "reshiram",
+        "victini",
+        "chespin",
+        "fennekin",
+        "froakie",
+        "xerneas",
+        "yveltal",
+        "zygarde",
+        "decidueye",
+        "incineroar",
+    ]
+    # pokemon_names = pokemon_names[:10]
+    print(f"Will query {len(pokemon_names)} pokemons concurrently - wish me luck")
+
     try:
-        pokemon_reqs = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in names]
+        pokemon_reqs = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in pokemon_names]
         gen_reqs = [asyncio.create_task(pokeapi.get_generation(gen)) for gen in range(1, 4)]
 
         await asyncio.gather(*pokemon_reqs, *gen_reqs)
 
     finally:
-        pokeapi._throttle_controller.debug_print()  # type: ignore
         pokeapi.report_status("rich")
+        pokeapi._throttle_controller.debug_print()  # type: ignore
 
 
 asyncio.run(main())

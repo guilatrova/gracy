@@ -288,12 +288,12 @@ You can define rules per endpoint using regex:
 ```py
 TWO_REQS_FOR_ANY_ENDPOINT_RULE = ThrottleRule(
   url_pattern=r".*",
-  requests_per_second_limit=2
+  max_requests=2
 )
 
 TEN_REQS_FOR_ANY_POKEMON_ENDPOINT_RULE = ThrottleRule(
   url_pattern=r".*\/pokemon\/.*",
-  requests_per_second_limit=10
+  max_requests=10
 )
 ```
 
