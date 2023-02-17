@@ -286,15 +286,20 @@ Gracy helps you proactively deal with it before any API throws 429 in your face.
 You can define rules per endpoint using regex:
 
 ```py
-TWO_REQS_FOR_ANY_ENDPOINT_RULE = ThrottleRule(
+SIMPLE_RULE = ThrottleRule(
   url_pattern=r".*",
-  requests_per_second_limit=2
+  max_requests=2
 )
+print(SIMPLE_RULE)
+# Output: "2 requests per second for URLs matching re.compile('.*')"
 
-TEN_REQS_FOR_ANY_POKEMON_ENDPOINT_RULE = ThrottleRule(
+COMPLEX_RULE = ThrottleRule(
   url_pattern=r".*\/pokemon\/.*",
-  requests_per_second_limit=10
+  max_requests=10,
+  per_time=timedelta(minutes=1, seconds=30),
 )
+print(COMPLEX_RULE)
+# Output: 10 requests per 90 seconds for URLs matching re.compile('.*\\/pokemon\\/.*')
 ```
 
 **Setting throttling**
@@ -326,20 +331,21 @@ Note that placeholders are formatted and replaced later on by Gracy based on the
 
 **Placeholders per event**
 
-| Placeholder        | Description                                           | Example                                     | Supported Events                   |
-| ------------------ | ----------------------------------------------------- | ------------------------------------------- | ---------------------------------- |
-| `{URL}`            | Full url being targetted                              | `https://pokeapi.co/api/v2/pokemon/pikachu` | *All*                              |
-| `{UURL}`           | Full **Unformatted** url being targetted              | `https://pokeapi.co/api/v2/pokemon/{NAME}`  | *All*                              |
-| `{ENDPOINT}`       | Endpoint being targetted                              | `/pokemon/pikachu`                          | *All*                              |
-| `{UENDPOINT}`      | **Unformatted** endpoint being targetted              | `/pokemon/{NAME}`                           | *All*                              |
-| `{METHOD}`         | HTTP Request being used                               | `GET`, `POST`                               | *All*                              |
-| `{STATUS}`         | Status code returned by the response                  | `200`, `404`, `501`                         | *After Request, On request errors* |
-| `{ELAPSED}`        | Amount of seconds taken for the request to complete   | *Numeric*                                   | *After Request, On request errors* |
-| `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request | *Numeric*                                   | *Any Retry event*                  |
-| `{CUR_ATTEMPT}`    | Current attempt count for the current request         | *Numeric*                                   | *Any Retry event*                  |
-| `{MAX_ATTEMPT}`    | Max attempt defined for the current request           | *Numeric*                                   | *Any Retry event*                  |
-| `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request    | *Numeric*                                   | *Any Throttle event*               |
-| `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request   | *Numeric*                                   | *Any Throttle event*               |
+| Placeholder             | Description                                           | Example                                     | Supported Events                   |
+| ----------------------- | ----------------------------------------------------- | ------------------------------------------- | ---------------------------------- |
+| `{URL}`                 | Full url being targetted                              | `https://pokeapi.co/api/v2/pokemon/pikachu` | *All*                              |
+| `{UURL}`                | Full **Unformatted** url being targetted              | `https://pokeapi.co/api/v2/pokemon/{NAME}`  | *All*                              |
+| `{ENDPOINT}`            | Endpoint being targetted                              | `/pokemon/pikachu`                          | *All*                              |
+| `{UENDPOINT}`           | **Unformatted** endpoint being targetted              | `/pokemon/{NAME}`                           | *All*                              |
+| `{METHOD}`              | HTTP Request being used                               | `GET`, `POST`                               | *All*                              |
+| `{STATUS}`              | Status code returned by the response                  | `200`, `404`, `501`                         | *After Request, On request errors* |
+| `{ELAPSED}`             | Amount of seconds taken for the request to complete   | *Numeric*                                   | *After Request, On request errors* |
+| `{RETRY_DELAY}`         | How long Gracy will wait before repeating the request | *Numeric*                                   | *Any Retry event*                  |
+| `{CUR_ATTEMPT}`         | Current attempt count for the current request         | *Numeric*                                   | *Any Retry event*                  |
+| `{MAX_ATTEMPT}`         | Max attempt defined for the current request           | *Numeric*                                   | *Any Retry event*                  |
+| `{THROTTLE_LIMIT}`      | How many reqs/s is defined for the current request    | *Numeric*                                   | *Any Throttle event*               |
+| `{THROTTLE_TIME}`       | How long Gracy will wait before calling the request   | *Numeric*                                   | *Any Throttle event*               |
+| `{THROTTLE_TIME_RANGE}` | Time range defined by the throttling rule             | `second`, `90 seconds`                      | *Any Throttle event*               |
 
 and you can set up the log events as follows:
 

@@ -19,7 +19,7 @@ class DefaultLogMessage(str, Enum):
     AFTER = "[{METHOD}] {URL} returned {STATUS}"
     ERRORS = "[{METHOD}] {URL} returned a bad status ({STATUS})"
 
-    THROTTLE_HIT = "{URL} hit {THROTTLE_LIMIT} reqs/s"
+    THROTTLE_HIT = "{URL} hit {THROTTLE_LIMIT} reqs/{THROTTLE_TIME_RANGE}"
     THROTTLE_DONE = "Done waiting {THROTTLE_TIME}s to hit {URL}"
 
     RETRY_BEFORE = (
@@ -67,7 +67,8 @@ def process_log_throttle(
     format_args = dict(
         **_extract_base_format_args(request_context),
         THROTTLE_TIME=await_time,
-        THROTTLE_LIMIT=rule.requests_per_second_limit,
+        THROTTLE_LIMIT=rule.max_requests,
+        THROTTLE_TIME_RANGE=rule.readable_time_range,
     )
 
     _do_log(logevent, default_message, format_args)
