@@ -286,15 +286,20 @@ Gracy helps you proactively deal with it before any API throws 429 in your face.
 You can define rules per endpoint using regex:
 
 ```py
-TWO_REQS_FOR_ANY_ENDPOINT_RULE = ThrottleRule(
+SIMPLE_RULE = ThrottleRule(
   url_pattern=r".*",
   max_requests=2
 )
+print(SIMPLE_RULE)
+# Output: "2 requests per second for URLs matching re.compile('.*')"
 
-TEN_REQS_FOR_ANY_POKEMON_ENDPOINT_RULE = ThrottleRule(
+COMPLEX_RULE = ThrottleRule(
   url_pattern=r".*\/pokemon\/.*",
-  max_requests=10
+  max_requests=10,
+  per_time=timedelta(minutes=1, seconds=30),
 )
+print(COMPLEX_RULE)
+# Output: 10 requests per 90 seconds for URLs matching re.compile('.*\\/pokemon\\/.*')
 ```
 
 **Setting throttling**
