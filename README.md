@@ -541,7 +541,7 @@ Here's an example of how it looks:
 
 Gracy allows you to replay requests and responses from previous interactions.
 
-This is powerful because it allows you to test APIs without latency or consuming your rate limit. It also allows writing unit tests that relies on third-party APIs doable.
+This is powerful because it allows you to test APIs without latency or consuming your rate limit. Now writing unit tests that relies on third-party APIs is doable.
 
 It works in two steps:
 
