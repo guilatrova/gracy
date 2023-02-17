@@ -259,7 +259,7 @@ class Gracy(Generic[Endpoint]):
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
     def __init__(self, replay: GracyReplay | None = None, **kwargs: Any) -> None:
-        self._base_config: GracyConfig = getattr(self.Config, "SETTINGS", DEFAULT_CONFIG)
+        self._base_config = cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
         self._client = self._create_client(**kwargs)
         self._replay = replay
 
