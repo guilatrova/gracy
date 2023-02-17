@@ -192,7 +192,7 @@ class ThrottleRule:
 
         if cur_rate >= rate_limit:
             time_diff = (rate_limit - cur_rate) or 1
-            waiting_time = 1.0 / time_diff
+            waiting_time = self.per_time_range.total_seconds() / time_diff
             return waiting_time
 
         return 0.0
