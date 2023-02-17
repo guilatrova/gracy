@@ -378,6 +378,21 @@ GracefulRetry(
 )
 ```
 
+**Throttling**
+
+1. When reqs/s limit is reached
+2. When limit decreases again
+
+```py
+GracefulThrottle(
+  ...,
+  log_limit_reached=LogEvent()
+  log_wait_over=LogEvent()
+)
+```
+
+**Dynamic Customization**
+
 You can customize it even further by passing a lambda:
 
 ```py
@@ -393,20 +408,7 @@ Consider that:
 
 - Not all log events have the response available, so you need to guard yourself against it
 - Placeholders still works (e.g. `{STATUS}`)
-- You need to be watch out for some attrs that might break the formatting logic (e.g. `r.headers`)
-
-**Throttling**
-
-1. When reqs/s limit is reached
-2. When limit decreases again
-
-```py
-GracefulThrottle(
-  ...,
-  log_limit_reached=LogEvent()
-  log_wait_over=LogEvent()
-)
-```
+- You need to watch out for some attrs that might break the formatting logic (e.g. `r.headers`)
 
 ### Custom Exceptions
 
