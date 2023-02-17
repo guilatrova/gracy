@@ -28,7 +28,7 @@ RETRY = GracefulRetry(
     behavior="pass",
 )
 
-ANY_URL_3_REQS_PER_2_SECS = ThrottleRule(r".*", 3, timedelta(seconds=2))
+THROTTLE_RULE = ThrottleRule(r".*", 3, timedelta(seconds=2))
 
 
 class PokeApiEndpoint(BaseEndpoint):
@@ -42,7 +42,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         SETTINGS = GracyConfig(
             strict_status_code={HTTPStatus.OK},
             log_errors=LogEvent(
-                LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"
+                LogLevel.ERROR, "How can I become a pokemon master if {URL} keeps failing with {STATUS}"
             ),
             retry=RETRY,
             parser={
@@ -50,7 +50,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
                 HTTPStatus.NOT_FOUND: None,
             },
             throttling=GracefulThrottle(
-                rules=ANY_URL_3_REQS_PER_2_SECS,
+                rules=THROTTLE_RULE,
                 log_limit_reached=LogEvent(LogLevel.ERROR),
                 log_wait_over=LogEvent(LogLevel.WARNING),
             ),
@@ -126,7 +126,7 @@ async def main():
         "incineroar",
     ]
     # pokemon_names = pokemon_names[:10]
-    print(f"Will query {len(pokemon_names)} pokemons concurrently - wish me luck")
+    print(f"Will query {len(pokemon_names)} pokemons concurrently - {str(THROTTLE_RULE)}")
 
     try:
         pokemon_reqs = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in pokemon_names]
