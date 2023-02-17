@@ -594,7 +594,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         SETTINGS = GracyConfig(
             retry=retry,
             log_errors=LogEvent(
-                LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"
+                LogLevel.ERROR, "How can I become a pokemon master if {URL} keeps failing with {STATUS}"
             ),
         )
 
