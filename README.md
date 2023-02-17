@@ -572,7 +572,7 @@ pokeapi = GracefulPokeAPI(replay_mode)
 
 **Every request** will be routed to the defined data source resulting in faster responses.
 
-**Note that parsers, retries, throttling, and similar configs will work as usual**.
+**⚠️ Note that parsers, retries, throttling, and similar configs will work as usual**.
 
 
 ## Advanced Usage
