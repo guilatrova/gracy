@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.1 (2023-02-17)
+### Fix
+* Retry logic triggers only once ([`0fc2358`](https://github.com/guilatrova/gracy/commit/0fc2358b1631eacc0587a59afe1d21b419f8679e))
+
 ## v1.8.0 (2023-02-17)
 ### Feature
 * Calculate throttling await properly ([`ba520e0`](https://github.com/guilatrova/gracy/commit/ba520e034bab88b2b5a258473f8a2ba7ff7c5879))
