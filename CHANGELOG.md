@@ -2,6 +2,22 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.0 (2023-02-17)
+### Feature
+* Calculate throttling await properly ([`ba520e0`](https://github.com/guilatrova/gracy/commit/ba520e034bab88b2b5a258473f8a2ba7ff7c5879))
+* Lock throttling logs properly ([`a8ebd69`](https://github.com/guilatrova/gracy/commit/a8ebd69df0e5184a6a806870a12888c202ba37d8))
+* Prevent floats for max_requests ([`b9aed74`](https://github.com/guilatrova/gracy/commit/b9aed746bdfcd672920baeb047cf02b31e146503))
+* Format rule time range ([`514cbae`](https://github.com/guilatrova/gracy/commit/514cbaeeb2d02de12f60a62e8285ce0ba1ad0437))
+* Allow custom time windows for throttling ([`7fc35f0`](https://github.com/guilatrova/gracy/commit/7fc35f09e4a5e8df50a746cf95d112b08d4dd9bc))
+
+### Fix
+* Correct kwargs ([`0db5925`](https://github.com/guilatrova/gracy/commit/0db59254081d479a20c411ab346cad605e3a2efb))
+
+### Documentation
+* Add `THROTTLE_TIME_RANGE` ([`299c200`](https://github.com/guilatrova/gracy/commit/299c2008b5da43e7a52035dc285375b0b1dfc093))
+* **throttling:** Add timedelta example ([`74c20ef`](https://github.com/guilatrova/gracy/commit/74c20ef91c521165b72c999c7212268ca83ec7cc))
+* Enhance throttling example ([`200b3c5`](https://github.com/guilatrova/gracy/commit/200b3c5adac8a16f3af002d56f2e3c8b84f3f0d3))
+
 ## v1.7.1 (2023-02-14)
 ### Fix
 * **retry:** Remove duplicated default msg ([`963d7e8`](https://github.com/guilatrova/gracy/commit/963d7e8237a85c5f5692a01d7a3d1c0eb733b752))
