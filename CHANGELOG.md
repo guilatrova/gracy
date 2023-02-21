@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v1.9.0 (2023-02-21)
+### Feature
+* Make exceptions pickable ([`5ab62c5`](https://github.com/guilatrova/gracy/commit/5ab62c59ac273078e7a1ef3122e76bf0c6901e70))
+
+### Documentation
+* Reword ([`0ca061f`](https://github.com/guilatrova/gracy/commit/0ca061f1b1e73c73b01808e2d9f0258f03e0fefa))
+* Add a emoji ([`8da07ae`](https://github.com/guilatrova/gracy/commit/8da07aecd8da6642edf01a94475ff49f297c1886))
+* Reword ([`a54f1f7`](https://github.com/guilatrova/gracy/commit/a54f1f7bac2b7a5fb52485b31c746e58734066d0))
+* Reorder logging customization ([`f6d9d76`](https://github.com/guilatrova/gracy/commit/f6d9d765daee63e7e863426519f8acda5bc2c5f0))
+
 ## v1.8.1 (2023-02-17)
 ### Fix
 * Retry logic triggers only once ([`0fc2358`](https://github.com/guilatrova/gracy/commit/0fc2358b1631eacc0587a59afe1d21b419f8679e))
