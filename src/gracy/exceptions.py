@@ -22,6 +22,9 @@ class GracyParseFailed(Exception):
 
         super().__init__(msg)
 
+    def __reduce__(self):
+        return (GracyParseFailed, (self.response))
+
 
 class BadResponse(GracyException):
     def __init__(
@@ -50,10 +53,23 @@ class UnexpectedResponse(BadResponse):
     def __init__(self, url: str, response: httpx.Response, expected: str | HTTPStatus | Iterable[HTTPStatus]) -> None:
         super().__init__(None, url, response, expected)
 
+        self.arg1 = url
+        self.arg2 = response
+        self.arg3 = expected
+
+    def __reduce__(self):
+        return (UnexpectedResponse, (self.arg1, self.arg2, self.arg3))
+
 
 class NonOkResponse(BadResponse):
     def __init__(self, url: str, response: httpx.Response) -> None:
         super().__init__(None, url, response, "any successful status code")
+
+        self.arg1 = url
+        self.arg2 = response
+
+    def __reduce__(self):
+        return (NonOkResponse, (self.arg1, self.arg2))
 
 
 class GracyUserDefinedException(GracyException):
@@ -95,6 +111,9 @@ class GracyUserDefinedException(GracyException):
     def response(self):
         return self._response
 
+    def __reduce__(self):
+        return (GracyUserDefinedException, (self._request_context, self._response))
+
 
 class GracyReplayRequestNotFound(GracyException):
     def __init__(self, request: httpx.Request) -> None:
@@ -102,3 +121,6 @@ class GracyReplayRequestNotFound(GracyException):
 
         msg = f"Gracy was unable to replay {request.method} {request.url} - did you forget to record it?"
         super().__init__(msg)
+
+    def __reduce__(self):
+        return (GracyReplayRequestNotFound, (self.request))
