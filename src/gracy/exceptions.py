@@ -23,7 +23,7 @@ class GracyParseFailed(Exception):
         super().__init__(msg)
 
     def __reduce__(self):
-        return (GracyParseFailed, (self.response))
+        return (GracyParseFailed, (self.response,))
 
 
 class BadResponse(GracyException):
@@ -123,4 +123,4 @@ class GracyReplayRequestNotFound(GracyException):
         super().__init__(msg)
 
     def __reduce__(self):
-        return (GracyReplayRequestNotFound, (self.request))
+        return (GracyReplayRequestNotFound, (self.request,))
