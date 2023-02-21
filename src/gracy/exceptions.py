@@ -1,4 +1,5 @@
 import typing as t
+from abc import ABC, abstractmethod
 from http import HTTPStatus
 
 import httpx
@@ -8,8 +9,16 @@ from ._models import GracyRequestContext
 REDUCE_PICKABLE_RETURN = tuple[type[Exception], tuple[t.Any, ...]]
 
 
-class GracyException(Exception):
-    pass
+class GracyException(Exception, ABC):
+    @abstractmethod
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        """
+        `__reduce__` is required to avoid Gracy from breaking in different
+        environments that pickles the results (e.g. inside ThreadPools).
+
+        More context: https://stackoverflow.com/a/36342588/2811539
+        """
+        pass
 
 
 class GracyParseFailed(Exception):
