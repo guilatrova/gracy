@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.9.1 (2023-02-21)
+### Fix
+* Create tuples ([`f648f85`](https://github.com/guilatrova/gracy/commit/f648f85a5787b2cd86934051640e666815fe5864))
+
 ## v1.9.0 (2023-02-21)
 ### Feature
 * Make exceptions pickable ([`5ab62c5`](https://github.com/guilatrova/gracy/commit/5ab62c59ac273078e7a1ef3122e76bf0c6901e70))
