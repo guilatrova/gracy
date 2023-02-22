@@ -43,10 +43,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 def make_pokeapi():
     def factory():
         Gracy.dangerously_reset_report()
-
-        api = GracefulPokeAPI(REPLAY)
-
-        return api
+        return GracefulPokeAPI(REPLAY)
 
     return factory
 
