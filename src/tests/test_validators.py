@@ -4,15 +4,9 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy import BaseEndpoint, GracefulValidator, Gracy, GracyReplay, SQLiteReplayStorage, graceful
+from gracy import BaseEndpoint, GracefulValidator, Gracy, graceful
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
-from tests.conftest import assert_one_request_made
-
-MISSING_NAME: t.Final = "doesnt-exist"
-"""Should match what we recorded previously to successfully replay"""
-PRESENT_NAME: t.Final = "charmander"
-
-REPLAY: t.Final = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
+from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, assert_one_request_made
 
 
 class CustomValidator(GracefulValidator):
