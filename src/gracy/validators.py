@@ -8,14 +8,21 @@ from gracy.exceptions import NonOkResponse, UnexpectedResponse
 
 
 class GracefulValidator(ABC):
+    """
+    Run `check` raises exceptions in case it's not passing.
+    """
+
     @abstractmethod
-    def check(self, response: httpx.Response) -> bool | Exception:
+    def check(self, response: httpx.Response) -> bool:
         pass
 
 
 class DefaultValidator(GracefulValidator):
-    def check(self, response: httpx.Response) -> bool | Exception:
-        return response.is_success
+    def check(self, response: httpx.Response) -> bool:
+        if response.is_success:
+            return True
+
+        raise NonOkResponse(str(response.url), response)
 
 
 class StrictStatusValidator(GracefulValidator):
@@ -25,7 +32,7 @@ class StrictStatusValidator(GracefulValidator):
         else:
             self._status_codes = {status_code}
 
-    def check(self, response: httpx.Response) -> bool | Exception:
+    def check(self, response: httpx.Response) -> bool:
         if HTTPStatus(response.status_code) in self._status_codes:
             return True
 
@@ -39,7 +46,7 @@ class AllowedStatusValidator(GracefulValidator):
         else:
             self._status_codes = {status_code}
 
-    def check(self, response: httpx.Response) -> bool | Exception:
+    def check(self, response: httpx.Response) -> bool:
         if response.is_success:
             return True
 
