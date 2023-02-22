@@ -8,6 +8,7 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 import httpx
 
 from gracy._replay._wrappers import read_replay, record_replay_result
+from gracy.validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
 
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
@@ -27,6 +28,7 @@ from ._models import (
     GracefulRequest,
     GracefulRetry,
     GracefulRetryState,
+    GracefulValidator,
     GracyConfig,
     GracyRequestContext,
     LogEvent,
@@ -38,7 +40,6 @@ from ._replay._storages import GracyReplay
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
 from .exceptions import GracyParseFailed
-from .validators import AllowedStatusValidator, DefaultValidator, GracefulValidator, StrictStatusValidator
 
 
 async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
@@ -186,6 +187,11 @@ async def _gracify(
         validators.append(AllowedStatusValidator(active_config.allowed_status_code))
     else:
         validators.append(DefaultValidator())
+
+    if isinstance(active_config.validators, GracefulValidator):
+        validators.append(active_config.validators)
+    elif isinstance(active_config.validators, Iterable):
+        validators += active_config.validators
 
     validation_exc: Exception | None = None
     for validator in validators:
@@ -372,6 +378,7 @@ ANY_COROUTINE = Coroutine[Any, Any, Any]
 def graceful(
     strict_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
     allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    validators: Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE,
     retry: GracefulRetry | Unset | None = UNSET_VALUE,
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
@@ -381,6 +388,7 @@ def graceful(
     config = GracyConfig(
         strict_status_code=strict_status_code,
         allowed_status_code=allowed_status_code,
+        validators=validators,
         retry=retry,
         log_request=log_request,
         log_response=log_response,

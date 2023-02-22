@@ -1,20 +1,11 @@
 import typing as t
-from abc import ABC, abstractmethod
 from http import HTTPStatus
 
 import httpx
 
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
 
-
-class GracefulValidator(ABC):
-    """
-    Run `check` raises exceptions in case it's not passing.
-    """
-
-    @abstractmethod
-    def check(self, response: httpx.Response) -> bool:
-        pass
+from ._models import GracefulValidator
 
 
 class DefaultValidator(GracefulValidator):

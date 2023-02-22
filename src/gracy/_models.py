@@ -4,6 +4,7 @@ import copy
 import itertools
 import logging
 import re
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -307,6 +308,16 @@ class ThrottleController:
         console.print(table)
 
 
+class GracefulValidator(ABC):
+    """
+    Run `check` raises exceptions in case it's not passing.
+    """
+
+    @abstractmethod
+    def check(self, response: httpx.Response) -> bool:
+        pass
+
+
 @dataclass
 class GracyConfig:
     log_request: LOG_EVENT_TYPE = UNSET_VALUE
@@ -326,6 +337,13 @@ class GracyConfig:
     e.g. 404 would consider any 200-299 and 404 as successful.
 
     NOTE: `strict_status_code` takes precedence.
+    """
+
+    validators: Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE
+    """Adds one or many validators to be run for the response to decide whether it was successful or not.
+
+    NOTE: `strict_status_code` or `allowed_status_code` are executed before.
+    If none is set, it will first check whether the response has a successful code.
     """
 
     parser: PARSER_TYPE = UNSET_VALUE
