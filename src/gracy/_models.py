@@ -342,6 +342,7 @@ class GracyConfig:
     throttling: GracefulThrottle | None | Unset = UNSET_VALUE
 
     def should_retry(self, response_status: int) -> bool:
+        """Only checks if given status requires retry. Does not consider attempts."""
         if self.has_retry:
             retry: GracefulRetry = self.retry  # type: ignore
             if retry.retry_on is None:

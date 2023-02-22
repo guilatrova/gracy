@@ -20,7 +20,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             retry=RETRY,
-            strict_status_code={HTTPStatus.NOT_FOUND},
+            allowed_status_code={HTTPStatus.NOT_FOUND},
             parser={HTTPStatus.NOT_FOUND: None},
         )
 

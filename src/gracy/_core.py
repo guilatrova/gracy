@@ -37,7 +37,8 @@ from ._models import (
 from ._replay._storages import GracyReplay
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
-from .exceptions import GracyParseFailed, NonOkResponse, UnexpectedResponse
+from .exceptions import GracyParseFailed
+from .validators import AllowedStatusValidator, DefaultValidator, GracefulValidator, StrictStatusValidator
 
 
 async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
@@ -89,10 +90,11 @@ async def _gracefully_retry(
     throttle_controller: ThrottleController,
     request: GracefulRequest,
     request_context: GracyRequestContext,
-    check_func: Callable[[GracyConfig, httpx.Response], bool],
+    validators: list[GracefulValidator],
 ) -> GracefulRetryState:
     retry = cast(GracefulRetry, request_context.active_config.retry)
     state = retry.create_state()
+
     config = request_context.active_config
     result = None
 
@@ -111,8 +113,22 @@ async def _gracefully_retry(
         result = await request()
         report.track(request_context, result)
 
-        state.success = check_func(config, result)
-        failing = not state.success
+        try:
+            for validator in validators:
+                validator.check(result)
+
+        except Exception:
+            state.success = False
+            failing = True
+
+        else:
+            # Even if all validators are passing, we check whether
+            # it should retry for cases like:
+            # e.g. Allow = 404 (so it's a success),
+            #      but Retry it up to 3 times to see whether it becomes 200
+            if config.should_retry(result.status_code) is False:
+                state.success = True
+                failing = False
 
         if retry.log_after:
             process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, result)
@@ -121,39 +137,6 @@ async def _gracefully_retry(
         process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, result)
 
     return state
-
-
-def _check_strictness(active_config: GracyConfig, result: httpx.Response) -> bool:
-    if active_config.strict_status_code:
-        if not isinstance(active_config.strict_status_code, Unset):
-            strict_statuses = active_config.strict_status_code
-            if not isinstance(strict_statuses, Iterable):
-                strict_statuses = {strict_statuses}
-
-            if HTTPStatus(result.status_code) not in strict_statuses:
-                return False
-
-    return True
-
-
-def _check_allowed(active_config: GracyConfig, result: httpx.Response, strict_pass: bool | None = None) -> bool:
-    if strict_pass is False:
-        # We do this because we don't have to check allowed statuses if strict failed
-        # Otherwise retry logic might be triggered twice
-        # If this is None we assume strict pass either passed or is unset
-        return True
-
-    successful = result.is_success
-    if not successful and active_config.allowed_status_code:
-        if not isinstance(active_config.allowed_status_code, Unset):
-            allowed = active_config.allowed_status_code
-            if not isinstance(allowed, Iterable):
-                allowed = {allowed}
-
-            if HTTPStatus(result.status_code) not in allowed:
-                return False
-
-    return successful
 
 
 def _maybe_parse_result(active_config: GracyConfig, request_context: GracyRequestContext, result: httpx.Response):
@@ -196,54 +179,42 @@ async def _gracify(
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
         process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
 
-    strict_pass = _check_strictness(active_config, result)
-    if strict_pass is False:
-        strict_codes: HTTPStatus | Iterable[HTTPStatus] = active_config.strict_status_code  # type: ignore
-        retry_result = None
-        must_break = True
+    validators: list[GracefulValidator] = []
+    if active_config.strict_status_code and not isinstance(active_config.strict_status_code, Unset):
+        validators.append(StrictStatusValidator(active_config.strict_status_code))
+    elif active_config.allowed_status_code and not isinstance(active_config.allowed_status_code, Unset):
+        validators.append(AllowedStatusValidator(active_config.allowed_status_code))
+    else:
+        validators.append(DefaultValidator())
 
-        if active_config.should_retry(result.status_code):
-            retry_result = await _gracefully_retry(
-                report,
-                throttle_controller,
-                request,
-                request_context,
-                check_func=_check_strictness,
-            )
+    validation_exc: Exception | None = None
+    for validator in validators:
+        try:
+            validator.check(result)
+        except Exception as ex:
+            validation_exc = ex
+            break
 
-        if not retry_result or retry_result.failed:
-            if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-                process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
+    must_break = True
+    retry_result: GracefulRetryState | None = None
+    if active_config.should_retry(result.status_code):
+        retry_result = await _gracefully_retry(
+            report,
+            throttle_controller,
+            request,
+            request_context,
+            validators,
+        )
 
-            if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
-                must_break = False
+    if not retry_result or retry_result.failed:
+        if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
+            process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
-        if must_break:
-            raise UnexpectedResponse(str(result.url), result, strict_codes)
+        if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
+            must_break = False
 
-    allowed_pass = _check_allowed(active_config, result, strict_pass=strict_pass)
-    if allowed_pass is False:
-        retry_result = None
-        must_break = True
-
-        if active_config.should_retry(result.status_code):
-            retry_result = await _gracefully_retry(
-                report,
-                throttle_controller,
-                request,
-                request_context,
-                check_func=_check_allowed,
-            )
-
-        if not retry_result or retry_result.failed:
-            if isinstance(active_config.log_errors, LogEvent):
-                process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
-
-            if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
-                must_break = False
-
-            if must_break:
-                raise NonOkResponse(str(result.url), result)
+        if validation_exc and must_break:
+            raise validation_exc
 
     final_result = _maybe_parse_result(active_config, request_context, result)
 
