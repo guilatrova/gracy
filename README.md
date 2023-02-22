@@ -293,16 +293,16 @@ class Config:
   )
 ```
 
-| Parameter        | Description                                                                               | Example                                                                                                      |
-| ---------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `delay`          | How many seconds to wait between retries                                                  | `2` would wait 2 seconds, `1.5` would wait 1.5 seconds, and so on                                            |
-| `max_attempts`   | How many times should Gracy retry the request?                                            | `10` means 1 regular request with additional 10 retries in case they keep failing. `1` should be the minimum |
-| `delay_modifier` | Allows you to specify increasing delay times by multiplying this value to `delay`         | Setting `1` means no delay change. Setting `2` means delay will be doubled every retry                       |
-| `retry_on`       | Should we retry for which status codes? `None` means for any non successful status code   | `HTTPStatus.BAD_REQUEST`, or `{HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN}`                                |
-| `log_before`     | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
-| `log_after`      | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
-| `log_exhausted`  | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
-| `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure | `pass` or `break` (default)                                                                                  |
+| Parameter        | Description                                                                                                     | Example                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `delay`          | How many seconds to wait between retries                                                                        | `2` would wait 2 seconds, `1.5` would wait 1.5 seconds, and so on                                                                    |
+| `max_attempts`   | How many times should Gracy retry the request?                                                                  | `10` means 1 regular request with additional 10 retries in case they keep failing. `1` should be the minimum                         |
+| `delay_modifier` | Allows you to specify increasing delay times by multiplying this value to `delay`                               | Setting `1` means no delay change. Setting `2` means delay will be doubled every retry                                               |
+| `retry_on`       | Should we retry for which status codes/exceptions? `None` means for any non successful status code or exception | `HTTPStatus.BAD_REQUEST`, or `{HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN}`, or `Exception` or `{Exception, HTTPStatus.NOT_FOUND}` |
+| `log_before`     | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
+| `log_after`      | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
+| `log_exhausted`  | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
+| `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure                       | `pass` or `break` (default)                                                                                                          |
 
 
 ### Throttling
