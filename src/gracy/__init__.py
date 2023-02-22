@@ -21,7 +21,7 @@ from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, Grac
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-__version__ = "1.9.1"
+__version__ = "1.10.0"
 
 __all__ = [
     "exceptions",

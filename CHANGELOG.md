@@ -2,6 +2,19 @@
 
 <!--next-version-placeholder-->
 
+## v1.10.0 (2023-02-22)
+### Feature
+* Allow custom validators ([`50818f8`](https://github.com/guilatrova/gracy/commit/50818f89fe2a03800fde18fa38686a04853cb54a))
+
+### Fix
+* Implement proper validate/retry/parse logic ([`0b2fa75`](https://github.com/guilatrova/gracy/commit/0b2fa75228c9340efb8595fee801c0cfa3303619))
+* Raise exception correctly ([`10a90b5`](https://github.com/guilatrova/gracy/commit/10a90b5159a2fce3e24c1bfac7f4b9e0cb58d059))
+
+### Documentation
+* Add exception details to retry params ([`8d69234`](https://github.com/guilatrova/gracy/commit/8d692346369b5c83d05e746ec1b7e9f924d02cbd))
+* Enhance custom validator example ([`d5e02eb`](https://github.com/guilatrova/gracy/commit/d5e02eb032739639f9ceb655b5b88c39f8c9a0f6))
+* Add validators ([`e3e8fa6`](https://github.com/guilatrova/gracy/commit/e3e8fa672e5f95d02f60dc3af762b6e6cd189d4d))
+
 ## v1.9.1 (2023-02-21)
 ### Fix
 * Create tuples ([`f648f85`](https://github.com/guilatrova/gracy/commit/f648f85a5787b2cd86934051640e666815fe5864))
