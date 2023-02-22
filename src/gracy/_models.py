@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import copy
+import inspect
 import itertools
 import logging
 import re
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -96,13 +98,16 @@ class GracefulRetryState:
             self._delay *= self._retry_config.delay_modifier
 
 
+STATUS_OR_EXCEPTION = HTTPStatus | type[Exception]
+
+
 @dataclass
 class GracefulRetry:
     delay: float
     max_attempts: int
 
     delay_modifier: float = 1
-    retry_on: HTTPStatus | Iterable[HTTPStatus] | None = None
+    retry_on: STATUS_OR_EXCEPTION | Iterable[STATUS_OR_EXCEPTION] | None = None
     log_before: None | LogEvent = None
     log_after: None | LogEvent = None
     log_exhausted: None | LogEvent = None
@@ -307,6 +312,17 @@ class ThrottleController:
         console.print(table)
 
 
+class GracefulValidator(ABC):
+    """
+    Run `check` raises exceptions in case it's not passing.
+    """
+
+    @abstractmethod
+    def check(self, response: httpx.Response) -> None:
+        """Returns `None` to pass or raise exception"""
+        pass
+
+
 @dataclass
 class GracyConfig:
     log_request: LOG_EVENT_TYPE = UNSET_VALUE
@@ -328,6 +344,13 @@ class GracyConfig:
     NOTE: `strict_status_code` takes precedence.
     """
 
+    validators: Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE
+    """Adds one or many validators to be run for the response to decide whether it was successful or not.
+
+    NOTE: `strict_status_code` or `allowed_status_code` are executed before.
+    If none is set, it will first check whether the response has a successful code.
+    """
+
     parser: PARSER_TYPE = UNSET_VALUE
     """
     Tell Gracy how to deal with the responses for you.
@@ -341,16 +364,26 @@ class GracyConfig:
 
     throttling: GracefulThrottle | None | Unset = UNSET_VALUE
 
-    def should_retry(self, response_status: int) -> bool:
+    def should_retry(self, response_status: int, validation_exc: Exception | None) -> bool:
+        """Only checks if given status requires retry. Does not consider attempts."""
         if self.has_retry:
             retry: GracefulRetry = self.retry  # type: ignore
             if retry.retry_on is None:
                 return True
 
             if isinstance(retry.retry_on, Iterable):
-                return HTTPStatus(response_status) in retry.retry_on
+                if HTTPStatus(response_status) in retry.retry_on:
+                    return True
 
-            return retry.retry_on == response_status
+                for maybe_exc in retry.retry_on:
+                    if inspect.isclass(maybe_exc) and isinstance(validation_exc, maybe_exc):
+                        return True
+
+            elif inspect.isclass(retry.retry_on):
+                return isinstance(validation_exc, retry.retry_on)
+
+            else:
+                return retry.retry_on == response_status
 
         return False
 
