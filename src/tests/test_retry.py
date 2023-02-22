@@ -122,14 +122,8 @@ async def test_pokemon_with_bad_parser_break_wont_run(make_pokeapi: t.Callable[[
 
     pokeapi = make_pokeapi(MAX_RETRIES, "break")
 
-    try:
-        _ = await pokeapi.get_pokemon_without_allowed_status(MISSING_NAME)
-
-    except NonOkResponse:
-        pass
-
-    else:
-        pytest.fail("Expected exception to be raised")
+    with pytest.raises(NonOkResponse):
+        await pokeapi.get_pokemon_without_allowed_status(MISSING_NAME)
 
     report = pokeapi.get_report()
 
