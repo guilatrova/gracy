@@ -7,9 +7,6 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
-from gracy._replay._wrappers import read_replay, record_replay_result
-from gracy.validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
-
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
     DefaultLogMessage,
@@ -37,8 +34,10 @@ from ._models import (
     Unset,
 )
 from ._replay._storages import GracyReplay
+from ._replay._wrappers import read_replay, record_replay_result
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
+from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
 from .exceptions import GracyParseFailed
 
 

@@ -3,9 +3,8 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy.exceptions import NonOkResponse, UnexpectedResponse
-
 from ._models import GracefulValidator
+from .exceptions import NonOkResponse, UnexpectedResponse
 
 
 class DefaultValidator(GracefulValidator):
