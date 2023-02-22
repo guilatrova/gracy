@@ -6,6 +6,7 @@ import httpx
 
 from gracy import BaseEndpoint, GracefulValidator, Gracy, GracyReplay, SQLiteReplayStorage, graceful
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
+from tests.conftest import assert_one_request_made
 
 MISSING_NAME: t.Final = "doesnt-exist"
 """Should match what we recorded previously to successfully replay"""
@@ -54,11 +55,6 @@ def make_pokeapi():
         return api
 
     return factory
-
-
-def assert_one_request_made(pokeapi: GracefulPokeAPI):
-    report = pokeapi.get_report()
-    assert len(report.requests) == 1
 
 
 async def test_pokemon_ok_default(make_pokeapi: t.Callable[[], GracefulPokeAPI]):

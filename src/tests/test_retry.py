@@ -15,6 +15,7 @@ from gracy import (
     graceful,
 )
 from gracy.exceptions import NonOkResponse
+from tests.conftest import assert_requests_made
 
 MISSING_NAME: t.Final = "doesnt-exist"
 """Should match what we recorded previously to successfully replay"""
@@ -94,12 +95,9 @@ async def test_pokemon_not_found(max_retries: int, make_pokeapi: t.Callable[[int
 
     pokeapi = make_pokeapi(max_retries)
     result = await pokeapi.get_pokemon(MISSING_NAME)
-    report = pokeapi.get_report()
 
     assert result is None
-
-    assert len(report.requests) == 1
-    assert report.requests[0].total_requests == EXPECTED_REQS
+    assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
 @pytest.mark.parametrize("max_retries", [2, 4, 6])
@@ -108,12 +106,9 @@ async def test_pokemon_not_found_with_strict_status(max_retries: int, make_pokea
 
     pokeapi = make_pokeapi(max_retries)
     result = await pokeapi.get_pokemon_with_strict_status(MISSING_NAME)
-    report = pokeapi.get_report()
 
     assert result is None
-
-    assert len(report.requests) == 1
-    assert report.requests[0].total_requests == EXPECTED_REQS
+    assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
 async def test_pokemon_with_bad_parser_break_wont_run(make_pokeapi: t.Callable[[int, str], GracefulPokeAPI]):
@@ -125,10 +120,7 @@ async def test_pokemon_with_bad_parser_break_wont_run(make_pokeapi: t.Callable[[
     with pytest.raises(NonOkResponse):
         await pokeapi.get_pokemon_without_allowed_status(MISSING_NAME)
 
-    report = pokeapi.get_report()
-
-    assert len(report.requests) == 1
-    assert report.requests[0].total_requests == EXPECTED_REQS
+    assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
 async def test_retry_with_failing_custom_validation(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
@@ -137,9 +129,7 @@ async def test_retry_with_failing_custom_validation(make_pokeapi: t.Callable[[in
 
     pokeapi = make_pokeapi(MAX_RETRIES)
     result = await pokeapi.get_pokemon_with_custom_validator(PRESENT_NAME)
-    report = pokeapi.get_report()
 
     assert result is not None
 
-    assert len(report.requests) == 1
-    assert report.requests[0].total_requests == EXPECTED_REQS
+    assert_requests_made(pokeapi, EXPECTED_REQS)
