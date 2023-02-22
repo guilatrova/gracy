@@ -2,13 +2,9 @@ import pytest
 import typing as t
 from http import HTTPStatus
 
-from gracy import BaseEndpoint, Gracy, GracyConfig, graceful
+from gracy import Gracy, GracyConfig, graceful
 from gracy.exceptions import GracyParseFailed
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, assert_one_request_made
-
-
-class PokeApiEndpoint(BaseEndpoint):
-    GET_POKEMON = "/pokemon/{NAME}"
+from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):

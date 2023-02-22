@@ -4,19 +4,15 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy import BaseEndpoint, GracefulValidator, Gracy, graceful
+from gracy import GracefulValidator, Gracy, graceful
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, assert_one_request_made
+from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
 
 
 class CustomValidator(GracefulValidator):
     def check(self, response: httpx.Response) -> None:
         if response.json()["order"] != 47:
             raise ValueError("Pokemon #order should be 47")  # noqa: TC003
-
-
-class PokeApiEndpoint(BaseEndpoint):
-    GET_POKEMON = "/pokemon/{NAME}"
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):

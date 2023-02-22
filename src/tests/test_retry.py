@@ -4,9 +4,9 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy import BaseEndpoint, GracefulRetry, GracefulValidator, Gracy, GracyConfig, graceful
+from gracy import GracefulRetry, GracefulValidator, Gracy, GracyConfig, graceful
 from gracy.exceptions import NonOkResponse
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, assert_requests_made
+from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_requests_made
 
 RETRY: t.Final = GracefulRetry(delay=0.1, max_attempts=0, retry_on={HTTPStatus.NOT_FOUND, ValueError}, behavior="pass")
 """NOTE: Max attempts will be patched later in fixture"""
@@ -16,10 +16,6 @@ class CustomValidator(GracefulValidator):
     def check(self, response: httpx.Response) -> None:
         if response.json()["order"] != 47:
             raise ValueError("Pokemon #order should be 47")  # noqa: TC003
-
-
-class PokeApiEndpoint(BaseEndpoint):
-    GET_POKEMON = "/pokemon/{NAME}"
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
