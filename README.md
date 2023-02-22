@@ -188,21 +188,24 @@ You can implement your own custom validator to do further checks on the response
 ```py
 from gracy import GracefulValidator
 
+class MyException(Exception):
+  pass
+
 class MyCustomValidator(GracefulValidator):
     def check(self, response: httpx.Response) -> None:
         jsonified = response.json()
         if jsonified.get('error', None):
-          raise Exception("Error is not expected")
+          raise MyException("Error is not expected")
 
         return None
-
 
 ...
 
 class Config:
   SETTINGS = GracyConfig(
     ...,
-    validators=MyCustomValidator()
+    retry=GracefulRetry(retry_on=MyException, ...),  # Set up retry to work whenever our validator fails
+    validators=MyCustomValidator(),  # Set up validator
   )
 
 ```
