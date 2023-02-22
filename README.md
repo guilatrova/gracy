@@ -33,6 +33,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
     - [More examples](#more-examples)
 - [Settings](#settings)
   - [Strict/Allowed status code](#strictallowed-status-code)
+  - [Custom Validators](#custom-validators)
   - [Parsing](#parsing)
   - [Retry](#retry)
   - [Throttling](#throttling)
@@ -179,6 +180,32 @@ Using `allowed_status_code` means that all successful codes plus your defined co
 This is quite useful for parsing as you'll see soon.
 
 ⚠️ Note that `strict_status_code` takes precedence over `allowed_status_code`, probably you don't want to combine those. Prefer one or the other.
+
+### Custom Validators
+
+You can implement your own custom validator to do further checks on the response and decide whether to consider the request failed (and as consequence trigger retries if they're set).
+
+```py
+from gracy import GracefulValidator
+
+class MyCustomValidator(GracefulValidator):
+    def check(self, response: httpx.Response) -> None:
+        jsonified = response.json()
+        if jsonified.get('error', None):
+          raise Exception("Error is not expected")
+
+        return None
+
+
+...
+
+class Config:
+  SETTINGS = GracyConfig(
+    ...,
+    validators=MyCustomValidator()
+  )
+
+```
 
 ### Parsing
 
