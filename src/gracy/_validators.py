@@ -8,9 +8,9 @@ from .exceptions import NonOkResponse, UnexpectedResponse
 
 
 class DefaultValidator(GracefulValidator):
-    def check(self, response: httpx.Response) -> bool:
+    def check(self, response: httpx.Response) -> None:
         if response.is_success:
-            return True
+            return None
 
         raise NonOkResponse(str(response.url), response)
 
@@ -22,9 +22,9 @@ class StrictStatusValidator(GracefulValidator):
         else:
             self._status_codes = {status_code}
 
-    def check(self, response: httpx.Response) -> bool:
+    def check(self, response: httpx.Response) -> None:
         if HTTPStatus(response.status_code) in self._status_codes:
-            return True
+            return None
 
         raise UnexpectedResponse(str(response.url), response, self._status_codes)
 
@@ -36,11 +36,11 @@ class AllowedStatusValidator(GracefulValidator):
         else:
             self._status_codes = {status_code}
 
-    def check(self, response: httpx.Response) -> bool:
+    def check(self, response: httpx.Response) -> None:
         if response.is_success:
-            return True
+            return None
 
         if HTTPStatus(response.status_code) in self._status_codes:
-            return True
+            return None
 
         raise NonOkResponse(str(response.url), response)

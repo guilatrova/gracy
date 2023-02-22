@@ -314,7 +314,8 @@ class GracefulValidator(ABC):
     """
 
     @abstractmethod
-    def check(self, response: httpx.Response) -> bool:
+    def check(self, response: httpx.Response) -> None:
+        """Returns `None` to pass or raise exception"""
         pass
 
 
