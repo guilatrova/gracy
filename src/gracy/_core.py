@@ -113,22 +113,21 @@ async def _gracefully_retry(
         result = await request()
         report.track(request_context, result)
 
-        try:
-            for validator in validators:
+        validation_exc: Exception | None = None
+        for validator in validators:
+            try:
                 validator.check(result)
+            except Exception as ex:
+                validation_exc = ex
+                break
 
-        except Exception:
-            state.success = False
-            failing = True
-
-        else:
-            # Even if all validators are passing, we check whether
-            # it should retry for cases like:
-            # e.g. Allow = 404 (so it's a success),
-            #      but Retry it up to 3 times to see whether it becomes 200
-            if config.should_retry(result.status_code) is False:
-                state.success = True
-                failing = False
+        # Even if all validators are passing, we check whether
+        # it should retry for cases like:
+        # e.g. Allow = 404 (so it's a success),
+        #      but Retry it up to 3 times to see whether it becomes 200
+        if config.should_retry(result.status_code, validation_exc) is False:
+            state.success = True
+            failing = False
 
         if retry.log_after:
             process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, result)
@@ -202,7 +201,7 @@ async def _gracify(
 
     must_break = True
     retry_result: GracefulRetryState | None = None
-    if active_config.should_retry(result.status_code):
+    if active_config.should_retry(result.status_code, validation_exc):
         retry_result = await _gracefully_retry(
             report,
             throttle_controller,

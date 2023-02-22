@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import inspect
 import itertools
 import logging
 import re
@@ -97,13 +98,16 @@ class GracefulRetryState:
             self._delay *= self._retry_config.delay_modifier
 
 
+STATUS_OR_EXCEPTION = HTTPStatus | type[Exception]
+
+
 @dataclass
 class GracefulRetry:
     delay: float
     max_attempts: int
 
     delay_modifier: float = 1
-    retry_on: HTTPStatus | Iterable[HTTPStatus] | None = None
+    retry_on: STATUS_OR_EXCEPTION | Iterable[STATUS_OR_EXCEPTION] | None = None
     log_before: None | LogEvent = None
     log_after: None | LogEvent = None
     log_exhausted: None | LogEvent = None
@@ -360,7 +364,7 @@ class GracyConfig:
 
     throttling: GracefulThrottle | None | Unset = UNSET_VALUE
 
-    def should_retry(self, response_status: int) -> bool:
+    def should_retry(self, response_status: int, validation_exc: Exception | None) -> bool:
         """Only checks if given status requires retry. Does not consider attempts."""
         if self.has_retry:
             retry: GracefulRetry = self.retry  # type: ignore
@@ -368,9 +372,18 @@ class GracyConfig:
                 return True
 
             if isinstance(retry.retry_on, Iterable):
-                return HTTPStatus(response_status) in retry.retry_on
+                if HTTPStatus(response_status) in retry.retry_on:
+                    return True
 
-            return retry.retry_on == response_status
+                for maybe_exc in retry.retry_on:
+                    if inspect.isclass(maybe_exc) and isinstance(validation_exc, maybe_exc):
+                        return True
+
+            elif inspect.isclass(retry.retry_on):
+                return isinstance(validation_exc, retry.retry_on)
+
+            else:
+                return retry.retry_on == response_status
 
         return False
 
