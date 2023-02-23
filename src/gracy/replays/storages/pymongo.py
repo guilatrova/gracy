@@ -1,3 +1,4 @@
+import json
 import pickle
 import typing as t
 from dataclasses import asdict, dataclass
@@ -30,6 +31,8 @@ class MongoReplayDocument(t.TypedDict):
     method: str
     request_body: bytes | None
     response: bytes
+    response_content: dict[str, t.Any] | str | None
+    """Useful for debugging since Mongo supports unstructured data"""
     updated_at: datetime
 
 
@@ -89,11 +92,23 @@ class MongoReplayStorage(GracyReplayStorage):
     async def record(self, response: httpx.Response) -> None:
         response_serialized = pickle.dumps(response)
 
+        response_content = response.text or None
+        if "json" in response.headers.get("Content-Type"):
+            try:
+                jsonified_content = response.json()
+
+            except json.decoder.JSONDecodeError:
+                pass
+
+            else:
+                response_content = jsonified_content
+
         doc = MongoReplayDocument(
             url=str(response.url),
             method=response.request.method,
             request_body=response.request.content or None,
             response=response_serialized,
+            response_content=response_content,
             updated_at=datetime.now(),
         )
 
