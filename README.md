@@ -120,7 +120,8 @@ asyncio.run(main())
 
 - [PokeAPI with retries, parsers, logs](./examples/pokeapi.py)
 - [PokeAPI with throttling](./examples/pokeapi_throttle.py)
-- [PokeAPI with replay](./examples/pokeapi_replay.py)
+- [PokeAPI with SQLite replay](./examples/pokeapi_replay.py)
+- [PokeAPI with Mongo replay](./examples/pokeapi_replay_mongo.py)
 
 ## Settings
 
