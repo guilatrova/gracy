@@ -41,7 +41,7 @@ def get_unique_keys_from_doc(replay_doc: MongoReplayDocument) -> t.Dict[str, byt
 
 
 def get_unique_keys_from_request(request: httpx.Request) -> t.Dict[str, bytes | None | str]:
-    return {"url": str(request.url), "method": request.method, "request_body": request.content}
+    return {"url": str(request.url), "method": request.method, "request_body": request.content or None}
 
 
 batch_lock = Lock()
