@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.10.1 (2023-02-23)
+### Fix
+* Error log ([`6f63941`](https://github.com/guilatrova/gracy/commit/6f6394181ed024f738605a4743af2eea788ce4f7))
+
 ## v1.10.0 (2023-02-22)
 ### Feature
 * Allow custom validators ([`50818f8`](https://github.com/guilatrova/gracy/commit/50818f89fe2a03800fde18fa38686a04853cb54a))
