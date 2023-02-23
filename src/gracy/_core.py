@@ -8,6 +8,8 @@ from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
+from gracy.replays._wrappers import record_mode, replay_mode, smart_replay_mode
+
 from ._configs import custom_config_context, custom_gracy_config
 from ._loggers import (
     DefaultLogMessage,
@@ -34,12 +36,11 @@ from ._models import (
     ThrottleRule,
     Unset,
 )
-from ._replay._storages import GracyReplay
-from ._replay._wrappers import read_replay, record_replay_result
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
 from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
 from .exceptions import GracyParseFailed
+from .replays.storages._base import GracyReplay
 
 logger = logging.getLogger("gracy")
 
@@ -128,7 +129,7 @@ async def _gracefully_retry(
         # it should retry for cases like:
         # e.g. Allow = 404 (so it's a success),
         #      but Retry it up to 3 times to see whether it becomes 200
-        if config.should_retry(result.status_code, validation_exc) is False:
+        if config.should_retry(result, validation_exc) is False:
             state.success = True
             failing = False
 
@@ -204,7 +205,7 @@ async def _gracify(
 
     must_break = True
     retry_result: GracefulRetryState | None = None
-    if active_config.should_retry(result.status_code, validation_exc):
+    if active_config.should_retry(result, validation_exc):
         retry_result = await _gracefully_retry(
             report,
             throttle_controller,
@@ -247,10 +248,10 @@ class Gracy(Generic[Endpoint]):
         self.DEBUG_ENABLED = DEBUG_ENABLED
         self._base_config = cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
         self._client = self._create_client(**kwargs)
-        self._replay = replay
+        self.replays = replay
 
         if replay:
-            replay.strategy.prepare()
+            replay.storage.prepare()
 
     def _create_client(self, **kwargs: Any) -> httpx.AsyncClient:
         base_url = getattr(self.Config, "BASE_URL", "")
@@ -278,11 +279,13 @@ class Gracy(Generic[Endpoint]):
         )
 
         httpx_request_func = self._client.request
-        if self._replay:
-            if self._replay.mode == "record":
-                httpx_request_func = record_replay_result(self._replay.strategy, httpx_request_func)
+        if replays := self.replays:
+            if replays.mode == "record":
+                httpx_request_func = record_mode(replays, httpx_request_func)
+            elif replays.mode == "replay":
+                httpx_request_func = replay_mode(replays, self._client, httpx_request_func)
             else:
-                httpx_request_func = read_replay(self._replay.strategy, self._client, httpx_request_func)
+                httpx_request_func = smart_replay_mode(replays, self._client, httpx_request_func)
 
         graceful_request = _gracify(
             Gracy._reporter,
@@ -363,7 +366,7 @@ class Gracy(Generic[Endpoint]):
         return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
 
     def get_report(self):
-        return self._reporter.build(self._throttle_controller, self._replay)
+        return self._reporter.build(self._throttle_controller, self.replays)
 
     def report_status(self, printer: PRINTERS):
         report = self.get_report()

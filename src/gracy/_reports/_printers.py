@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Final, Literal
 
-from .._replay._storages import GracyReplay
+from ..replays.storages._base import GracyReplay
 from ._models import GracyAggregatedTotal, GracyReport
 
 logger = logging.getLogger("gracy")
@@ -24,7 +24,7 @@ class Titles:
     req_rate_per_sec: Final = "Avg Reqs/sec"
 
 
-def _get_replay_warn(replay_settings: GracyReplay | None) -> str:
+def _getreplays_warn(replay_settings: GracyReplay | None) -> str:
     if replay_settings:
         if replay_settings.mode == "record":
             return "All Requests Recorded"
@@ -85,7 +85,7 @@ def _print_header(report: GracyReport):
     print(" | |  _| '__/ _` |/ __| | | |")
     print(" | |_| | | | (_| | (__| |_| |")
     print("  \\____|_|  \\__,_|\\___|\\__, |")
-    print(f"                       |___/  Requests Summary Report {_get_replay_warn(report.replay_settings)}")
+    print(f"                       |___/  Requests Summary Report {_getreplays_warn(report.replay_settings)}")
 
 
 class BasePrinter(ABC):
@@ -101,7 +101,7 @@ class RichPrinter(BasePrinter):
         from rich.table import Table
 
         console = Console()
-        title_warn = f"[yellow]{_get_replay_warn(report.replay_settings)}[/yellow]" if report.replay_settings else ""
+        title_warn = f"[yellow]{_getreplays_warn(report.replay_settings)}[/yellow]" if report.replay_settings else ""
         table = Table(title=f"Gracy Requests Summary {title_warn}")
 
         table.add_column(Titles.url, overflow="fold")

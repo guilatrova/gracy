@@ -1,6 +1,7 @@
 import typing as t
 
-from gracy import BaseEndpoint, Gracy, GracyReplay, SQLiteReplayStorage
+from gracy import BaseEndpoint, Gracy, GracyReplay
+from gracy.replays.storages.sqlite import SQLiteReplayStorage
 
 MISSING_NAME: t.Final = "doesnt-exist"
 """Should match what we recorded previously to successfully replay"""

@@ -2,7 +2,6 @@ import logging
 import pickle
 import sqlite3
 import typing as t
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -12,31 +11,20 @@ import httpx
 from gracy.exceptions import GracyReplayRequestNotFound
 
 from . import _sqlite_schema as schema
-from ._models import GracyRecording
+from ._base import GracyReplayStorage
 
 logger = logging.getLogger(__name__)
 
 
-class GracyReplayStorage(ABC):
-    def prepare(self) -> None:
-        """(Optional) Executed upon API instance creation."""
-        pass
-
-    @abstractmethod
-    async def record(self, response: httpx.Response) -> None:
-        """Logic to store the response object. Note the httpx.Response has request data"""
-        pass
-
-    @abstractmethod
-    async def load(self, request: httpx.Request) -> httpx.Response:
-        """Logic to load a response object based on the request"""
-        pass
-
-
 @dataclass
-class GracyReplay:
-    mode: t.Literal["record", "replay"]
-    strategy: GracyReplayStorage
+class GracyRecording:
+    url: str
+    method: str
+
+    request_body: bytes | None
+    response: bytes
+
+    updated_at: datetime
 
 
 class SQLiteReplayStorage(GracyReplayStorage):
@@ -87,7 +75,7 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         self._insert_into_db(recording)
 
-    async def load(self, request: httpx.Request) -> httpx.Response:
+    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
         cur = self._con.cursor()
         params: t.Iterable[str | bytes]
 
@@ -100,6 +88,10 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         fetch_res = cur.fetchone()
         if fetch_res is None:
+            raise GracyReplayRequestNotFound(request)
+
+        updated_at: datetime = fetch_res[1]
+        if discard_before and updated_at < discard_before:
             raise GracyReplayRequestNotFound(request)
 
         serialized_response: bytes = fetch_res[0]

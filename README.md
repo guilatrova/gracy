@@ -120,7 +120,8 @@ asyncio.run(main())
 
 - [PokeAPI with retries, parsers, logs](./examples/pokeapi.py)
 - [PokeAPI with throttling](./examples/pokeapi_throttle.py)
-- [PokeAPI with replay](./examples/pokeapi_replay.py)
+- [PokeAPI with SQLite replay](./examples/pokeapi_replay.py)
+- [PokeAPI with Mongo replay](./examples/pokeapi_replay_mongo.py)
 
 ## Settings
 
@@ -585,6 +586,9 @@ It works in two steps:
 The effort to record requests/responses is ZERO. You just need to pass a recording config to your Graceful API:
 
 ```py
+from gracy import GracyReplay
+from gracy.replays.storages.sqlite import SQLiteReplayStorage
+
 record_mode = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))
 pokeapi = GracefulPokeAPI(record_mode)
 ```
@@ -596,6 +600,9 @@ pokeapi = GracefulPokeAPI(record_mode)
 Once you have recorded all your requests you can enable the replay mode:
 
 ```py
+from gracy import GracyReplay
+from gracy.replays.storages.sqlite import SQLiteReplayStorage
+
 replay_mode = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
 pokeapi = GracefulPokeAPI(replay_mode)
 ```
@@ -674,11 +681,11 @@ class YourAPIClient(Gracy[str]):
 
 Gracy was built with extensibility in mind.
 
-You can create your own storage to store/load anywhere (e.g. Mongo Database), here's an example:
+You can create your own storage to store/load anywhere (e.g. SQL Database), here's an example:
 
 ```py
 import httpx
-from gracy import GracyReplayStorage, GracyRecording
+from gracy import GracyReplayStorage
 
 class MyCustomStorage(GracyReplayStorage):
   def prepare(self) -> None: # (Optional) Executed upon API instance creation.

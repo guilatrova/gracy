@@ -29,7 +29,7 @@ VALUES (?, ?, ?, ?, ?)
 """
 
 FIND_REQUEST_WITH_REQ_BODY: Final = f"""
-SELECT response FROM {TABLE_NAME}
+SELECT response, updated_at FROM {TABLE_NAME}
 WHERE
 url = ? AND
 method = ? AND
@@ -37,7 +37,7 @@ request_body = ?
 """
 
 FIND_REQUEST_WITHOUT_REQ_BODY: Final = f"""
-SELECT response FROM {TABLE_NAME}
+SELECT response, updated_at FROM {TABLE_NAME}
 WHERE
 url = ? AND
 method = ? AND

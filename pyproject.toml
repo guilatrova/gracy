@@ -51,6 +51,7 @@ build_command = "pip install poetry && poetry build"
 python = ">=3.8.1,<4.0"
 httpx = "^0.23.3"
 rich = { version = "*", optional = true }
+pymongo = { version ="*", optional = true }
 
 
 [tool.poetry.group.dev.dependencies]
@@ -62,11 +63,13 @@ isort = "^5.12.0"
 tryceratops = "^1.1.0"
 pre-commit = "^3.0.1"
 rich = "^13.2.0"
+pymongo = "^4.3.3"
 pytest = "^7.2.1"
 pytest-asyncio = "^0.20.3"
 
 [tool.poetry.extras]
 rich = ["rich"]
+pymongo = ["pymongo"]
 
 [tool.black]
 line-length = 120

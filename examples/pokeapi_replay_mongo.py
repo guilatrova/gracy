@@ -5,7 +5,7 @@ import httpx
 
 from gracy import BaseEndpoint, GracefulRetry, Gracy, GracyReplay, GracyRequestContext, LogEvent, LogLevel, graceful
 from gracy.exceptions import GracyUserDefinedException
-from gracy.replays.storages.sqlite import SQLiteReplayStorage
+from gracy.replays.storages.pymongo import MongoCredentials, MongoReplayStorage
 
 retry = GracefulRetry(
     delay=1,
@@ -18,8 +18,9 @@ retry = GracefulRetry(
     behavior="pass",
 )
 
-record_mode = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))
-replay_mode = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
+mongo_container = MongoCredentials(host="localhost", username="root", password="example")
+record_mode = GracyReplay("record", MongoReplayStorage(mongo_container))
+replay_mode = GracyReplay("replay", MongoReplayStorage(mongo_container))
 
 
 class PokemonNotFound(GracyUserDefinedException):

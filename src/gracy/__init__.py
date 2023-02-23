@@ -1,7 +1,7 @@
 """Gracefully manage your API interactions"""
 import logging
 
-from . import exceptions
+from . import exceptions, replays
 from ._core import Gracy, graceful
 from ._models import (
     DEFAULT_CONFIG,
@@ -15,9 +15,8 @@ from ._models import (
     LogLevel,
     ThrottleRule,
 )
-from ._replay._models import GracyRecording
-from ._replay._storages import GracyReplay, GracyReplayStorage, SQLiteReplayStorage
 from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, GracyReport
+from .replays.storages._base import GracyReplay, GracyReplayStorage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
@@ -39,11 +38,10 @@ __all__ = [
     "ThrottleRule",
     "GracyConfig",
     "DEFAULT_CONFIG",
-    # Replay
-    "GracyRecording",
+    # Replays
+    "replays",
     "GracyReplay",
     "GracyReplayStorage",
-    "SQLiteReplayStorage",
     # Reports
     "GracyReport",
     "GracyAggregatedTotal",
