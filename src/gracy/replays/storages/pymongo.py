@@ -21,7 +21,7 @@ except ModuleNotFoundError:
 class MongoCredentials:
     host: str | None = None
     """Can be a full URI"""
-    port: int | None = None
+    port: int = 27017
     username: str | None = None
     password: str | None = None
 
@@ -70,9 +70,8 @@ class MongoReplayStorage(GracyReplayStorage):
                 self._batch_ops = []
 
     def _create_or_batch(self, doc: MongoReplayDocument) -> None:
+        filter = get_unique_keys_from_doc(doc)
         if self._batch and self._batch > 1:
-            filter = get_unique_keys_from_doc(doc)
-
             with batch_lock:
                 self._batch_ops.append(pymongo.ReplaceOne(filter, doc, upsert=True))
 
@@ -80,7 +79,7 @@ class MongoReplayStorage(GracyReplayStorage):
                 self._flush_batch()
 
         else:
-            self._collection.upsert_one(doc)
+            self._collection.replace_one(filter, doc, upsert=True)
 
     def prepare(self) -> None:
         self._collection.create_index(
