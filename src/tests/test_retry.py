@@ -13,6 +13,8 @@ RETRY: t.Final = GracefulRetry(
 )
 """NOTE: Max attempts will be patched later in fixture"""
 
+RETRY_ON_NONE: t.Final = GracefulRetry(delay=0.001, max_attempts=1, retry_on=None, behavior="pass")
+
 
 class CustomValidator(GracefulValidator):
     def check(self, response: httpx.Response) -> None:
@@ -50,6 +52,10 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
     @graceful(validators=CustomValidator())
     async def get_pokemon_with_custom_validator(self, name: str):
+        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+
+    @graceful(retry=RETRY_ON_NONE)
+    async def get_pokemon_with_retry_on_none(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
 
@@ -144,4 +150,15 @@ async def test_failing_without_retry_or_parser(make_pokeapi: t.Callable[[int], G
     with pytest.raises(NonOkResponse):
         await pokeapi.get_pokemon_without_retry_or_parser(MISSING_NAME)
 
+    assert_requests_made(pokeapi, EXPECTED_REQS)
+
+
+async def test_retry_none_for_successful_request(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+    EXPECTED_REQS: t.Final = 1
+
+    pokeapi = make_pokeapi(0)  # Won't have effect
+
+    result = await pokeapi.get_pokemon_with_retry_on_none(PRESENT_NAME)
+
+    assert result is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)

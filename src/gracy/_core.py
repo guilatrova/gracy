@@ -129,7 +129,7 @@ async def _gracefully_retry(
         # it should retry for cases like:
         # e.g. Allow = 404 (so it's a success),
         #      but Retry it up to 3 times to see whether it becomes 200
-        if config.should_retry(result.status_code, validation_exc) is False:
+        if config.should_retry(result, validation_exc) is False:
             state.success = True
             failing = False
 
@@ -205,7 +205,7 @@ async def _gracify(
 
     must_break = True
     retry_result: GracefulRetryState | None = None
-    if active_config.should_retry(result.status_code, validation_exc):
+    if active_config.should_retry(result, validation_exc):
         retry_result = await _gracefully_retry(
             report,
             throttle_controller,
