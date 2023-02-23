@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from asyncio import sleep
 from http import HTTPStatus
 from typing import Any, Callable, Coroutine, Generic, Iterable, cast
@@ -39,6 +40,8 @@ from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
 from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
 from .exceptions import GracyParseFailed
+
+logger = logging.getLogger("gracy")
 
 
 async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
@@ -240,7 +243,8 @@ class Gracy(Generic[Endpoint]):
         REQUEST_TIMEOUT: float | None = None
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
-    def __init__(self, replay: GracyReplay | None = None, **kwargs: Any) -> None:
+    def __init__(self, replay: GracyReplay | None = None, DEBUG_ENABLED: bool = False, **kwargs: Any) -> None:
+        self.DEBUG_ENABLED = DEBUG_ENABLED
         self._base_config = cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
         self._client = self._create_client(**kwargs)
         self._replay = replay
@@ -265,6 +269,9 @@ class Gracy(Generic[Endpoint]):
         active_config = self._base_config
         if custom_config:
             active_config = GracyConfig.merge_config(self._base_config, custom_config)
+
+        if self.DEBUG_ENABLED:
+            logger.debug(f"Active Config for {endpoint}: {active_config}")
 
         request_context = GracyRequestContext(
             method, str(self._client.base_url), endpoint, endpoint_args, active_config
