@@ -210,15 +210,17 @@ async def _gracify(
             validators,
         )
 
-    if not retry_result or retry_result.failed:
+    did_request_fail = bool(validation_exc)
+    no_retry_or_retry_also_failed = retry_result is None or retry_result.failed is True
+    if did_request_fail and no_retry_or_retry_also_failed:
         if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
             process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
-        if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
-            must_break = False
+    if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
+        must_break = False
 
-        if validation_exc and must_break:
-            raise validation_exc
+    if validation_exc and must_break:
+        raise validation_exc
 
     final_result = _maybe_parse_result(active_config, request_context, result)
 
