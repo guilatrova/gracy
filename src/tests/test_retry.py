@@ -162,3 +162,14 @@ async def test_retry_none_for_successful_request(make_pokeapi: t.Callable[[int],
 
     assert result is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)
+
+
+async def test_retry_none_for_failing_request(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+    EXPECTED_REQS: t.Final = 2
+
+    pokeapi = make_pokeapi(0)  # Won't have effect
+
+    result = await pokeapi.get_pokemon_with_retry_on_none(MISSING_NAME)
+
+    assert result is None
+    assert_requests_made(pokeapi, EXPECTED_REQS)
