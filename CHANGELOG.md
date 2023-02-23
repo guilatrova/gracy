@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.0 (2023-02-23)
+### Feature
+* Enable config debugging flag ([`07c6339`](https://github.com/guilatrova/gracy/commit/07c633923a20343329aa884ddc109f3cde0e5be0))
+
 ## v1.10.1 (2023-02-23)
 ### Fix
 * Error log ([`6f63941`](https://github.com/guilatrova/gracy/commit/6f6394181ed024f738605a4743af2eea788ce4f7))
