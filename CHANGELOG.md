@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.1 (2023-02-23)
+### Fix
+* **retry:** Don't retry when successful ([`b334c22`](https://github.com/guilatrova/gracy/commit/b334c227a4a8a688029130c736118b6dcb4f8f3b))
+* **pymongo:** Adjust filter ([`5ee9f0c`](https://github.com/guilatrova/gracy/commit/5ee9f0c6aa523530929bd69d19a9ff637c46705c))
+* **pymongo:** Use correct methods/kwargs ([`4a191d8`](https://github.com/guilatrova/gracy/commit/4a191d81e083772add036bc3d9d5937ccbf6d31c))
+
+### Documentation
+* Update examples ([`26420da`](https://github.com/guilatrova/gracy/commit/26420da78776862a0cb7569b5f64b610ed212ff6))
+
 ## v1.11.0 (2023-02-23)
 ### Feature
 * Enable config debugging flag ([`07c6339`](https://github.com/guilatrova/gracy/commit/07c633923a20343329aa884ddc109f3cde0e5be0))
