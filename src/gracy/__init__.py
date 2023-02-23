@@ -8,6 +8,7 @@ from ._models import (
     BaseEndpoint,
     GracefulRetry,
     GracefulThrottle,
+    GracefulValidator,
     GracyConfig,
     GracyRequestContext,
     LogEvent,
@@ -19,7 +20,7 @@ from .replays.storages._base import GracyReplay, GracyReplayStorage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-__version__ = "1.7.0"
+__version__ = "1.10.1"
 
 __all__ = [
     "exceptions",
@@ -29,6 +30,7 @@ __all__ = [
     # Models
     "BaseEndpoint",
     "GracefulRetry",
+    "GracefulValidator",
     "GracyRequestContext",
     "LogEvent",
     "LogLevel",

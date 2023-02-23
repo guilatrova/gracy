@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from asyncio import sleep
 from http import HTTPStatus
 from typing import Any, Callable, Coroutine, Generic, Iterable, cast
@@ -27,6 +28,7 @@ from ._models import (
     GracefulRequest,
     GracefulRetry,
     GracefulRetryState,
+    GracefulValidator,
     GracyConfig,
     GracyRequestContext,
     LogEvent,
@@ -36,8 +38,11 @@ from ._models import (
 )
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
-from .exceptions import GracyParseFailed, NonOkResponse, UnexpectedResponse
+from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
+from .exceptions import GracyParseFailed
 from .replays.storages._base import GracyReplay
+
+logger = logging.getLogger("gracy")
 
 
 async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
@@ -60,26 +65,26 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
                     await asyncio.sleep(await_time)
                     continue
 
-                if throttling.log_limit_reached:
-                    process_log_throttle(
-                        throttling.log_limit_reached,
-                        DefaultLogMessage.THROTTLE_HIT,
-                        await_time,
-                        rule,
-                        request_context,
-                    )
-
                 with THROTTLE_LOCKER.lock_rule(rule):
+                    if throttling.log_limit_reached:
+                        process_log_throttle(
+                            throttling.log_limit_reached,
+                            DefaultLogMessage.THROTTLE_HIT,
+                            await_time,
+                            rule,
+                            request_context,
+                        )
+
                     await asyncio.sleep(await_time)
 
-                if throttling.log_wait_over:
-                    process_log_throttle(
-                        throttling.log_wait_over,
-                        DefaultLogMessage.THROTTLE_DONE,
-                        await_time,
-                        rule,
-                        request_context,
-                    )
+                    if throttling.log_wait_over:
+                        process_log_throttle(
+                            throttling.log_wait_over,
+                            DefaultLogMessage.THROTTLE_DONE,
+                            await_time,
+                            rule,
+                            request_context,
+                        )
             else:
                 has_been_throttled = False
 
@@ -89,22 +94,22 @@ async def _gracefully_retry(
     throttle_controller: ThrottleController,
     request: GracefulRequest,
     request_context: GracyRequestContext,
-    check_func: Callable[[GracyConfig, httpx.Response], bool],
+    validators: list[GracefulValidator],
 ) -> GracefulRetryState:
     retry = cast(GracefulRetry, request_context.active_config.retry)
     state = retry.create_state()
+
     config = request_context.active_config
     result = None
 
     failing = True
     while failing:
-        if retry.log_before:
-            process_log_retry(retry.log_before, DefaultLogMessage.RETRY_BEFORE, request_context, state)
-
         state.increment()
-
         if state.cant_retry:
             break
+
+        if retry.log_before:
+            process_log_retry(retry.log_before, DefaultLogMessage.RETRY_BEFORE, request_context, state)
 
         await sleep(state.delay)
         await _gracefully_throttle(throttle_controller, request_context)
@@ -112,8 +117,21 @@ async def _gracefully_retry(
         result = await request()
         report.track(request_context, result)
 
-        state.success = check_func(config, result)
-        failing = not state.success
+        validation_exc: Exception | None = None
+        for validator in validators:
+            try:
+                validator.check(result)
+            except Exception as ex:
+                validation_exc = ex
+                break
+
+        # Even if all validators are passing, we check whether
+        # it should retry for cases like:
+        # e.g. Allow = 404 (so it's a success),
+        #      but Retry it up to 3 times to see whether it becomes 200
+        if config.should_retry(result.status_code, validation_exc) is False:
+            state.success = True
+            failing = False
 
         if retry.log_after:
             process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, result)
@@ -122,33 +140,6 @@ async def _gracefully_retry(
         process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, result)
 
     return state
-
-
-def _check_strictness(active_config: GracyConfig, result: httpx.Response) -> bool:
-    if active_config.strict_status_code:
-        if not isinstance(active_config.strict_status_code, Unset):
-            strict_statuses = active_config.strict_status_code
-            if not isinstance(strict_statuses, Iterable):
-                strict_statuses = {strict_statuses}
-
-            if HTTPStatus(result.status_code) not in strict_statuses:
-                return False
-
-    return True
-
-
-def _check_allowed(active_config: GracyConfig, result: httpx.Response) -> bool:
-    successful = result.is_success
-    if not successful and active_config.allowed_status_code:
-        if not isinstance(active_config.allowed_status_code, Unset):
-            allowed = active_config.allowed_status_code
-            if not isinstance(allowed, Iterable):
-                allowed = {allowed}
-
-            if HTTPStatus(result.status_code) not in allowed:
-                return False
-
-    return successful
 
 
 def _maybe_parse_result(active_config: GracyConfig, request_context: GracyRequestContext, result: httpx.Response):
@@ -191,54 +182,49 @@ async def _gracify(
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
         process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
 
-    strict_pass = _check_strictness(active_config, result)
-    if strict_pass is False:
-        strict_codes: HTTPStatus | Iterable[HTTPStatus] = active_config.strict_status_code  # type: ignore
-        retry_result = None
-        must_break = True
+    validators: list[GracefulValidator] = []
+    if active_config.strict_status_code and not isinstance(active_config.strict_status_code, Unset):
+        validators.append(StrictStatusValidator(active_config.strict_status_code))
+    elif active_config.allowed_status_code and not isinstance(active_config.allowed_status_code, Unset):
+        validators.append(AllowedStatusValidator(active_config.allowed_status_code))
+    else:
+        validators.append(DefaultValidator())
 
-        if active_config.should_retry(result.status_code):
-            retry_result = await _gracefully_retry(
-                report,
-                throttle_controller,
-                request,
-                request_context,
-                check_func=_check_strictness,
-            )
+    if isinstance(active_config.validators, GracefulValidator):
+        validators.append(active_config.validators)
+    elif isinstance(active_config.validators, Iterable):
+        validators += active_config.validators
 
-        if not retry_result or retry_result.failed:
-            if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-                process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
+    validation_exc: Exception | None = None
+    for validator in validators:
+        try:
+            validator.check(result)
+        except Exception as ex:
+            validation_exc = ex
+            break
 
-            if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
-                must_break = False
+    must_break = True
+    retry_result: GracefulRetryState | None = None
+    if active_config.should_retry(result.status_code, validation_exc):
+        retry_result = await _gracefully_retry(
+            report,
+            throttle_controller,
+            request,
+            request_context,
+            validators,
+        )
 
-        if must_break:
-            raise UnexpectedResponse(str(result.url), result, strict_codes)
+    did_request_fail = bool(validation_exc)
+    no_retry_or_retry_also_failed = retry_result is None or retry_result.failed is True
+    if did_request_fail and no_retry_or_retry_also_failed:
+        if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
+            process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
-    allowed_pass = _check_allowed(active_config, result)
-    if allowed_pass is False:
-        retry_result = None
-        must_break = True
+    if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
+        must_break = False
 
-        if active_config.should_retry(result.status_code):
-            retry_result = await _gracefully_retry(
-                report,
-                throttle_controller,
-                request,
-                request_context,
-                check_func=_check_allowed,
-            )
-
-        if not retry_result or retry_result.failed:
-            if isinstance(active_config.log_errors, LogEvent):
-                process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
-
-            if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
-                must_break = False
-
-            if must_break:
-                raise NonOkResponse(str(result.url), result)
+    if validation_exc and must_break:
+        raise validation_exc
 
     final_result = _maybe_parse_result(active_config, request_context, result)
 
@@ -258,8 +244,9 @@ class Gracy(Generic[Endpoint]):
         REQUEST_TIMEOUT: float | None = None
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
-    def __init__(self, replay: GracyReplay | None = None, **kwargs: Any) -> None:
-        self._base_config: GracyConfig = getattr(self.Config, "SETTINGS", DEFAULT_CONFIG)
+    def __init__(self, replay: GracyReplay | None = None, DEBUG_ENABLED: bool = False, **kwargs: Any) -> None:
+        self.DEBUG_ENABLED = DEBUG_ENABLED
+        self._base_config = cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
         self._client = self._create_client(**kwargs)
         self.replays = replay
 
@@ -283,6 +270,9 @@ class Gracy(Generic[Endpoint]):
         active_config = self._base_config
         if custom_config:
             active_config = GracyConfig.merge_config(self._base_config, custom_config)
+
+        if self.DEBUG_ENABLED:
+            logger.debug(f"Active Config for {endpoint}: {active_config}")
 
         request_context = GracyRequestContext(
             method, str(self._client.base_url), endpoint, endpoint_args, active_config
@@ -382,6 +372,15 @@ class Gracy(Generic[Endpoint]):
         report = self.get_report()
         print_report(report, printer)
 
+    @classmethod
+    def dangerously_reset_report(cls):
+        """
+        Doing this will reset throttling rules and metrics.
+        So be sure you know what you're doing.
+        """
+        cls._throttle_controller = ThrottleController()
+        cls._reporter = ReportBuilder()
+
 
 ANY_COROUTINE = Coroutine[Any, Any, Any]
 
@@ -389,6 +388,7 @@ ANY_COROUTINE = Coroutine[Any, Any, Any]
 def graceful(
     strict_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
     allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    validators: Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE,
     retry: GracefulRetry | Unset | None = UNSET_VALUE,
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
@@ -398,6 +398,7 @@ def graceful(
     config = GracyConfig(
         strict_status_code=strict_status_code,
         allowed_status_code=allowed_status_code,
+        validators=validators,
         retry=retry,
         log_request=log_request,
         log_response=log_response,

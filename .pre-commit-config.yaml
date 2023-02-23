@@ -25,10 +25,11 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: "poetry run mypy"
+        entry: "poetry run mypy src/gracy"
         language: system
         types: [python]
         # use require_serial so that script is only called once per commit
         require_serial: true
         # print the number of files as a sanity-check
         verbose: true
+        pass_filenames: false

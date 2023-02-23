@@ -2,6 +2,64 @@
 
 <!--next-version-placeholder-->
 
+## v1.10.1 (2023-02-23)
+### Fix
+* Error log ([`6f63941`](https://github.com/guilatrova/gracy/commit/6f6394181ed024f738605a4743af2eea788ce4f7))
+
+## v1.10.0 (2023-02-22)
+### Feature
+* Allow custom validators ([`50818f8`](https://github.com/guilatrova/gracy/commit/50818f89fe2a03800fde18fa38686a04853cb54a))
+
+### Fix
+* Implement proper validate/retry/parse logic ([`0b2fa75`](https://github.com/guilatrova/gracy/commit/0b2fa75228c9340efb8595fee801c0cfa3303619))
+* Raise exception correctly ([`10a90b5`](https://github.com/guilatrova/gracy/commit/10a90b5159a2fce3e24c1bfac7f4b9e0cb58d059))
+
+### Documentation
+* Add exception details to retry params ([`8d69234`](https://github.com/guilatrova/gracy/commit/8d692346369b5c83d05e746ec1b7e9f924d02cbd))
+* Enhance custom validator example ([`d5e02eb`](https://github.com/guilatrova/gracy/commit/d5e02eb032739639f9ceb655b5b88c39f8c9a0f6))
+* Add validators ([`e3e8fa6`](https://github.com/guilatrova/gracy/commit/e3e8fa672e5f95d02f60dc3af762b6e6cd189d4d))
+
+## v1.9.1 (2023-02-21)
+### Fix
+* Create tuples ([`f648f85`](https://github.com/guilatrova/gracy/commit/f648f85a5787b2cd86934051640e666815fe5864))
+
+## v1.9.0 (2023-02-21)
+### Feature
+* Make exceptions pickable ([`5ab62c5`](https://github.com/guilatrova/gracy/commit/5ab62c59ac273078e7a1ef3122e76bf0c6901e70))
+
+### Documentation
+* Reword ([`0ca061f`](https://github.com/guilatrova/gracy/commit/0ca061f1b1e73c73b01808e2d9f0258f03e0fefa))
+* Add a emoji ([`8da07ae`](https://github.com/guilatrova/gracy/commit/8da07aecd8da6642edf01a94475ff49f297c1886))
+* Reword ([`a54f1f7`](https://github.com/guilatrova/gracy/commit/a54f1f7bac2b7a5fb52485b31c746e58734066d0))
+* Reorder logging customization ([`f6d9d76`](https://github.com/guilatrova/gracy/commit/f6d9d765daee63e7e863426519f8acda5bc2c5f0))
+
+## v1.8.1 (2023-02-17)
+### Fix
+* Retry logic triggers only once ([`0fc2358`](https://github.com/guilatrova/gracy/commit/0fc2358b1631eacc0587a59afe1d21b419f8679e))
+
+## v1.8.0 (2023-02-17)
+### Feature
+* Calculate throttling await properly ([`ba520e0`](https://github.com/guilatrova/gracy/commit/ba520e034bab88b2b5a258473f8a2ba7ff7c5879))
+* Lock throttling logs properly ([`a8ebd69`](https://github.com/guilatrova/gracy/commit/a8ebd69df0e5184a6a806870a12888c202ba37d8))
+* Prevent floats for max_requests ([`b9aed74`](https://github.com/guilatrova/gracy/commit/b9aed746bdfcd672920baeb047cf02b31e146503))
+* Format rule time range ([`514cbae`](https://github.com/guilatrova/gracy/commit/514cbaeeb2d02de12f60a62e8285ce0ba1ad0437))
+* Allow custom time windows for throttling ([`7fc35f0`](https://github.com/guilatrova/gracy/commit/7fc35f09e4a5e8df50a746cf95d112b08d4dd9bc))
+
+### Fix
+* Correct kwargs ([`0db5925`](https://github.com/guilatrova/gracy/commit/0db59254081d479a20c411ab346cad605e3a2efb))
+
+### Documentation
+* Add `THROTTLE_TIME_RANGE` ([`299c200`](https://github.com/guilatrova/gracy/commit/299c2008b5da43e7a52035dc285375b0b1dfc093))
+* **throttling:** Add timedelta example ([`74c20ef`](https://github.com/guilatrova/gracy/commit/74c20ef91c521165b72c999c7212268ca83ec7cc))
+* Enhance throttling example ([`200b3c5`](https://github.com/guilatrova/gracy/commit/200b3c5adac8a16f3af002d56f2e3c8b84f3f0d3))
+
+## v1.7.1 (2023-02-14)
+### Fix
+* **retry:** Remove duplicated default msg ([`963d7e8`](https://github.com/guilatrova/gracy/commit/963d7e8237a85c5f5692a01d7a3d1c0eb733b752))
+
+### Documentation
+* Fix reports/replay order ([`b4ddf79`](https://github.com/guilatrova/gracy/commit/b4ddf792fe29ae49e981fda5b1fca0bec4aca0f9))
+
 ## v1.7.0 (2023-02-12)
 ### Feature
 * Handle missing replays ([`4395b83`](https://github.com/guilatrova/gracy/commit/4395b832cd9f75a88d696d5cba2eb7bd9f7ce61d))

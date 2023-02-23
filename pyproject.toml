@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gracy"
-version = "1.7.0"
+version = "1.10.1"
 description = "Gracefully manage your API interactions"
 authors = ["Guilherme Latrova <hello@guilatrova.dev>"]
 license = "MIT"
@@ -64,6 +64,8 @@ tryceratops = "^1.1.0"
 pre-commit = "^3.0.1"
 rich = "^13.2.0"
 pymongo = "^4.3.3"
+pytest = "^7.2.1"
+pytest-asyncio = "^0.20.3"
 
 [tool.poetry.extras]
 rich = ["rich"]
@@ -86,6 +88,10 @@ warn_unused_ignores = true
 show_column_numbers = true
 show_error_codes = true
 show_error_context = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = "src/tests"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

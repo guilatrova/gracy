@@ -25,7 +25,7 @@ class ReportBuilder:
 
     def _calculate_req_rate_for_url(self, unformatted_url: str, throttle_controller: ThrottleController) -> float:
         pattern = re.compile(re.sub(r"{(\w+)}", ANY_REGEX, unformatted_url))
-        rate = throttle_controller.calculate_requests_rate(pattern)
+        rate = throttle_controller.calculate_requests_per_sec(pattern)
         return rate
 
     def build(self, throttle_controller: ThrottleController, replay_settings: GracyReplay | None) -> GracyReport:

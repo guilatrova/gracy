@@ -33,6 +33,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
     - [More examples](#more-examples)
 - [Settings](#settings)
   - [Strict/Allowed status code](#strictallowed-status-code)
+  - [Custom Validators](#custom-validators)
   - [Parsing](#parsing)
   - [Retry](#retry)
   - [Throttling](#throttling)
@@ -180,6 +181,35 @@ This is quite useful for parsing as you'll see soon.
 
 ⚠️ Note that `strict_status_code` takes precedence over `allowed_status_code`, probably you don't want to combine those. Prefer one or the other.
 
+### Custom Validators
+
+You can implement your own custom validator to do further checks on the response and decide whether to consider the request failed (and as consequence trigger retries if they're set).
+
+```py
+from gracy import GracefulValidator
+
+class MyException(Exception):
+  pass
+
+class MyCustomValidator(GracefulValidator):
+    def check(self, response: httpx.Response) -> None:
+        jsonified = response.json()
+        if jsonified.get('error', None):
+          raise MyException("Error is not expected")
+
+        return None
+
+...
+
+class Config:
+  SETTINGS = GracyConfig(
+    ...,
+    retry=GracefulRetry(retry_on=MyException, ...),  # Set up retry to work whenever our validator fails
+    validators=MyCustomValidator(),  # Set up validator
+  )
+
+```
+
 ### Parsing
 
 Parsing allows you to handle the request based on the status code returned.
@@ -263,16 +293,16 @@ class Config:
   )
 ```
 
-| Parameter        | Description                                                                               | Example                                                                                                      |
-| ---------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `delay`          | How many seconds to wait between retries                                                  | `2` would wait 2 seconds, `1.5` would wait 1.5 seconds, and so on                                            |
-| `max_attempts`   | How many times should Gracy retry the request?                                            | `10` means 1 regular request with additional 10 retries in case they keep failing. `1` should be the minimum |
-| `delay_modifier` | Allows you to specify increasing delay times by multiplying this value to `delay`         | Setting `1` means no delay change. Setting `2` means delay will be doubled every retry                       |
-| `retry_on`       | Should we retry for which status codes? `None` means for any non successful status code   | `HTTPStatus.BAD_REQUEST`, or `{HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN}`                                |
-| `log_before`     | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
-| `log_after`      | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
-| `log_exhausted`  | Specify log level. `None` means don't log                                                 | More on logging later                                                                                        |
-| `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure | `pass` or `break` (default)                                                                                  |
+| Parameter        | Description                                                                                                     | Example                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `delay`          | How many seconds to wait between retries                                                                        | `2` would wait 2 seconds, `1.5` would wait 1.5 seconds, and so on                                                                    |
+| `max_attempts`   | How many times should Gracy retry the request?                                                                  | `10` means 1 regular request with additional 10 retries in case they keep failing. `1` should be the minimum                         |
+| `delay_modifier` | Allows you to specify increasing delay times by multiplying this value to `delay`                               | Setting `1` means no delay change. Setting `2` means delay will be doubled every retry                                               |
+| `retry_on`       | Should we retry for which status codes/exceptions? `None` means for any non successful status code or exception | `HTTPStatus.BAD_REQUEST`, or `{HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN}`, or `Exception` or `{Exception, HTTPStatus.NOT_FOUND}` |
+| `log_before`     | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
+| `log_after`      | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
+| `log_exhausted`  | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
+| `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure                       | `pass` or `break` (default)                                                                                                          |
 
 
 ### Throttling
@@ -286,15 +316,20 @@ Gracy helps you proactively deal with it before any API throws 429 in your face.
 You can define rules per endpoint using regex:
 
 ```py
-TWO_REQS_FOR_ANY_ENDPOINT_RULE = ThrottleRule(
+SIMPLE_RULE = ThrottleRule(
   url_pattern=r".*",
-  requests_per_second_limit=2
+  max_requests=2
 )
+print(SIMPLE_RULE)
+# Output: "2 requests per second for URLs matching re.compile('.*')"
 
-TEN_REQS_FOR_ANY_POKEMON_ENDPOINT_RULE = ThrottleRule(
+COMPLEX_RULE = ThrottleRule(
   url_pattern=r".*\/pokemon\/.*",
-  requests_per_second_limit=10
+  max_requests=10,
+  per_time=timedelta(minutes=1, seconds=30),
 )
+print(COMPLEX_RULE)
+# Output: 10 requests per 90 seconds for URLs matching re.compile('.*\\/pokemon\\/.*')
 ```
 
 **Setting throttling**
@@ -326,20 +361,21 @@ Note that placeholders are formatted and replaced later on by Gracy based on the
 
 **Placeholders per event**
 
-| Placeholder        | Description                                           | Example                                     | Supported Events                   |
-| ------------------ | ----------------------------------------------------- | ------------------------------------------- | ---------------------------------- |
-| `{URL}`            | Full url being targetted                              | `https://pokeapi.co/api/v2/pokemon/pikachu` | *All*                              |
-| `{UURL}`           | Full **Unformatted** url being targetted              | `https://pokeapi.co/api/v2/pokemon/{NAME}`  | *All*                              |
-| `{ENDPOINT}`       | Endpoint being targetted                              | `/pokemon/pikachu`                          | *All*                              |
-| `{UENDPOINT}`      | **Unformatted** endpoint being targetted              | `/pokemon/{NAME}`                           | *All*                              |
-| `{METHOD}`         | HTTP Request being used                               | `GET`, `POST`                               | *All*                              |
-| `{STATUS}`         | Status code returned by the response                  | `200`, `404`, `501`                         | *After Request, On request errors* |
-| `{ELAPSED}`        | Amount of seconds taken for the request to complete   | *Numeric*                                   | *After Request, On request errors* |
-| `{RETRY_DELAY}`    | How long Gracy will wait before repeating the request | *Numeric*                                   | *Any Retry event*                  |
-| `{CUR_ATTEMPT}`    | Current attempt count for the current request         | *Numeric*                                   | *Any Retry event*                  |
-| `{MAX_ATTEMPT}`    | Max attempt defined for the current request           | *Numeric*                                   | *Any Retry event*                  |
-| `{THROTTLE_LIMIT}` | How many reqs/s is defined for the current request    | *Numeric*                                   | *Any Throttle event*               |
-| `{THROTTLE_TIME}`  | How long Gracy will wait before calling the request   | *Numeric*                                   | *Any Throttle event*               |
+| Placeholder             | Description                                           | Example                                     | Supported Events                   |
+| ----------------------- | ----------------------------------------------------- | ------------------------------------------- | ---------------------------------- |
+| `{URL}`                 | Full url being targetted                              | `https://pokeapi.co/api/v2/pokemon/pikachu` | *All*                              |
+| `{UURL}`                | Full **Unformatted** url being targetted              | `https://pokeapi.co/api/v2/pokemon/{NAME}`  | *All*                              |
+| `{ENDPOINT}`            | Endpoint being targetted                              | `/pokemon/pikachu`                          | *All*                              |
+| `{UENDPOINT}`           | **Unformatted** endpoint being targetted              | `/pokemon/{NAME}`                           | *All*                              |
+| `{METHOD}`              | HTTP Request being used                               | `GET`, `POST`                               | *All*                              |
+| `{STATUS}`              | Status code returned by the response                  | `200`, `404`, `501`                         | *After Request, On request errors* |
+| `{ELAPSED}`             | Amount of seconds taken for the request to complete   | *Numeric*                                   | *After Request, On request errors* |
+| `{RETRY_DELAY}`         | How long Gracy will wait before repeating the request | *Numeric*                                   | *Any Retry event*                  |
+| `{CUR_ATTEMPT}`         | Current attempt count for the current request         | *Numeric*                                   | *Any Retry event*                  |
+| `{MAX_ATTEMPT}`         | Max attempt defined for the current request           | *Numeric*                                   | *Any Retry event*                  |
+| `{THROTTLE_LIMIT}`      | How many reqs/s is defined for the current request    | *Numeric*                                   | *Any Throttle event*               |
+| `{THROTTLE_TIME}`       | How long Gracy will wait before calling the request   | *Numeric*                                   | *Any Throttle event*               |
+| `{THROTTLE_TIME_RANGE}` | Time range defined by the throttling rule             | `second`, `90 seconds`                      | *Any Throttle event*               |
 
 and you can set up the log events as follows:
 
@@ -372,6 +408,21 @@ GracefulRetry(
 )
 ```
 
+**Throttling**
+
+1. When reqs/s limit is reached
+2. When limit decreases again
+
+```py
+GracefulThrottle(
+  ...,
+  log_limit_reached=LogEvent()
+  log_wait_over=LogEvent()
+)
+```
+
+**Dynamic Customization**
+
 You can customize it even further by passing a lambda:
 
 ```py
@@ -387,20 +438,7 @@ Consider that:
 
 - Not all log events have the response available, so you need to guard yourself against it
 - Placeholders still works (e.g. `{STATUS}`)
-- You need to be watch out for some attrs that might break the formatting logic (e.g. `r.headers`)
-
-**Throttling**
-
-1. When reqs/s limit is reached
-2. When limit decreases again
-
-```py
-GracefulThrottle(
-  ...,
-  log_limit_reached=LogEvent()
-  log_wait_over=LogEvent()
-)
-```
+- You need to watch out for some attrs that might break the formatting logic (e.g. `r.headers`)
 
 ### Custom Exceptions
 
@@ -533,7 +571,7 @@ Here's an example of how it looks:
 
 Gracy allows you to replay requests and responses from previous interactions.
 
-This is powerful because it allows you to test APIs without latency or consuming your rate limit. It also allows writing unit tests that relies on third-party APIs doable.
+This is powerful because it allows you to test APIs without latency or consuming your rate limit. Now writing unit tests that relies on third-party APIs is doable.
 
 It works in two steps:
 
@@ -570,7 +608,7 @@ pokeapi = GracefulPokeAPI(replay_mode)
 
 **Every request** will be routed to the defined data source resulting in faster responses.
 
-**Note that parsers, retries, throttling, and similar configs will work as usual**.
+**⚠️ Note that parsers, retries, throttling, and similar configs will work as usual**.
 
 
 ## Advanced Usage
@@ -592,7 +630,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         SETTINGS = GracyConfig(
             retry=retry,
             log_errors=LogEvent(
-                LogLevel.ERROR, "How can I become a master pokemon if {URL} keeps failing with {STATUS}"
+                LogLevel.ERROR, "How can I become a pokemon master if {URL} keeps failing with {STATUS}"
             ),
         )
 

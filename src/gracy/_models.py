@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import copy
+import inspect
 import itertools
 import logging
 import re
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum, IntEnum
 from http import HTTPStatus
 from threading import Lock
-from time import time
 from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, TypeVar
 
 import httpx
@@ -63,7 +64,7 @@ LOG_EVENT_TYPE = None | Unset | LogEvent
 
 
 class GracefulRetryState:
-    cur_attempt: int = 1
+    cur_attempt: int = 0
     success: bool = False
 
     def __init__(self, retry_config: GracefulRetry) -> None:
@@ -97,13 +98,16 @@ class GracefulRetryState:
             self._delay *= self._retry_config.delay_modifier
 
 
+STATUS_OR_EXCEPTION = HTTPStatus | type[Exception]
+
+
 @dataclass
 class GracefulRetry:
     delay: float
     max_attempts: int
 
     delay_modifier: float = 1
-    retry_on: HTTPStatus | Iterable[HTTPStatus] | None = None
+    retry_on: STATUS_OR_EXCEPTION | Iterable[STATUS_OR_EXCEPTION] | None = None
     log_before: None | LogEvent = None
     log_after: None | LogEvent = None
     log_exhausted: None | LogEvent = None
@@ -136,26 +140,64 @@ class ThrottleRule:
         - `"http(s)?://myapi.com/.*"`
     """
 
-    requests_per_second_limit: float
+    max_requests: int
     """
-    How many requests should be run per second
+    How many requests should be run `per_time_range`
     """
 
-    def __init__(self, url_regex: str, limit_per_second: int) -> None:
-        self.url_pattern = re.compile(url_regex)
-        self.requests_per_second_limit = limit_per_second
+    per_time_range: timedelta
+    """
+    Used in combination with `max_requests` to measure throttle
+    """
+
+    def __init__(self, url_pattern: str, max_requests: int, per_time: timedelta = timedelta(seconds=1)) -> None:
+        self.url_pattern = re.compile(url_pattern)
+        self.max_requests = max_requests
+        self.per_time_range = per_time
+
+        if isinstance(max_requests, float):
+            raise TypeError(f"{max_requests=} should be an integer")
+
+    @property
+    def readable_time_range(self) -> str:
+        seconds = self.per_time_range.total_seconds()
+        periods = {
+            ("hour", 3600),
+            ("minute", 60),
+            ("second", 1),
+        }
+
+        parts: list[str] = []
+        for period_name, period_seconds in periods:
+            if seconds >= period_seconds:
+                period_value, seconds = divmod(seconds, period_seconds)
+                if period_value == 1:
+                    parts.append(period_name)
+                else:
+                    parts.append(f"{int(period_value)} {period_name}s")
+
+            if seconds < 1:
+                break
+
+        if len(parts) == 1:
+            return parts[0]
+        else:
+            return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+    def __str__(self) -> str:
+        return f"{self.max_requests} requests per {self.readable_time_range} for URLs matching {self.url_pattern}"
 
     def calculate_await_time(self, controller: ThrottleController) -> float:
         """
         Checks current reqs/second and awaits if limit is reached.
         Returns whether limit was hit or not.
         """
-        rate_limit = self.requests_per_second_limit
-        cur_reqs_second = controller.calculate_requests_per_second(self.url_pattern)
+        rate_limit = self.max_requests
+        cur_rate = controller.calculate_requests_per_rule(self.url_pattern, self.per_time_range)
 
-        if cur_reqs_second >= rate_limit:
-            time_diff = (rate_limit - cur_reqs_second) or 1
-            waiting_time = 1.0 / time_diff
+        if cur_rate >= rate_limit:
+            time_diff = (rate_limit - cur_rate) or 1
+            waiting_time = self.per_time_range.total_seconds() / time_diff
             return waiting_time
 
         return 0.0
@@ -201,27 +243,40 @@ class GracefulThrottle:
 
 class ThrottleController:
     def __init__(self) -> None:
-        self._control: dict[str, list[float]] = defaultdict[str, list[float]](list)
+        self._control: dict[str, list[datetime]] = defaultdict[str, list[datetime]](list)
 
     def init_request(self, request_context: GracyRequestContext):
         with THROTTLE_LOCKER.lock_check():
-            self._control[request_context.url].append(time())  # This should always keep it sorted asc
+            self._control[request_context.url].append(datetime.now())  # This should always keep it sorted asc
 
-    def calculate_requests_per_second(self, url_pattern: Pattern[str]) -> float:
+    def calculate_requests_per_rule(self, url_pattern: Pattern[str], range: timedelta) -> float:
         with THROTTLE_LOCKER.lock_check():
-            up_to_one_sec = time() - 1
-            requests_per_second = 0.0
-            coalesced_started_ats = sorted(
-                itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])
+            past_time_window = datetime.now() - range
+            request_rate = 0.0
+
+            request_times = sorted(
+                itertools.chain(
+                    *[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)],
+                ),
+                reverse=True,
             )
 
-            if coalesced_started_ats:
-                requests = [request for request in coalesced_started_ats if request >= up_to_one_sec]
-                requests_per_second = len(requests) / 1
+            req_idx = 0
+            total_reqs = len(request_times)
+            while req_idx < total_reqs:
+                # e.g. Limit 4 requests per 2 seconds, now is 09:55
+                # request_time=09:54 >= past_time_window=09:53
+                if request_times[req_idx] >= past_time_window:
+                    request_rate += 1
+                else:
+                    # Because it's sorted desc there's no need to keep iterating
+                    return request_rate
 
-            return requests_per_second
+                req_idx += 1
 
-    def calculate_requests_rate(self, url_pattern: Pattern[str]) -> float:
+            return request_rate
+
+    def calculate_requests_per_sec(self, url_pattern: Pattern[str]) -> float:
         with THROTTLE_LOCKER.lock_check():
             requests_per_second = 0.0
             coalesced_started_ats = sorted(
@@ -230,12 +285,12 @@ class ThrottleController:
 
             if coalesced_started_ats:
                 # Best effort to measure rate if we just performed 1 request
-                last = coalesced_started_ats[-1] if len(coalesced_started_ats) > 1 else time()
+                last = coalesced_started_ats[-1] if len(coalesced_started_ats) > 1 else datetime.now()
                 start = coalesced_started_ats[0]
                 elapsed = last - start
 
-                if elapsed > 0:
-                    requests_per_second = len(coalesced_started_ats) / elapsed
+                if elapsed.seconds > 0:
+                    requests_per_second = len(coalesced_started_ats) / elapsed.seconds
 
             return requests_per_second
 
@@ -251,10 +306,21 @@ class ThrottleController:
         table.add_column("Times", justify="right")
 
         for url, times in self._control.items():
-            human_times = [datetime.fromtimestamp(ts).strftime("%H:%M:%S.%f") for ts in times]
-            table.add_row(url, f"{len(times):,}", str(human_times))
+            human_times = [time.strftime("%H:%M:%S.%f") for time in times]
+            table.add_row(url, f"{len(times):,}", f"[yellow]{human_times}[/yellow]")
 
         console.print(table)
+
+
+class GracefulValidator(ABC):
+    """
+    Run `check` raises exceptions in case it's not passing.
+    """
+
+    @abstractmethod
+    def check(self, response: httpx.Response) -> None:
+        """Returns `None` to pass or raise exception"""
+        pass
 
 
 @dataclass
@@ -278,6 +344,13 @@ class GracyConfig:
     NOTE: `strict_status_code` takes precedence.
     """
 
+    validators: Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE
+    """Adds one or many validators to be run for the response to decide whether it was successful or not.
+
+    NOTE: `strict_status_code` or `allowed_status_code` are executed before.
+    If none is set, it will first check whether the response has a successful code.
+    """
+
     parser: PARSER_TYPE = UNSET_VALUE
     """
     Tell Gracy how to deal with the responses for you.
@@ -291,16 +364,26 @@ class GracyConfig:
 
     throttling: GracefulThrottle | None | Unset = UNSET_VALUE
 
-    def should_retry(self, response_status: int) -> bool:
+    def should_retry(self, response_status: int, validation_exc: Exception | None) -> bool:
+        """Only checks if given status requires retry. Does not consider attempts."""
         if self.has_retry:
             retry: GracefulRetry = self.retry  # type: ignore
             if retry.retry_on is None:
                 return True
 
             if isinstance(retry.retry_on, Iterable):
-                return HTTPStatus(response_status) in retry.retry_on
+                if HTTPStatus(response_status) in retry.retry_on:
+                    return True
 
-            return retry.retry_on == response_status
+                for maybe_exc in retry.retry_on:
+                    if inspect.isclass(maybe_exc) and isinstance(validation_exc, maybe_exc):
+                        return True
+
+            elif inspect.isclass(retry.retry_on):
+                return isinstance(validation_exc, retry.retry_on)
+
+            else:
+                return retry.retry_on == response_status
 
         return False
 

@@ -1,13 +1,24 @@
+import typing as t
+from abc import ABC, abstractmethod
 from http import HTTPStatus
-from typing import Any, Iterable
 
 import httpx
 
 from ._models import GracyRequestContext
 
+REDUCE_PICKABLE_RETURN = tuple[type[Exception], tuple[t.Any, ...]]
 
-class GracyException(Exception):
-    pass
+
+class GracyException(Exception, ABC):
+    @abstractmethod
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        """
+        `__reduce__` is required to avoid Gracy from breaking in different
+        environments that pickles the results (e.g. inside ThreadPools).
+
+        More context: https://stackoverflow.com/a/36342588/2811539
+        """
+        pass
 
 
 class GracyParseFailed(Exception):
@@ -22,6 +33,9 @@ class GracyParseFailed(Exception):
 
         super().__init__(msg)
 
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        return (GracyParseFailed, (self.response,))
+
 
 class BadResponse(GracyException):
     def __init__(
@@ -29,7 +43,7 @@ class BadResponse(GracyException):
         message: str | None,
         url: str,
         response: httpx.Response,
-        expected: str | HTTPStatus | Iterable[HTTPStatus],
+        expected: str | HTTPStatus | t.Iterable[HTTPStatus],
     ) -> None:
         self.url = url
         self.response = response
@@ -47,13 +61,26 @@ class BadResponse(GracyException):
 
 
 class UnexpectedResponse(BadResponse):
-    def __init__(self, url: str, response: httpx.Response, expected: str | HTTPStatus | Iterable[HTTPStatus]) -> None:
+    def __init__(self, url: str, response: httpx.Response, expected: str | HTTPStatus | t.Iterable[HTTPStatus]) -> None:
         super().__init__(None, url, response, expected)
+
+        self.arg1 = url
+        self.arg2 = response
+        self.arg3 = expected
+
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        return (UnexpectedResponse, (self.arg1, self.arg2, self.arg3))
 
 
 class NonOkResponse(BadResponse):
     def __init__(self, url: str, response: httpx.Response) -> None:
         super().__init__(None, url, response, "any successful status code")
+
+        self.arg1 = url
+        self.arg2 = response
+
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        return (NonOkResponse, (self.arg1, self.arg2))
 
 
 class GracyUserDefinedException(GracyException):
@@ -64,7 +91,7 @@ class GracyUserDefinedException(GracyException):
         self._response = response
         super().__init__(self._format_message(request_context, response))
 
-    def _build_default_args(self) -> dict[str, Any]:
+    def _build_default_args(self) -> dict[str, t.Any]:
         request_context = self._request_context
 
         return dict(
@@ -95,6 +122,9 @@ class GracyUserDefinedException(GracyException):
     def response(self):
         return self._response
 
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        return (GracyUserDefinedException, (self._request_context, self._response))
+
 
 class GracyReplayRequestNotFound(GracyException):
     def __init__(self, request: httpx.Request) -> None:
@@ -102,3 +132,6 @@ class GracyReplayRequestNotFound(GracyException):
 
         msg = f"Gracy was unable to replay {request.method} {request.url} - did you forget to record it?"
         super().__init__(msg)
+
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        return (GracyReplayRequestNotFound, (self.request,))
