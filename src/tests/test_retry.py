@@ -58,6 +58,10 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     async def get_pokemon_with_retry_on_none(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
+    @graceful(retry=RETRY_ON_NONE, validators=CustomValidator())
+    async def get_pokemon_with_retry_on_none_and_validator(self, name: str):
+        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+
 
 @pytest.fixture()
 def make_pokeapi():
@@ -172,4 +176,15 @@ async def test_retry_none_for_failing_request(make_pokeapi: t.Callable[[int], Gr
     result = await pokeapi.get_pokemon_with_retry_on_none(MISSING_NAME)
 
     assert result is None
+    assert_requests_made(pokeapi, EXPECTED_REQS)
+
+
+async def test_retry_none_for_failing_validator(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+    EXPECTED_REQS: t.Final = 2
+
+    pokeapi = make_pokeapi(0)  # Won't have effect
+
+    response = await pokeapi.get_pokemon_with_retry_on_none_and_validator(PRESENT_NAME)
+
+    assert response is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)
