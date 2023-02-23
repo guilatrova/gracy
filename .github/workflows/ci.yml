@@ -56,5 +56,4 @@ jobs:
         uses: pre-commit/action@v2.0.3
 
       - name: Unit tests
-        run: poetry run pytest src/tests -vvv
-        # Path is required otherwise caplog doens't work as expected
+        run: poetry run pytest -vvv

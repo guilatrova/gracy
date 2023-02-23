@@ -20,9 +20,10 @@ def assert_log(record: logging.LogRecord, expected_event: LogEvent):
     assert record.message == expected_event.custom_message  # No formatting set
 
 
-ON_REQUEST: t.Final = LogEvent(LogLevel.INFO, "LOG_REQUEST")
-ON_RESPONSE: t.Final = LogEvent(LogLevel.WARNING, "LOG_RESPONSE")
-ON_ERROR: t.Final = LogEvent(LogLevel.ERROR, "LOG_ERROR")
+# NOTE: captest only captures >=warning
+ON_REQUEST: t.Final = LogEvent(LogLevel.WARNING, "LOG_REQUEST")
+ON_RESPONSE: t.Final = LogEvent(LogLevel.ERROR, "LOG_RESPONSE")
+ON_ERROR: t.Final = LogEvent(LogLevel.CRITICAL, "LOG_ERROR")
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
