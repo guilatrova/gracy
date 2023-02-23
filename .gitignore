@@ -3,3 +3,4 @@
 *.log
 .DS_Store
 dist/
+.mongo
