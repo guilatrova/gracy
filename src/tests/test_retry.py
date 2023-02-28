@@ -77,7 +77,12 @@ def make_pokeapi():
     return factory
 
 
-async def test_ensure_replay_is_enabled(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+class PokeApiFactory(t.Protocol):
+    def __call__(self, max_attempts: int, break_or_pass: str = "pass") -> GracefulPokeAPI:
+        ...
+
+
+async def test_ensure_replay_is_enabled(make_pokeapi: PokeApiFactory):
     pokeapi = make_pokeapi(0)
     result = await pokeapi.get_pokemon(MISSING_NAME)
     report = pokeapi.get_report()
@@ -90,7 +95,7 @@ async def test_ensure_replay_is_enabled(make_pokeapi: t.Callable[[int], Graceful
 
 
 @pytest.mark.parametrize("max_retries", [2, 4, 6])
-async def test_pokemon_not_found(max_retries: int, make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_pokemon_not_found(max_retries: int, make_pokeapi: PokeApiFactory):
     EXPECTED_REQS: t.Final = 1 + max_retries  # First request + Retries (2) = 3 requests
 
     pokeapi = make_pokeapi(max_retries)
@@ -101,7 +106,21 @@ async def test_pokemon_not_found(max_retries: int, make_pokeapi: t.Callable[[int
 
 
 @pytest.mark.parametrize("max_retries", [2, 4, 6])
-async def test_pokemon_not_found_with_strict_status(max_retries: int, make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_pokemon_not_found_without_allowed(
+    max_retries: int, make_pokeapi: t.Callable[[int, str], GracefulPokeAPI]
+):
+    EXPECTED_REQS: t.Final = 1 + max_retries  # First request + Retries (2) = 3 requests
+
+    pokeapi = make_pokeapi(max_retries, "break")
+
+    with pytest.raises(NonOkResponse):
+        await pokeapi.get_pokemon_without_allowed_status(MISSING_NAME)
+
+    assert_requests_made(pokeapi, EXPECTED_REQS)
+
+
+@pytest.mark.parametrize("max_retries", [2, 4, 6])
+async def test_pokemon_not_found_with_strict_status(max_retries: int, make_pokeapi: PokeApiFactory):
     EXPECTED_REQS: t.Final = 1 + max_retries  # First request + Retries (2) = 3 requests
 
     pokeapi = make_pokeapi(max_retries)
@@ -111,7 +130,7 @@ async def test_pokemon_not_found_with_strict_status(max_retries: int, make_pokea
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_pokemon_with_bad_parser_break_wont_run(make_pokeapi: t.Callable[[int, str], GracefulPokeAPI]):
+async def test_pokemon_with_bad_parser_break_wont_run(make_pokeapi: PokeApiFactory):
     MAX_RETRIES: t.Final = 2
     EXPECTED_REQS: t.Final = 1 + MAX_RETRIES  # First request + Retries (2) = 3 requests
 
@@ -123,7 +142,7 @@ async def test_pokemon_with_bad_parser_break_wont_run(make_pokeapi: t.Callable[[
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_with_failing_custom_validation(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_retry_with_failing_custom_validation(make_pokeapi: PokeApiFactory):
     MAX_RETRIES: t.Final = 2
     EXPECTED_REQS: t.Final = 1 + MAX_RETRIES  # First request + Retries (2) = 3 requests
 
@@ -135,7 +154,7 @@ async def test_retry_with_failing_custom_validation(make_pokeapi: t.Callable[[in
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_failing_without_retry(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_failing_without_retry(make_pokeapi: PokeApiFactory):
     EXPECTED_REQS: t.Final = 1
 
     pokeapi = make_pokeapi(0)  # Won't have effect
@@ -146,7 +165,7 @@ async def test_failing_without_retry(make_pokeapi: t.Callable[[int], GracefulPok
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_failing_without_retry_or_parser(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_failing_without_retry_or_parser(make_pokeapi: PokeApiFactory):
     EXPECTED_REQS: t.Final = 1
 
     pokeapi = make_pokeapi(0)  # Won't have effect
@@ -157,7 +176,7 @@ async def test_failing_without_retry_or_parser(make_pokeapi: t.Callable[[int], G
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_none_for_successful_request(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_retry_none_for_successful_request(make_pokeapi: PokeApiFactory):
     EXPECTED_REQS: t.Final = 1
 
     pokeapi = make_pokeapi(0)  # Won't have effect
@@ -168,7 +187,7 @@ async def test_retry_none_for_successful_request(make_pokeapi: t.Callable[[int],
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_none_for_failing_request(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_retry_none_for_failing_request(make_pokeapi: PokeApiFactory):
     EXPECTED_REQS: t.Final = 2
 
     pokeapi = make_pokeapi(0)  # Won't have effect
@@ -179,7 +198,7 @@ async def test_retry_none_for_failing_request(make_pokeapi: t.Callable[[int], Gr
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_none_for_failing_validator(make_pokeapi: t.Callable[[int], GracefulPokeAPI]):
+async def test_retry_none_for_failing_validator(make_pokeapi: PokeApiFactory):
     EXPECTED_REQS: t.Final = 2
 
     pokeapi = make_pokeapi(0)  # Won't have effect
