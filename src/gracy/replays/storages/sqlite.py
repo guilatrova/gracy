@@ -75,7 +75,7 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         self._insert_into_db(recording)
 
-    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    def _find_record(self, request: httpx.Request):
         cur = self._con.cursor()
         params: t.Iterable[str | bytes]
 
@@ -87,6 +87,10 @@ class SQLiteReplayStorage(GracyReplayStorage):
             cur.execute(schema.FIND_REQUEST_WITHOUT_REQ_BODY, params)
 
         fetch_res = cur.fetchone()
+        return fetch_res
+
+    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+        fetch_res = self._find_record(request)
         if fetch_res is None:
             raise GracyReplayRequestNotFound(request)
 
