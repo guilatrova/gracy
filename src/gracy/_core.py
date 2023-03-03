@@ -143,7 +143,7 @@ async def _gracefully_retry(
 
     state.final_validation_exc = validation_exc
 
-    if state.cant_retry and bool(validation_exc) and retry.log_exhausted:
+    if state.cant_retry and config.should_retry(state.final_response, validation_exc) and retry.log_exhausted:
         process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, result)
 
     return state
