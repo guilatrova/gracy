@@ -66,6 +66,7 @@ LOG_EVENT_TYPE = None | Unset | LogEvent
 class GracefulRetryState:
     cur_attempt: int = 0
     success: bool = False
+    final_validation_exc: Exception | None = None
     final_response: httpx.Response
 
     def __init__(self, retry_config: GracefulRetry) -> None:

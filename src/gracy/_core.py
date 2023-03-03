@@ -119,6 +119,7 @@ async def _gracefully_retry(
         result = await request()
         report.track(request_context, result)
 
+        validation_exc = None
         for validator in validators:
             try:
                 validator.check(result)
@@ -139,6 +140,8 @@ async def _gracefully_retry(
 
     if result:  # Unlikely to be None
         state.final_response = result
+
+    state.final_validation_exc = validation_exc
 
     if state.cant_retry and bool(validation_exc) and retry.log_exhausted:
         process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, result)
@@ -207,7 +210,6 @@ async def _gracify(
             validation_exc = ex
             break
 
-    must_break = True
     retry_result: GracefulRetryState | None = None
     if active_config.should_retry(result, validation_exc):
         retry_result = await _gracefully_retry(
@@ -220,13 +222,14 @@ async def _gracify(
         )
 
         result = retry_result.final_response
+        validation_exc = retry_result.final_validation_exc
 
     did_request_fail = bool(validation_exc)
-    no_retry_or_retry_also_failed = retry_result is None or retry_result.failed is True
-    if did_request_fail and no_retry_or_retry_also_failed:
+    if did_request_fail:
         if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
             process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
 
+    must_break = True
     if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
         must_break = False
 

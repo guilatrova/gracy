@@ -251,6 +251,7 @@ async def test_retry_eventually_recovers_with_strict(make_pokeapi: PokeApiFactor
 
     pokeapi = GracefulPokeAPI(GracyReplay("replay", fake_replay))
     pokeapi._base_config.retry.max_attempts = RETRY_ATTEMPTS  # type: ignore
+    pokeapi._base_config.retry.behavior = "break"  # type: ignore
 
     result = await pokeapi.get_pokemon_with_strict_status(PRESENT_NAME)
 
