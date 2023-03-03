@@ -77,8 +77,33 @@ def make_pokeapi():
     return factory
 
 
+@pytest.fixture()
+def make_flaky_pokeapi():
+    def factory(flaky_requests: int, max_attempts: int, break_or_pass: str = "break"):
+        Gracy.dangerously_reset_report()
+
+        force_urls = (["https://pokeapi.co/api/v2/pokemon/doesnt-exist"] * flaky_requests) + (
+            ["https://pokeapi.co/api/v2/pokemon/charmander"]
+        )
+        mock_storage = FakeReplayStorage(force_urls)
+        fake_replay = GracyReplay("replay", mock_storage)
+
+        api = GracefulPokeAPI(fake_replay)
+        api._base_config.retry.max_attempts = max_attempts  # type: ignore
+        api._base_config.retry.behavior = break_or_pass  # type: ignore
+
+        return api
+
+    return factory
+
+
 class PokeApiFactory(t.Protocol):
     def __call__(self, max_attempts: int, break_or_pass: str = "pass") -> GracefulPokeAPI:
+        ...
+
+
+class FlakyPokeApiFactory(t.Protocol):
+    def __call__(self, flaky_requests: int, max_attempts: int, break_or_pass: str = "pass") -> GracefulPokeAPI:
         ...
 
 
@@ -209,23 +234,12 @@ async def test_retry_none_for_failing_validator(make_pokeapi: PokeApiFactory):
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_eventually_recovers(make_pokeapi: PokeApiFactory):
-    # API Setup
-    Gracy.dangerously_reset_report()
+async def test_retry_eventually_recovers(make_flaky_pokeapi: FlakyPokeApiFactory):
     RETRY_ATTEMPTS: t.Final = 4
     EXPECTED_REQS: t.Final = 1 + RETRY_ATTEMPTS
 
-    force_urls = [
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # first req
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 1
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 2
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 3
-        "https://pokeapi.co/api/v2/pokemon/charmander",  # . retry 4
-    ]
-    fake_replay = FakeReplayStorage(force_urls)
-
-    pokeapi = GracefulPokeAPI(GracyReplay("replay", fake_replay))
-    pokeapi._base_config.retry.max_attempts = RETRY_ATTEMPTS  # type: ignore
+    # Scenario: 1 + 3 Retry attemps fail + Last attempt works
+    pokeapi = make_flaky_pokeapi(4, RETRY_ATTEMPTS)
 
     result = await pokeapi.get_pokemon(PRESENT_NAME)
 
@@ -234,24 +248,12 @@ async def test_retry_eventually_recovers(make_pokeapi: PokeApiFactory):
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_eventually_recovers_with_strict(make_pokeapi: PokeApiFactory):
-    # API Setup
-    Gracy.dangerously_reset_report()
+async def test_retry_eventually_recovers_with_strict(make_flaky_pokeapi: FlakyPokeApiFactory):
     RETRY_ATTEMPTS: t.Final = 4
     EXPECTED_REQS: t.Final = 1 + RETRY_ATTEMPTS
 
-    force_urls = [
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # first req
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 1
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 2
-        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 3
-        "https://pokeapi.co/api/v2/pokemon/charmander",  # . retry 4
-    ]
-    fake_replay = FakeReplayStorage(force_urls)
-
-    pokeapi = GracefulPokeAPI(GracyReplay("replay", fake_replay))
-    pokeapi._base_config.retry.max_attempts = RETRY_ATTEMPTS  # type: ignore
-    pokeapi._base_config.retry.behavior = "break"  # type: ignore
+    # Scenario: 1 + 3 Retry attemps fail + Last attempt works
+    pokeapi = make_flaky_pokeapi(4, RETRY_ATTEMPTS)
 
     result = await pokeapi.get_pokemon_with_strict_status(PRESENT_NAME)
 
