@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.2 (2023-03-03)
+### Fix
+* Log exhausted when appropriate ([`8c5d622`](https://github.com/guilatrova/gracy/commit/8c5d622fef7aa6dd2514cfaaf867445f56d7b04a))
+* Retry considers last validation result ([`595177f`](https://github.com/guilatrova/gracy/commit/595177f50e396f4ca7b2dcc1c8ed535928a0aca7))
+* Handle retry edge case ([`077e6f4`](https://github.com/guilatrova/gracy/commit/077e6f49d80cb6d886c31aa010a4f814a6953445))
+* Retry result is used as response ([`8687156`](https://github.com/guilatrova/gracy/commit/8687156991058fa24043dc39658f0a12377a21f6))
+
+### Documentation
+* Add httpbin example ([`1babd10`](https://github.com/guilatrova/gracy/commit/1babd1098a46c4d0bc24ed228d76bb094260ad5e))
+
 ## v1.11.1 (2023-02-23)
 ### Fix
 * **retry:** Don't retry when successful ([`b334c22`](https://github.com/guilatrova/gracy/commit/b334c227a4a8a688029130c736118b6dcb4f8f3b))
