@@ -1,5 +1,7 @@
 import typing as t
 
+import httpx
+
 from gracy import BaseEndpoint, Gracy, GracyReplay
 from gracy.replays.storages.sqlite import SQLiteReplayStorage
 
@@ -10,6 +12,30 @@ PRESENT_NAME: t.Final = "charmander"
 """Should match what we recorded previously to successfully replay"""
 
 REPLAY: t.Final = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
+
+
+class FakeReplayStorage(SQLiteReplayStorage):
+    """Completely ignores the request defined to return a response matching the urls in the order specified"""
+
+    def __init__(self, force_urls: t.List[str]) -> None:
+        self._force_urls = force_urls
+        self._response_idx = 0
+        super().__init__("pokeapi.sqlite3")
+
+    def _find_record(self, request: httpx.Request):
+        cur = self._con.cursor()
+        url = self._force_urls[self._response_idx]
+        self._response_idx += 1
+
+        cur.execute(
+            """
+            SELECT response, updated_at FROM gracy_recordings
+            WHERE
+            url = ?""",
+            (url,),
+        )
+
+        return cur.fetchone()
 
 
 class PokeApiEndpoint(BaseEndpoint):

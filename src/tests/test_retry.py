@@ -4,9 +4,9 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy import GracefulRetry, GracefulValidator, Gracy, GracyConfig, graceful
+from gracy import GracefulRetry, GracefulValidator, Gracy, GracyConfig, GracyReplay, graceful
 from gracy.exceptions import NonOkResponse
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_requests_made
+from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, FakeReplayStorage, PokeApiEndpoint, assert_requests_made
 
 RETRY: t.Final = GracefulRetry(
     delay=0.001, max_attempts=0, retry_on={HTTPStatus.NOT_FOUND, ValueError}, behavior="pass"
@@ -206,4 +206,29 @@ async def test_retry_none_for_failing_validator(make_pokeapi: PokeApiFactory):
     response = await pokeapi.get_pokemon_with_retry_on_none_and_validator(PRESENT_NAME)
 
     assert response is not None
+    assert_requests_made(pokeapi, EXPECTED_REQS)
+
+
+async def test_retry_eventually_recovers(make_pokeapi: PokeApiFactory):
+    # API Setup
+    Gracy.dangerously_reset_report()
+    RETRY_ATTEMPTS: t.Final = 4
+    EXPECTED_REQS: t.Final = 1 + RETRY_ATTEMPTS
+
+    force_urls = [
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # first req
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 1
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 2
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 3
+        "https://pokeapi.co/api/v2/pokemon/charmander",  # . retry 4
+    ]
+    fake_replay = FakeReplayStorage(force_urls)
+
+    pokeapi = GracefulPokeAPI(GracyReplay("replay", fake_replay))
+    pokeapi._base_config.retry.max_attempts = RETRY_ATTEMPTS  # type: ignore
+
+    result = await pokeapi.get_pokemon(PRESENT_NAME)
+
+    # Test
+    assert result is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)

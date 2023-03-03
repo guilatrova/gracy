@@ -101,6 +101,7 @@ async def _gracefully_retry(
 
     config = request_context.active_config
     result = None
+    validation_exc: Exception | None = None
 
     failing = True
     while failing:
@@ -117,7 +118,6 @@ async def _gracefully_retry(
         result = await request()
         report.track(request_context, result)
 
-        validation_exc: Exception | None = None
         for validator in validators:
             try:
                 validator.check(result)
@@ -136,7 +136,10 @@ async def _gracefully_retry(
         if retry.log_after:
             process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, result)
 
-    if state.cant_retry and retry.log_exhausted:
+    if result:  # Unlikely to be None
+        state.final_response = result
+
+    if state.cant_retry and bool(validation_exc) and retry.log_exhausted:
         process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, result)
 
     return state
@@ -213,6 +216,8 @@ async def _gracify(
             request_context,
             validators,
         )
+
+        result = retry_result.final_response
 
     did_request_fail = bool(validation_exc)
     no_retry_or_retry_also_failed = retry_result is None or retry_result.failed is True
