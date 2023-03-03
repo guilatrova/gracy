@@ -232,3 +232,28 @@ async def test_retry_eventually_recovers(make_pokeapi: PokeApiFactory):
     # Test
     assert result is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)
+
+
+async def test_retry_eventually_recovers_with_strict(make_pokeapi: PokeApiFactory):
+    # API Setup
+    Gracy.dangerously_reset_report()
+    RETRY_ATTEMPTS: t.Final = 4
+    EXPECTED_REQS: t.Final = 1 + RETRY_ATTEMPTS
+
+    force_urls = [
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # first req
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 1
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 2
+        "https://pokeapi.co/api/v2/pokemon/doesnt-exist",  # retry 3
+        "https://pokeapi.co/api/v2/pokemon/charmander",  # . retry 4
+    ]
+    fake_replay = FakeReplayStorage(force_urls)
+
+    pokeapi = GracefulPokeAPI(GracyReplay("replay", fake_replay))
+    pokeapi._base_config.retry.max_attempts = RETRY_ATTEMPTS  # type: ignore
+
+    result = await pokeapi.get_pokemon_with_strict_status(PRESENT_NAME)
+
+    # Test
+    assert result is not None
+    assert_requests_made(pokeapi, EXPECTED_REQS)

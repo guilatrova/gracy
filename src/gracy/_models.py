@@ -124,8 +124,11 @@ class GracefulRetry:
 
         return response_result in retry_on_status
 
-    def create_state(self) -> GracefulRetryState:
-        return GracefulRetryState(self)
+    def create_state(self, result: httpx.Response) -> GracefulRetryState:
+        state = GracefulRetryState(self)
+        # Only needed to handle cases where the user sets 0 as max attempts
+        state.final_response = result
+        return state
 
 
 class ThrottleRule:
