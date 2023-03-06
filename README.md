@@ -49,6 +49,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
 - [Advanced Usage](#advanced-usage)
   - [Customizing/Overriding configs per method](#customizingoverriding-configs-per-method)
   - [Customizing HTTPx client](#customizing-httpx-client)
+  - [Overriding default request timeout](#overriding-default-request-timeout)
   - [Creating a custom Replay data source](#creating-a-custom-replay-data-source)
 - [📚 Extra Resources](#-extra-resources)
 - [Change log](#change-log)
@@ -675,6 +676,19 @@ class YourAPIClient(Gracy[str]):
         client = super()._create_client()
         client.headers = {"Authorization": f"token {self._token}"}  # type: ignore
         return client
+```
+
+### Overriding default request timeout
+
+As default Gracy won't enforce a request timeout.
+
+You can define your own by setting it on Config as:
+
+```py
+class GracefulAPI(GracyApi[str]):
+  class Config:
+    BASE_URL = "https://example.com"
+    REQUEST_TIMEOUT = 10.2  # 👈 Here
 ```
 
 ### Creating a custom Replay data source
