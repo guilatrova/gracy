@@ -48,6 +48,13 @@ class BadResponse(GracyException):
         self.url = url
         self.response = response
 
+        self._args = (
+            message,
+            url,
+            response,
+            expected,
+        )
+
         if isinstance(expected, str):
             expectedstr = expected
         elif isinstance(expected, HTTPStatus):
@@ -58,6 +65,9 @@ class BadResponse(GracyException):
         curmsg = message or f"{url} raised {response.status_code}, but it was expecting {expectedstr}"
 
         super().__init__(curmsg)
+
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        return (BadResponse, self._args)
 
 
 class UnexpectedResponse(BadResponse):
