@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.3 (2023-03-24)
+### Fix
+* Make exception pickable ([`16d6a62`](https://github.com/guilatrova/gracy/commit/16d6a6248fd46a565c411743a3bf0f74dac94363))
+
+### Documentation
+* Show custom request timeout ([`e2a069b`](https://github.com/guilatrova/gracy/commit/e2a069b46a01cbcbf5bd2a9507d7d25505ecbd83))
+
 ## v1.11.2 (2023-03-03)
 ### Fix
 * Log exhausted when appropriate ([`8c5d622`](https://github.com/guilatrova/gracy/commit/8c5d622fef7aa6dd2514cfaaf867445f56d7b04a))
