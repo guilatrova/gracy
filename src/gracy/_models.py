@@ -155,10 +155,10 @@ class ThrottleRule:
     Used in combination with `max_requests` to measure throttle
     """
 
-    def __init__(self, url_pattern: str, max_requests: int, per_time: timedelta = timedelta(seconds=1)) -> None:
+    def __init__(self, url_pattern: str, max_requests: int, per_time_range: timedelta = timedelta(seconds=1)) -> None:
         self.url_pattern = re.compile(url_pattern)
         self.max_requests = max_requests
-        self.per_time_range = per_time
+        self.per_time_range = per_time_range
 
         if isinstance(max_requests, float):
             raise TypeError(f"{max_requests=} should be an integer")
