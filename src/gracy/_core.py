@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import typing as t
 from asyncio import sleep
 from http import HTTPStatus
-from typing import Any, Callable, Coroutine, Generic, Iterable, cast
 
 import httpx
 
@@ -41,6 +41,9 @@ from ._reports._printers import PRINTERS, print_report
 from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
 from .exceptions import GracyParseFailed
 from .replays.storages._base import GracyReplay
+
+# t.Any, Callable, Coroutine, t.Generic, t.Iterable, t.cast
+
 
 logger = logging.getLogger("gracy")
 
@@ -97,7 +100,7 @@ async def _gracefully_retry(
     request_context: GracyRequestContext,
     validators: list[GracefulValidator],
 ) -> GracefulRetryState:
-    retry = cast(GracefulRetry, request_context.active_config.retry)
+    retry = t.cast(GracefulRetry, request_context.active_config.retry)
     state = retry.create_state(last_response)
 
     config = request_context.active_config
@@ -199,7 +202,7 @@ async def _gracify(
 
     if isinstance(active_config.validators, GracefulValidator):
         validators.append(active_config.validators)
-    elif isinstance(active_config.validators, Iterable):
+    elif isinstance(active_config.validators, t.Iterable):
         validators += active_config.validators
 
     validation_exc: Exception | None = None
@@ -241,7 +244,7 @@ async def _gracify(
     return final_result
 
 
-class Gracy(Generic[Endpoint]):
+class Gracy(t.Generic[Endpoint]):
     """Helper class that provides a standard way to create an Requester using
     inheritance.
     """
@@ -254,16 +257,16 @@ class Gracy(Generic[Endpoint]):
         REQUEST_TIMEOUT: float | None = None
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
-    def __init__(self, replay: GracyReplay | None = None, DEBUG_ENABLED: bool = False, **kwargs: Any) -> None:
+    def __init__(self, replay: GracyReplay | None = None, DEBUG_ENABLED: bool = False, **kwargs: t.Any) -> None:
         self.DEBUG_ENABLED = DEBUG_ENABLED
-        self._base_config = cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
+        self._base_config = t.cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
         self._client = self._create_client(**kwargs)
         self.replays = replay
 
         if replay:
             replay.storage.prepare()
 
-    def _create_client(self, **kwargs: Any) -> httpx.AsyncClient:
+    def _create_client(self, **kwargs: t.Any) -> httpx.AsyncClient:
         base_url = getattr(self.Config, "BASE_URL", "")
         request_timeout = getattr(self.Config, "REQUEST_TIMEOUT", None)
         return httpx.AsyncClient(base_url=base_url, timeout=request_timeout)
@@ -273,8 +276,8 @@ class Gracy(Generic[Endpoint]):
         method: str,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         custom_config = custom_config_context.get()
         active_config = self._base_config
@@ -316,8 +319,8 @@ class Gracy(Generic[Endpoint]):
         self,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         return await self._request("GET", endpoint, endpoint_args, *args, **kwargs)
 
@@ -325,8 +328,8 @@ class Gracy(Generic[Endpoint]):
         self,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         return await self._request("POST", endpoint, endpoint_args, *args, **kwargs)
 
@@ -334,8 +337,8 @@ class Gracy(Generic[Endpoint]):
         self,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         return await self._request("PUT", endpoint, endpoint_args, *args, **kwargs)
 
@@ -343,8 +346,8 @@ class Gracy(Generic[Endpoint]):
         self,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         return await self._request("PATCH", endpoint, endpoint_args, *args, **kwargs)
 
@@ -352,8 +355,8 @@ class Gracy(Generic[Endpoint]):
         self,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         return await self._request("DELETE", endpoint, endpoint_args, *args, **kwargs)
 
@@ -361,8 +364,8 @@ class Gracy(Generic[Endpoint]):
         self,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         return await self._request("HEAD", endpoint, endpoint_args, *args, **kwargs)
 
@@ -370,8 +373,8 @@ class Gracy(Generic[Endpoint]):
         self,
         endpoint: Endpoint | str,
         endpoint_args: dict[str, str] | None = None,
-        *args: Any,
-        **kwargs: Any,
+        *args: t.Any,
+        **kwargs: t.Any,
     ):
         return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
 
@@ -392,13 +395,13 @@ class Gracy(Generic[Endpoint]):
         cls._reporter = ReportBuilder()
 
 
-ANY_COROUTINE = Coroutine[Any, Any, Any]
+ANY_COROUTINE = t.Coroutine[t.Any, t.Any, t.Any]
 
 
 def graceful(
-    strict_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
-    allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
-    validators: Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE,
+    strict_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    allowed_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    validators: t.Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE,
     retry: GracefulRetry | Unset | None = UNSET_VALUE,
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
@@ -416,8 +419,8 @@ def graceful(
         parser=parser,
     )
 
-    def _wrapper(wrapped_function: Callable[..., ANY_COROUTINE]) -> Callable[..., ANY_COROUTINE]:
-        async def _inner_wrapper(*args: Any, **kwargs: Any):
+    def _wrapper(wrapped_function: t.Callable[..., ANY_COROUTINE]) -> t.Callable[..., ANY_COROUTINE]:
+        async def _inner_wrapper(*args: t.Any, **kwargs: t.Any):
             with custom_gracy_config(config):
                 res = await wrapped_function(*args, **kwargs)
                 return res
