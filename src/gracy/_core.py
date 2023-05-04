@@ -42,9 +42,6 @@ from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusV
 from .exceptions import GracyParseFailed
 from .replays.storages._base import GracyReplay
 
-# t.Any, Callable, Coroutine, t.Generic, t.Iterable, t.cast
-
-
 logger = logging.getLogger("gracy")
 
 
