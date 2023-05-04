@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.12.0 (2023-05-04)
+### Feature
+* Improve decorator typing ([`72233d6`](https://github.com/guilatrova/gracy/commit/72233d60dd84cfddf2778b585b1260833f357c1e))
+
 ## v1.11.4 (2023-05-04)
 ### Fix
 * Add support for `graceful_generator` ([`22ecf9a`](https://github.com/guilatrova/gracy/commit/22ecf9ac91064fcc4288f38ff73a77f4e165b98d))
