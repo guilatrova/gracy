@@ -397,6 +397,10 @@ class Gracy(t.Generic[Endpoint]):
 
 ANY_COROUTINE = t.Coroutine[t.Any, t.Any, t.Any]
 
+P = t.ParamSpec("P")
+GRACEFUL_T = t.TypeVar("GRACEFUL_T", bound=ANY_COROUTINE)
+GRACEFUL_GEN_T = t.TypeVar("GRACEFUL_GEN_T", bound=t.AsyncGenerator[t.Any, t.Any])
+
 
 def graceful(
     strict_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
@@ -419,13 +423,13 @@ def graceful(
         parser=parser,
     )
 
-    def _wrapper(wrapped_function: t.Callable[..., ANY_COROUTINE]) -> t.Callable[..., ANY_COROUTINE]:
-        async def _inner_wrapper(*args: t.Any, **kwargs: t.Any):
+    def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_T]) -> t.Callable[P, GRACEFUL_T]:
+        async def _inner_wrapper(*args: P.args, **kwargs: P.kwargs):
             with custom_gracy_config(config):
                 res = await wrapped_function(*args, **kwargs)
                 return res
 
-        return _inner_wrapper
+        return t.cast(t.Callable[P, GRACEFUL_T], _inner_wrapper)
 
     return _wrapper
 
@@ -451,12 +455,12 @@ def graceful_generator(
         parser=parser,
     )
 
-    def _wrapper(wrapped_function: t.Callable[..., t.AsyncGenerator[t.Any, t.Any]]):
-        async def _inner_wrapper(*args: t.Any, **kwargs: t.Any):
+    def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_GEN_T]) -> t.Callable[P, GRACEFUL_GEN_T]:
+        async def _inner_wrapper(*args: P.args, **kwargs: P.kwargs):
             with custom_gracy_config(config):
                 async for res in wrapped_function(*args, **kwargs):
                     yield res
 
-        return _inner_wrapper
+        return t.cast(t.Callable[P, GRACEFUL_GEN_T], _inner_wrapper)
 
     return _wrapper
