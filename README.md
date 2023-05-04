@@ -619,10 +619,12 @@ pokeapi = GracefulPokeAPI(replay_mode)
 
 APIs may return different responses/conditions/payloads based on the endpoint.
 
-You can override any `GracyConfig` on a per method basis by using the `graceful` decorator.
+You can override any `GracyConfig` on a per method basis by using the `@graceful` decorator.
+
+NOTE: Use `@graceful_generator` if your function uses `yield`.
 
 ```python
-from gracy import Gracy, GracyConfig, GracefulRetry, graceful
+from gracy import Gracy, GracyConfig, GracefulRetry, graceful, graceful_generator
 
 retry = GracefulRetry(...)
 
@@ -656,6 +658,16 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     async def get_pokemon_order(self, name: str):
       val: str = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
       return val
+
+    @graceful_generator( # 👈 Retry and log_errors are still set for this one
+      parser={"default": lambda r: r.json()["order"]},
+    )
+    async def get_2_pokemons(self):
+      names = ["charmander", "pikachu"]
+
+      for name in names:
+          r = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+          yield r
 ```
 
 ### Customizing HTTPx client

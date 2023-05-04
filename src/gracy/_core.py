@@ -428,3 +428,35 @@ def graceful(
         return _inner_wrapper
 
     return _wrapper
+
+
+def graceful_generator(
+    strict_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    allowed_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
+    validators: t.Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE,
+    retry: GracefulRetry | Unset | None = UNSET_VALUE,
+    log_request: LOG_EVENT_TYPE = UNSET_VALUE,
+    log_response: LOG_EVENT_TYPE = UNSET_VALUE,
+    log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
+    parser: PARSER_TYPE = UNSET_VALUE,
+):
+    config = GracyConfig(
+        strict_status_code=strict_status_code,
+        allowed_status_code=allowed_status_code,
+        validators=validators,
+        retry=retry,
+        log_request=log_request,
+        log_response=log_response,
+        log_errors=log_errors,
+        parser=parser,
+    )
+
+    def _wrapper(wrapped_function: t.Callable[..., t.AsyncGenerator[t.Any, t.Any]]):
+        async def _inner_wrapper(*args: t.Any, **kwargs: t.Any):
+            with custom_gracy_config(config):
+                async for res in wrapped_function(*args, **kwargs):
+                    yield res
+
+        return _inner_wrapper
+
+    return _wrapper

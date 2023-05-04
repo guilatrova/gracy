@@ -2,7 +2,7 @@
 import logging
 
 from . import exceptions, replays
-from ._core import Gracy, graceful
+from ._core import Gracy, graceful, graceful_generator
 from ._models import (
     DEFAULT_CONFIG,
     BaseEndpoint,
@@ -27,6 +27,7 @@ __all__ = [
     # Core
     "Gracy",
     "graceful",
+    "graceful_generator",
     # Models
     "BaseEndpoint",
     "GracefulRetry",
