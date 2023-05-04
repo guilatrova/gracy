@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.4 (2023-05-04)
+### Fix
+* Add support for `graceful_generator` ([`22ecf9a`](https://github.com/guilatrova/gracy/commit/22ecf9ac91064fcc4288f38ff73a77f4e165b98d))
+
 ## v1.11.3 (2023-03-24)
 ### Fix
 * Make exception pickable ([`16d6a62`](https://github.com/guilatrova/gracy/commit/16d6a6248fd46a565c411743a3bf0f74dac94363))
