@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from enum import Enum, IntEnum
 from http import HTTPStatus
 from threading import Lock
-from typing import Any, Awaitable, Callable, Final, Iterable, Literal, Pattern, TypeVar
 
 import httpx
 
@@ -33,7 +32,7 @@ class LogLevel(IntEnum):
 @dataclass
 class LogEvent:
     level: LogLevel
-    custom_message: Callable[[httpx.Response | None], str] | str | None = None
+    custom_message: t.Callable[[httpx.Response | None], str] | str | None = None
     """You can add some placeholders to be injected in the log.
 
     e.g.
@@ -110,18 +109,18 @@ class GracefulRetry:
     max_attempts: int
 
     delay_modifier: float = 1
-    retry_on: STATUS_OR_EXCEPTION | Iterable[STATUS_OR_EXCEPTION] | None = None
+    retry_on: STATUS_OR_EXCEPTION | t.Iterable[STATUS_OR_EXCEPTION] | None = None
     log_before: None | LogEvent = None
     log_after: None | LogEvent = None
     log_exhausted: None | LogEvent = None
-    behavior: Literal["break", "pass"] = "break"
+    behavior: t.Literal["break", "pass"] = "break"
 
     def needs_retry(self, response_result: HTTPStatus) -> bool:
         if self.retry_on is None:
             return True
 
         retry_on_status = self.retry_on
-        if not isinstance(retry_on_status, Iterable):
+        if not isinstance(retry_on_status, t.Iterable):
             retry_on_status = {retry_on_status}
 
         return response_result in retry_on_status
@@ -134,7 +133,7 @@ class GracefulRetry:
 
 
 class ThrottleRule:
-    url_pattern: Pattern[str]
+    url_pattern: t.Pattern[str]
     """
     Which URLs do you want to account for this?
     e.g.
@@ -211,7 +210,7 @@ class ThrottleRule:
 
 class ThrottleLocker:
     def __init__(self) -> None:
-        self._regex_lock = defaultdict[Pattern[str], Lock](Lock)
+        self._regex_lock = defaultdict[t.Pattern[str], Lock](Lock)
         self._generic_lock = Lock()
 
     @contextmanager
@@ -228,7 +227,7 @@ class ThrottleLocker:
         return self._regex_lock[rule.url_pattern].locked()
 
 
-THROTTLE_LOCKER: Final = ThrottleLocker()
+THROTTLE_LOCKER: t.Final = ThrottleLocker()
 
 
 class GracefulThrottle:
@@ -242,7 +241,7 @@ class GracefulThrottle:
         log_limit_reached: None | LogEvent = None,
         log_wait_over: None | LogEvent = None,
     ) -> None:
-        self.rules = rules if isinstance(rules, Iterable) else [rules]
+        self.rules = rules if isinstance(rules, t.Iterable) else [rules]
         self.log_limit_reached = log_limit_reached
         self.log_wait_over = log_wait_over
 
@@ -255,7 +254,7 @@ class ThrottleController:
         with THROTTLE_LOCKER.lock_check():
             self._control[request_context.url].append(datetime.now())  # This should always keep it sorted asc
 
-    def calculate_requests_per_rule(self, url_pattern: Pattern[str], range: timedelta) -> float:
+    def calculate_requests_per_rule(self, url_pattern: t.Pattern[str], range: timedelta) -> float:
         with THROTTLE_LOCKER.lock_check():
             past_time_window = datetime.now() - range
             request_rate = 0.0
@@ -282,7 +281,7 @@ class ThrottleController:
 
             return request_rate
 
-    def calculate_requests_per_sec(self, url_pattern: Pattern[str]) -> float:
+    def calculate_requests_per_sec(self, url_pattern: t.Pattern[str]) -> float:
         with THROTTLE_LOCKER.lock_check():
             requests_per_second = 0.0
             coalesced_started_ats = sorted(
@@ -337,12 +336,12 @@ class GracyConfig:
 
     retry: GracefulRetry | None | Unset = UNSET_VALUE
 
-    strict_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
+    strict_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
     """Strictly enforces only one or many HTTP Status code to be considered as successful.
 
     e.g. Setting it to 201 would raise exceptions for both 204 or 200"""
 
-    allowed_status_code: Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
+    allowed_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
     """Adds one or many HTTP Status code that would normally be considered an error
 
     e.g. 404 would consider any 200-299 and 404 as successful.
@@ -350,7 +349,7 @@ class GracyConfig:
     NOTE: `strict_status_code` takes precedence.
     """
 
-    validators: Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE
+    validators: t.Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE
     """Adds one or many validators to be run for the response to decide whether it was successful or not.
 
     NOTE: `strict_status_code` or `allowed_status_code` are executed before.
@@ -377,7 +376,7 @@ class GracyConfig:
             retry = t.cast(GracefulRetry, self.retry)
 
             retry_on: t.Iterable[STATUS_OR_EXCEPTION]
-            if not isinstance(retry.retry_on, Iterable) and retry.retry_on is not None:
+            if not isinstance(retry.retry_on, t.Iterable) and retry.retry_on is not None:
                 retry_on = [retry.retry_on]
             elif retry.retry_on is None:
                 retry_on = []
@@ -400,7 +399,7 @@ class GracyConfig:
                 if req_or_validation_exc or response.is_success is False:
                     return True
 
-            if isinstance(retry.retry_on, Iterable):
+            if isinstance(retry.retry_on, t.Iterable):
                 if HTTPStatus(response_status) in retry.retry_on:
                     return True
 
@@ -433,7 +432,7 @@ class GracyConfig:
         return new_obj
 
 
-DEFAULT_CONFIG: Final = GracyConfig(
+DEFAULT_CONFIG: t.Final = GracyConfig(
     log_request=None,
     log_response=None,
     log_errors=LogEvent(LogLevel.ERROR),
@@ -448,20 +447,22 @@ class BaseEndpoint(str, Enum):
         return self.value
 
 
-Endpoint = TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
+Endpoint = t.TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 
 
 class GracefulRequest:
-    request: Callable[..., Awaitable[httpx.Response]]
-    args: tuple[Any, ...]
-    kwargs: dict[str, Any]
+    request: t.Callable[..., t.Awaitable[httpx.Response]]
+    args: tuple[t.Any, ...]
+    kwargs: dict[str, t.Any]
 
-    def __init__(self, request: Callable[..., Awaitable[httpx.Response]], *args: Any, **kwargs: dict[str, Any]) -> None:
+    def __init__(
+        self, request: t.Callable[..., t.Awaitable[httpx.Response]], *args: t.Any, **kwargs: dict[str, t.Any]
+    ) -> None:
         self.request = request
         self.args = args
         self.kwargs = kwargs
 
-    def __call__(self) -> Awaitable[httpx.Response]:
+    def __call__(self) -> t.Awaitable[httpx.Response]:
         return self.request(*self.args, **self.kwargs)
 
 

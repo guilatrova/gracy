@@ -1,5 +1,5 @@
+import typing as t
 from http import HTTPStatus
-from typing import Any, Callable, Final, Literal, Type, Union
 
 import httpx
 
@@ -15,8 +15,8 @@ class Unset:
         return False
 
 
-PARSER_KEY = HTTPStatus | Literal["default"]
-PARSER_VALUE = Union[Type[Exception], Callable[[httpx.Response], Any], None]
+PARSER_KEY = HTTPStatus | t.Literal["default"]
+PARSER_VALUE = t.Union[t.Type[Exception], t.Callable[[httpx.Response], t.Any], None]
 PARSER_TYPE = dict[PARSER_KEY, PARSER_VALUE] | Unset | None
 
-UNSET_VALUE: Final = Unset()
+UNSET_VALUE: t.Final = Unset()

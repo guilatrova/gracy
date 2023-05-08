@@ -1,27 +1,27 @@
 import logging
+import typing as t
 from abc import ABC, abstractmethod
-from typing import Final, Literal
 
 from ..replays.storages._base import GracyReplay
 from ._models import GracyAggregatedTotal, GracyReport
 
 logger = logging.getLogger("gracy")
 
-PRINTERS = Literal["rich", "list", "logger"]
+PRINTERS = t.Literal["rich", "list", "logger"]
 
 
 class Titles:
-    url: Final = "URL"
-    total_requests: Final = "Total Reqs (#)"
-    success_rate: Final = "Success (%)"
-    failed_rate: Final = "Fail (%)"
-    avg_latency: Final = "Avg Latency (s)"
-    max_latency: Final = "Max Latency (s)"
-    resp_2xx: Final = "2xx Resps"
-    resp_3xx: Final = "3xx Resps"
-    resp_4xx: Final = "4xx Resps"
-    resp_5xx: Final = "5xx Resps"
-    req_rate_per_sec: Final = "Avg Reqs/sec"
+    url: t.Final = "URL"
+    total_requests: t.Final = "Total Reqs (#)"
+    success_rate: t.Final = "Success (%)"
+    failed_rate: t.Final = "Fail (%)"
+    avg_latency: t.Final = "Avg Latency (s)"
+    max_latency: t.Final = "Max Latency (s)"
+    resp_2xx: t.Final = "2xx Resps"
+    resp_3xx: t.Final = "3xx Resps"
+    resp_4xx: t.Final = "4xx Resps"
+    resp_5xx: t.Final = "5xx Resps"
+    req_rate_per_sec: t.Final = "Avg Reqs/sec"
 
 
 def _getreplays_warn(replay_settings: GracyReplay | None) -> str:
@@ -148,7 +148,7 @@ class ListPrinter(BasePrinter):
         entries = report.requests
         entries.append(report.total)
 
-        PAD_PREFIX: Final = 20
+        PAD_PREFIX: t.Final = 20
 
         for idx, entry in enumerate(entries, 1):
             title = entry.uurl if idx == len(entries) else f"{idx}. {entry.uurl}"

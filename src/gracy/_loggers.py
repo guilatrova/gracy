@@ -1,6 +1,6 @@
 import logging
+import typing as t
 from enum import Enum
-from typing import Any
 
 import httpx
 
@@ -29,7 +29,7 @@ class DefaultLogMessage(str, Enum):
     RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT}"
 
 
-def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, Any], response: httpx.Response | None = None):
+def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
     if logevent.custom_message:
         if isinstance(logevent.custom_message, str):
             message = logevent.custom_message.format(**format_args)

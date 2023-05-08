@@ -1,8 +1,8 @@
 import re
+import typing as t
 from collections import defaultdict
 from http import HTTPStatus
 from statistics import mean
-from typing import Final, List, Literal, Set
 
 import httpx
 
@@ -10,15 +10,15 @@ from .._models import GracyRequestContext, ThrottleController
 from ..replays.storages._base import GracyReplay
 from ._models import GracyAggregatedRequest, GracyReport, GracyRequestResult
 
-ANY_REGEX: Final = r".+"
+ANY_REGEX: t.Final = r".+"
 
-REQUEST_SUM_KEY = HTTPStatus | Literal["total"]
+REQUEST_SUM_KEY = HTTPStatus | t.Literal["total"]
 REQUEST_SUM_PER_STATUS_TYPE = dict[str, defaultdict[REQUEST_SUM_KEY, int]]
 
 
 class ReportBuilder:
     def __init__(self) -> None:
-        self._results: List[GracyRequestResult] = []
+        self._results: t.List[GracyRequestResult] = []
 
     def track(self, request_context: GracyRequestContext, response: httpx.Response):
         self._results.append(GracyRequestResult(request_context.unformatted_url, response))
@@ -29,7 +29,7 @@ class ReportBuilder:
         return rate
 
     def build(self, throttle_controller: ThrottleController, replay_settings: GracyReplay | None) -> GracyReport:
-        requests_by_uurl = defaultdict[str, Set[httpx.Response]](set)
+        requests_by_uurl = defaultdict[str, t.Set[httpx.Response]](set)
         requests_sum: REQUEST_SUM_PER_STATUS_TYPE = defaultdict(lambda: defaultdict(int))
 
         for result in self._results:
