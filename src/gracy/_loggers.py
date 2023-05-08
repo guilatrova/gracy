@@ -95,12 +95,14 @@ def process_log_after_request(
     logevent: LogEvent,
     defaultmsg: str,
     request_context: GracyRequestContext,
-    response: httpx.Response,
+    response: httpx.Response | None,
 ):
+    status_code = response.status_code if response else "NONE"
+    elapsed = response.elapsed if response else "UNKNOWN"
     format_args = dict(
         **_extract_base_format_args(request_context),
-        STATUS=response.status_code,
-        ELAPSED=response.elapsed,
+        STATUS=status_code,
+        ELAPSED=elapsed,
     )
 
     _do_log(logevent, defaultmsg, format_args, response)

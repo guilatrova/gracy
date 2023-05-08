@@ -5,6 +5,7 @@ import inspect
 import itertools
 import logging
 import re
+import typing as t
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
@@ -67,7 +68,7 @@ class GracefulRetryState:
     cur_attempt: int = 0
     success: bool = False
     final_validation_exc: Exception | None = None
-    final_response: httpx.Response
+    final_response: httpx.Response | None
 
     def __init__(self, retry_config: GracefulRetry) -> None:
         self._retry_config = retry_config
@@ -125,7 +126,7 @@ class GracefulRetry:
 
         return response_result in retry_on_status
 
-    def create_state(self, result: httpx.Response) -> GracefulRetryState:
+    def create_state(self, result: httpx.Response | None) -> GracefulRetryState:
         state = GracefulRetryState(self)
         # Only needed to handle cases where the user sets 0 as max attempts
         state.final_response = result
@@ -369,14 +370,34 @@ class GracyConfig:
 
     throttling: GracefulThrottle | None | Unset = UNSET_VALUE
 
-    def should_retry(self, response: httpx.Response, validation_exc: Exception | None) -> bool:
+    def should_retry(self, response: httpx.Response | None, req_or_validation_exc: Exception | None) -> bool:
         """Only checks if given status requires retry. Does not consider attempts."""
+
         if self.has_retry:
+            retry = t.cast(GracefulRetry, self.retry)
+
+            retry_on: t.Iterable[STATUS_OR_EXCEPTION]
+            if not isinstance(retry.retry_on, Iterable) and retry.retry_on is not None:
+                retry_on = [retry.retry_on]
+            elif retry.retry_on is None:
+                retry_on = []
+            else:
+                retry_on = retry.retry_on
+
+            if response is None:
+                if retry.retry_on is None:
+                    return True
+
+                for maybe_exc in retry_on:
+                    if inspect.isclass(maybe_exc) and isinstance(req_or_validation_exc, maybe_exc):
+                        return True
+
+                return False
+
             response_status = response.status_code
 
-            retry: GracefulRetry = self.retry  # type: ignore
             if retry.retry_on is None:
-                if validation_exc or response.is_success is False:
+                if req_or_validation_exc or response.is_success is False:
                     return True
 
             if isinstance(retry.retry_on, Iterable):
@@ -384,11 +405,11 @@ class GracyConfig:
                     return True
 
                 for maybe_exc in retry.retry_on:
-                    if inspect.isclass(maybe_exc) and isinstance(validation_exc, maybe_exc):
+                    if inspect.isclass(maybe_exc) and isinstance(req_or_validation_exc, maybe_exc):
                         return True
 
             elif inspect.isclass(retry.retry_on):
-                return isinstance(validation_exc, retry.retry_on)
+                return isinstance(req_or_validation_exc, retry.retry_on)
 
             else:
                 return retry.retry_on == response_status
