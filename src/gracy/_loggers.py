@@ -1,6 +1,6 @@
 import logging
+import typing as t
 from enum import Enum
-from typing import Any
 
 import httpx
 
@@ -29,7 +29,7 @@ class DefaultLogMessage(str, Enum):
     RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT}"
 
 
-def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, Any], response: httpx.Response | None = None):
+def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
     if logevent.custom_message:
         if isinstance(logevent.custom_message, str):
             message = logevent.custom_message.format(**format_args)
@@ -95,12 +95,14 @@ def process_log_after_request(
     logevent: LogEvent,
     defaultmsg: str,
     request_context: GracyRequestContext,
-    response: httpx.Response,
+    response: httpx.Response | None,
 ):
+    status_code = response.status_code if response else "NONE"
+    elapsed = response.elapsed if response else "UNKNOWN"
     format_args = dict(
         **_extract_base_format_args(request_context),
-        STATUS=response.status_code,
-        ELAPSED=response.elapsed,
+        STATUS=status_code,
+        ELAPSED=elapsed,
     )
 
     _do_log(logevent, defaultmsg, format_args, response)

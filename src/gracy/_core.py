@@ -42,9 +42,6 @@ from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusV
 from .exceptions import GracyParseFailed
 from .replays.storages._base import GracyReplay
 
-# t.Any, Callable, Coroutine, t.Generic, t.Iterable, t.cast
-
-
 logger = logging.getLogger("gracy")
 
 
@@ -95,7 +92,7 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
 async def _gracefully_retry(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
-    last_response: httpx.Response,
+    last_response: httpx.Response | None,
     request: GracefulRequest,
     request_context: GracyRequestContext,
     validators: list[GracefulValidator],
@@ -119,16 +116,24 @@ async def _gracefully_retry(
         await sleep(state.delay)
         await _gracefully_throttle(throttle_controller, request_context)
         throttle_controller.init_request(request_context)
-        result = await request()
-        report.track(request_context, result)
 
-        validation_exc = None
-        for validator in validators:
-            try:
-                validator.check(result)
-            except Exception as ex:
-                validation_exc = ex
-                break
+        try:
+            result = await request()
+        except Exception as exc:
+            validation_exc = exc
+            report.track(request_context, exc)
+        else:
+            report.track(request_context, result)
+
+        if result:
+            validation_exc = None
+
+            for validator in validators:
+                try:
+                    validator.check(result)
+                except Exception as ex:
+                    validation_exc = ex
+                    break
 
         # Even if all validators are passing, we check whether
         # it should retry for cases like:
@@ -184,10 +189,20 @@ async def _gracify(
     if isinstance(active_config.log_request, LogEvent):
         process_log_before_request(active_config.log_request, request_context)
 
+    validation_exc: Exception | None = None
+
     await _gracefully_throttle(throttle_controller, request_context)
     throttle_controller.init_request(request_context)
-    result = await request()
-    report.track(request_context, result)
+    try:
+        result = await request()
+    except Exception as ex:
+        validation_exc = ex
+        result = None
+        report.track(request_context, ex)
+    else:
+        # mypy didn't detect it properly
+        result = t.cast(httpx.Response, result)  # type: ignore
+        report.track(request_context, result)
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
         process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
@@ -205,13 +220,13 @@ async def _gracify(
     elif isinstance(active_config.validators, t.Iterable):
         validators += active_config.validators
 
-    validation_exc: Exception | None = None
-    for validator in validators:
-        try:
-            validator.check(result)
-        except Exception as ex:
-            validation_exc = ex
-            break
+    if result:
+        for validator in validators:
+            try:
+                validator.check(result)
+            except Exception as ex:
+                validation_exc = ex
+                break
 
     retry_result: GracefulRetryState | None = None
     if active_config.should_retry(result, validation_exc):
@@ -239,7 +254,7 @@ async def _gracify(
     if validation_exc and must_break:
         raise validation_exc
 
-    final_result = _maybe_parse_result(active_config, request_context, result)
+    final_result = _maybe_parse_result(active_config, request_context, result) if result else None
 
     return final_result
 

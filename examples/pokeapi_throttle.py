@@ -1,7 +1,7 @@
 import asyncio
+import typing as t
 from datetime import timedelta
 from http import HTTPStatus
-from typing import cast
 
 from rich import print
 
@@ -53,7 +53,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
     @graceful(parser={"default": lambda r: r.json()["order"], HTTPStatus.NOT_FOUND: None})
     async def get_pokemon(self, name: str):
-        val = cast(str | None, await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name}))
+        val = t.cast(str | None, await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name}))
 
         if val:
             print(f"{name} is #{val} in the pokedex")

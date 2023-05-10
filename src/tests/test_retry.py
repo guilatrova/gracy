@@ -2,6 +2,7 @@ import logging
 import pytest
 import typing as t
 from http import HTTPStatus
+from unittest.mock import patch
 
 import httpx
 
@@ -88,10 +89,10 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
 @pytest.fixture()
 def make_pokeapi():
-    def factory(max_attempts: int, break_or_pass: str = "pass"):
+    def factory(max_attempts: int, break_or_pass: str = "pass", replay_enabled: bool = True):
         Gracy.dangerously_reset_report()
 
-        api = GracefulPokeAPI(REPLAY)
+        api = GracefulPokeAPI(REPLAY) if replay_enabled else GracefulPokeAPI()
         api._base_config.retry.max_attempts = max_attempts  # type: ignore
         api._base_config.retry.behavior = break_or_pass  # type: ignore
 
@@ -122,7 +123,7 @@ def make_flaky_pokeapi():
 
 
 class PokeApiFactory(t.Protocol):
-    def __call__(self, max_attempts: int, break_or_pass: str = "pass") -> GracefulPokeAPI:
+    def __call__(self, max_attempts: int, break_or_pass: str = "pass", replay_enabled: bool = True) -> GracefulPokeAPI:
         ...
 
 
@@ -328,3 +329,23 @@ async def test_retry_logs_exhausts(make_pokeapi: PokeApiFactory, caplog: pytest.
     assert_log(caplog.records[4], RETRY_LOG_BEFORE)
     assert_log(caplog.records[5], RETRY_LOG_AFTER)
     assert_log(caplog.records[6], RETRY_LOG_EXHAUSTED)
+
+
+async def test_retry_without_replay_request_without_response_generic(make_pokeapi: PokeApiFactory):
+    EXPECTED_REQS: t.Final = 3 + 1
+
+    class SomeRequestException(Exception):
+        pass
+
+    # Regardless of replay being disabled, no request will be triggered as we're mocking httpx
+    pokeapi = make_pokeapi(3, break_or_pass="break", replay_enabled=False)
+    pokeapi._base_config.retry.retry_on.add(SomeRequestException)  # type: ignore
+
+    mock: t.Any
+    with patch.object(pokeapi, "_client", autospec=True) as mock:
+        mock.request.side_effect = SomeRequestException("Request failed")
+
+        with pytest.raises(SomeRequestException):
+            await pokeapi.get_pokemon(PRESENT_NAME)
+
+    assert_requests_made(pokeapi, EXPECTED_REQS)

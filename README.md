@@ -80,7 +80,7 @@ Examples will be shown using the [PokeAPI](https://pokeapi.co).
 ```py
 # 0. Import
 import asyncio
-from typing import Awaitable
+import typing as t
 from gracy import BaseEndpoint, Gracy, GracyConfig, LogEvent, LogLevel
 
 # 1. Define your endpoints
@@ -100,7 +100,7 @@ class GracefulPokeAPI(Gracy[str]):
           }
         )
 
-    async def get_pokemon(self, name: str) -> Awaitable[dict]:
+    async def get_pokemon(self, name: str) -> t.Awaitable[dict]:
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
 pokeapi = GracefulPokeAPI()
