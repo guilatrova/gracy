@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.13.0 (2023-05-10)
+### Feature
+* Track broken requests ([`e40d8b8`](https://github.com/guilatrova/gracy/commit/e40d8b8774c86f766c69c0cd8f0d5d5b65f09d0f))
+* Capture broken requests (without a response) ([`bf0ac44`](https://github.com/guilatrova/gracy/commit/bf0ac44e87f96d7acc41f7f0e63411ac0f113a67))
+
 ## v1.12.0 (2023-05-04)
 ### Feature
 * Improve decorator typing ([`72233d6`](https://github.com/guilatrova/gracy/commit/72233d60dd84cfddf2778b585b1260833f357c1e))
