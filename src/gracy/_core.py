@@ -121,6 +121,7 @@ async def _gracefully_retry(
             result = await request()
         except Exception as exc:
             validation_exc = exc
+            report.track(request_context, exc)
         else:
             report.track(request_context, result)
 
@@ -197,6 +198,7 @@ async def _gracify(
     except Exception as ex:
         validation_exc = ex
         result = None
+        report.track(request_context, ex)
     else:
         # mypy didn't detect it properly
         result = t.cast(httpx.Response, result)  # type: ignore

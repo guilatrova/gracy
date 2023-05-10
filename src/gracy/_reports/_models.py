@@ -11,7 +11,7 @@ class GracyRequestResult:
     __slots__ = ("uurl", "response")
 
     uurl: str
-    response: httpx.Response
+    response: httpx.Response | Exception
 
 
 @dataclass
@@ -25,6 +25,7 @@ class ReportGenericAggregatedRequest:
     resp_3xx: int
     resp_4xx: int
     resp_5xx: int
+    request_errors: int
 
     max_latency: float
 
@@ -86,6 +87,7 @@ class GracyReport:
             resp_3xx=0,
             resp_4xx=0,
             resp_5xx=0,
+            request_errors=0,
             max_latency=0,
         )
         self.replay_settings = replay_settings

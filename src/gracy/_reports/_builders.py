@@ -12,7 +12,8 @@ from ._models import GracyAggregatedRequest, GracyReport, GracyRequestResult
 
 ANY_REGEX: t.Final = r".+"
 
-REQUEST_SUM_KEY = HTTPStatus | t.Literal["total"]
+REQUEST_ERROR_STATUS: t.Final = 0
+REQUEST_SUM_KEY = HTTPStatus | t.Literal["total", 0]
 REQUEST_SUM_PER_STATUS_TYPE = dict[str, defaultdict[REQUEST_SUM_KEY, int]]
 
 
@@ -20,8 +21,8 @@ class ReportBuilder:
     def __init__(self) -> None:
         self._results: t.List[GracyRequestResult] = []
 
-    def track(self, request_context: GracyRequestContext, response: httpx.Response):
-        self._results.append(GracyRequestResult(request_context.unformatted_url, response))
+    def track(self, request_context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
+        self._results.append(GracyRequestResult(request_context.unformatted_url, response_or_exc))
 
     def _calculate_req_rate_for_url(self, unformatted_url: str, throttle_controller: ThrottleController) -> float:
         pattern = re.compile(re.sub(r"{(\w+)}", ANY_REGEX, unformatted_url))
@@ -29,20 +30,23 @@ class ReportBuilder:
         return rate
 
     def build(self, throttle_controller: ThrottleController, replay_settings: GracyReplay | None) -> GracyReport:
-        requests_by_uurl = defaultdict[str, t.Set[httpx.Response]](set)
+        requests_by_uurl = defaultdict[str, t.Set[httpx.Response | Exception]](set)
         requests_sum: REQUEST_SUM_PER_STATUS_TYPE = defaultdict(lambda: defaultdict(int))
 
         for result in self._results:
             requests_by_uurl[result.uurl].add(result.response)
             requests_sum[result.uurl]["total"] += 1
-            requests_sum[result.uurl][HTTPStatus(result.response.status_code)] += 1
+            if isinstance(result.response, httpx.Response):
+                requests_sum[result.uurl][HTTPStatus(result.response.status_code)] += 1
+            else:
+                requests_sum[result.uurl][REQUEST_ERROR_STATUS] += 1
 
         requests_sum = dict(sorted(requests_sum.items(), key=lambda item: item[1]["total"], reverse=True))
 
         report = GracyReport(replay_settings)
 
         for uurl, data in requests_sum.items():
-            all_requests = requests_by_uurl[uurl]
+            all_requests = {req for req in requests_by_uurl[uurl] if isinstance(req, httpx.Response)}
 
             total_requests = data["total"]
             url_latency = [r.elapsed.total_seconds() for r in all_requests]
@@ -53,17 +57,42 @@ class ReportBuilder:
             # producing 1,000 requests which isn't true.
             rate = min(self._calculate_req_rate_for_url(uurl, throttle_controller), total_requests)
 
+            resp_2xx = 0
+            resp_3xx = 0
+            resp_4xx = 0
+            resp_5xx = 0
+            errs = 0
+
+            for maybe_status, count in data.items():
+                if maybe_status == "total":
+                    continue
+
+                if maybe_status == REQUEST_ERROR_STATUS:
+                    errs += count
+                    continue
+
+                status = maybe_status
+                if 200 <= status.value < 300:
+                    resp_2xx += count
+                elif 300 <= status.value < 400:
+                    resp_3xx += count
+                elif 400 <= status.value < 500:
+                    resp_4xx += count
+                elif 500 <= status.value:
+                    resp_5xx += count
+
             report_request = GracyAggregatedRequest(
                 uurl,
                 total_requests,
-                # fmt:off
-                resp_2xx=sum(count for status, count in data.items() if status != "total" and 200 <= status.value < 300),  # noqa: E501,
-                resp_3xx=sum(count for status, count in data.items() if status != "total" and 300 <= status.value < 400),  # noqa: E501,
-                resp_4xx=sum(count for status, count in data.items() if status != "total" and 400 <= status.value < 500),  # noqa: E501,
-                resp_5xx=sum(count for status, count in data.items() if status != "total" and 500 <= status.value),
-                # fmt:on
-                avg_latency=mean(url_latency),
-                max_latency=max(url_latency),
+                # Responses
+                resp_2xx=resp_2xx,
+                resp_3xx=resp_3xx,
+                resp_4xx=resp_4xx,
+                resp_5xx=resp_5xx,
+                request_errors=errs,
+                # General
+                avg_latency=mean(url_latency) if url_latency else 0,
+                max_latency=max(url_latency) if url_latency else 0,
                 req_rate_per_sec=rate,
             )
 
