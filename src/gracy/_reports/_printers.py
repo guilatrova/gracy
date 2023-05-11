@@ -21,6 +21,7 @@ class Titles:
     resp_3xx: t.Final = "3xx Resps"
     resp_4xx: t.Final = "4xx Resps"
     resp_5xx: t.Final = "5xx Resps"
+    request_errors: t.Final = "Aborted"
     req_rate_per_sec: t.Final = "Avg Reqs/sec"
 
 
@@ -114,6 +115,7 @@ class RichPrinter(BasePrinter):
         table.add_column(Titles.resp_3xx, justify="right")
         table.add_column(Titles.resp_4xx, justify="right")
         table.add_column(Titles.resp_5xx, justify="right")
+        table.add_column(Titles.request_errors, justify="right")
         table.add_column(Titles.req_rate_per_sec, justify="right")
 
         rows = report.requests
@@ -134,6 +136,7 @@ class RichPrinter(BasePrinter):
                 _format_int(request_row.resp_3xx),
                 _format_int(request_row.resp_4xx, isset_color="red"),
                 _format_int(request_row.resp_5xx, isset_color="red"),
+                _format_int(request_row.request_errors, isset_color="red"),
                 _format_value(request_row.req_rate_per_sec, precision=1, suffix=" reqs/s"),
                 end_section=is_last_line_before_footer,
             )
@@ -165,6 +168,7 @@ class ListPrinter(BasePrinter):
             print(_format_int(entry.resp_3xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_3xx}: "))
             print(_format_int(entry.resp_4xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_4xx}: "))
             print(_format_int(entry.resp_5xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_5xx}: "))
+            print(_format_int(entry.request_errors, padprefix=PAD_PREFIX, prefix=f"{Titles.request_errors}: "))
             print(
                 _format_value(
                     entry.req_rate_per_sec,
