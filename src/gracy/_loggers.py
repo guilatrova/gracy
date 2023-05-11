@@ -25,19 +25,21 @@ class DefaultLogMessage(str, Enum):
     RETRY_BEFORE = (
         "GracefulRetry: {URL} will wait {RETRY_DELAY}s before next attempt ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
     )
-    RETRY_AFTER = "GracefulRetry: {URL} attempt ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
+    RETRY_AFTER = "GracefulRetry: {URL} replied {STATUS} attempt ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
     RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT}"
 
 
 def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
+    # Let's protect ourselves against potential customizations with undefined {key}
+    safe_format_args = SafeDict(**format_args)
+
     if logevent.custom_message:
         if isinstance(logevent.custom_message, str):
-            message = logevent.custom_message.format(**format_args)
+            message = logevent.custom_message.format_map(safe_format_args)
         else:
-            # Let's protect ourselves against potential customizations with undefined {key}
-            message = logevent.custom_message(response).format_map(SafeDict(**format_args))
+            message = logevent.custom_message(response).format_map(safe_format_args)
     else:
-        message = defaultmsg.format(**format_args)
+        message = defaultmsg.format_map(safe_format_args)
 
     logger.log(logevent.level, message, extra=format_args)
 
@@ -49,6 +51,16 @@ def _extract_base_format_args(request_context: GracyRequestContext) -> dict[str,
         UURL=request_context.unformatted_url,
         UENDPOINT=request_context.unformatted_endpoint,
         METHOD=request_context.method,
+    )
+
+
+def _extract_response_format_args(response: httpx.Response | None) -> dict[str, str]:
+    status_code = response.status_code if response else "ABORTED"
+    elapsed = response.elapsed if response else "UNKNOWN"
+
+    return dict(
+        STATUS=str(status_code),
+        ELAPSED=str(elapsed),
     )
 
 
@@ -81,8 +93,13 @@ def process_log_retry(
     state: GracefulRetryState,
     response: httpx.Response | None = None,
 ):
+    maybe_response_args: dict[str, str] = {}
+    if response:
+        maybe_response_args = _extract_response_format_args(response)
+
     format_args = dict(
         **_extract_base_format_args(request_context),
+        **maybe_response_args,
         RETRY_DELAY=state.delay,
         CUR_ATTEMPT=state.cur_attempt,
         MAX_ATTEMPT=state.max_attempts,
@@ -97,12 +114,9 @@ def process_log_after_request(
     request_context: GracyRequestContext,
     response: httpx.Response | None,
 ):
-    status_code = response.status_code if response else "NONE"
-    elapsed = response.elapsed if response else "UNKNOWN"
-    format_args = dict(
+    format_args: dict[str, str] = dict(
         **_extract_base_format_args(request_context),
-        STATUS=status_code,
-        ELAPSED=elapsed,
+        **_extract_response_format_args(response),
     )
 
     _do_log(logevent, defaultmsg, format_args, response)
