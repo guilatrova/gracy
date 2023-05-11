@@ -447,12 +447,12 @@ class ThrottleController:
         for url, reqs_timestamps in self._time_control.items():
             human_times: list[str] = []
 
-            for idx, ts in enumerate(reqs_timestamps):
+            for idx, ts in enumerate(reqs_timestamps, 1):
                 entry = " ".join(
                     [
                         f"#{idx}",
                         ts.started_at.strftime(TS_DEBUG_FORMAT),
-                        " - ",
+                        "-",
                         ts.ended_at.strftime(TS_DEBUG_FORMAT) if ts.ended_at else "?",
                     ]
                 )
@@ -467,11 +467,12 @@ class ThrottleController:
             if ongoing_count:
                 ongoing_str = f"[red]{ongoing_str}[/red]"
 
+            table_human_times = "\n".join(human_times)
             table.add_row(
                 url,
                 f"{len(reqs_timestamps):,}",
                 ongoing_str,
-                f"[yellow]{human_times}[/yellow]",
+                f"[yellow]{table_human_times}[/yellow]",
             )
 
         reqs_per_sec = self.calculate_requests_per_sec(re.compile(r".*"), skip_lock=True)
@@ -492,6 +493,13 @@ class ThrottleController:
         table.title = str(table.title) + throttled_title
 
         return table
+
+    def debug_print(self):
+        from rich.console import Console
+
+        console = Console()
+        table = self.debug_get_table()
+        console.print(table)
 
 
 class GracefulValidator(ABC):
