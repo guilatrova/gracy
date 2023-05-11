@@ -115,10 +115,10 @@ async def _gracefully_retry(
 
         await sleep(state.delay)
         await _gracefully_throttle(throttle_controller, request_context)
-        throttle_controller.init_request(request_context)
 
         try:
-            result = await request()
+            with throttle_controller.request(request_context):
+                result = await request()
         except Exception as exc:
             validation_exc = exc
             report.track(request_context, exc)
@@ -192,9 +192,10 @@ async def _gracify(
     validation_exc: Exception | None = None
 
     await _gracefully_throttle(throttle_controller, request_context)
-    throttle_controller.init_request(request_context)
+
     try:
-        result = await request()
+        with throttle_controller.request(request_context):
+            result = await request()
     except Exception as ex:
         validation_exc = ex
         result = None

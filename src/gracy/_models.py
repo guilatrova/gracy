@@ -219,12 +219,22 @@ class ThrottleLocker:
             yield lock
 
     @contextmanager
-    def lock_check(self):
-        with self._generic_lock as lock:
-            yield lock
+    def lock_check(self, skip: bool = False):
+        if skip:
+            yield
+        else:
+            with self._generic_lock as lock:
+                yield lock
 
     def is_rule_throttled(self, rule: ThrottleRule) -> bool:
         return self._regex_lock[rule.url_pattern].locked()
+
+    def is_any_throttled(self) -> bool:
+        for lock in self._regex_lock.values():
+            if lock.locked():
+                return True
+
+        return False
 
 
 THROTTLE_LOCKER: t.Final = ThrottleLocker()
@@ -248,11 +258,20 @@ class GracefulThrottle:
 
 class ThrottleController:
     def __init__(self) -> None:
-        self._control: dict[str, list[datetime]] = defaultdict[str, list[datetime]](list)
+        self._time_control: dict[str, list[datetime]] = defaultdict[str, list[datetime]](list)
+        self._ongoing_control = defaultdict[str, int](int)
 
-    def init_request(self, request_context: GracyRequestContext):
-        with THROTTLE_LOCKER.lock_check():
-            self._control[request_context.url].append(datetime.now())  # This should always keep it sorted asc
+    @contextmanager
+    def request(self, request_context: GracyRequestContext):
+        try:
+            with THROTTLE_LOCKER.lock_check():
+                self._time_control[request_context.url].append(datetime.now())  # This should always keep it sorted asc
+
+            self._ongoing_control[request_context.url] += 1
+            yield
+
+        finally:
+            self._ongoing_control[request_context.url] -= 1
 
     def calculate_requests_per_rule(self, url_pattern: t.Pattern[str], range: timedelta) -> float:
         with THROTTLE_LOCKER.lock_check():
@@ -261,7 +280,7 @@ class ThrottleController:
 
             request_times = sorted(
                 itertools.chain(
-                    *[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)],
+                    *[started_ats for url, started_ats in self._time_control.items() if url_pattern.match(url)],
                 ),
                 reverse=True,
             )
@@ -281,11 +300,13 @@ class ThrottleController:
 
             return request_rate
 
-    def calculate_requests_per_sec(self, url_pattern: t.Pattern[str]) -> float:
-        with THROTTLE_LOCKER.lock_check():
+    def calculate_requests_per_sec(self, url_pattern: t.Pattern[str], skip_lock: bool = False) -> float:
+        with THROTTLE_LOCKER.lock_check(skip_lock):
             requests_per_second = 0.0
             coalesced_started_ats = sorted(
-                itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])
+                itertools.chain(
+                    *[started_ats for url, started_ats in self._time_control.items() if url_pattern.match(url)]
+                )
             )
 
             if coalesced_started_ats:
@@ -299,22 +320,55 @@ class ThrottleController:
 
             return requests_per_second
 
-    def debug_print(self):
+    def debug_get_table(self):
         # Intended only for local development
-        from rich.console import Console
         from rich.table import Table
 
-        console = Console()
-        table = Table(title="Throttling Summary")
+        table = Table(title="[yellow]Throttling Summary[/yellow]")
         table.add_column("URL", overflow="fold")
         table.add_column("Count", justify="right")
+        table.add_column("Ongoing", justify="right")
         table.add_column("Times", justify="right")
 
-        for url, times in self._control.items():
-            human_times = [time.strftime("%H:%M:%S.%f") for time in times]
-            table.add_row(url, f"{len(times):,}", f"[yellow]{human_times}[/yellow]")
+        total_count = 0
+        total_ongoing = 0
 
-        console.print(table)
+        for url, times in self._time_control.items():
+            human_times = [time.strftime("%H:%M:%S.%f") for time in times]
+            ongoing_count = self._ongoing_control[url]
+
+            total_count += len(times)
+            total_ongoing += ongoing_count
+
+            ongoing_str = f"{ongoing_count:,}"
+            if ongoing_count:
+                ongoing_str = f"[red]{ongoing_str}[/red]"
+
+            table.add_row(
+                url,
+                f"{len(times):,}",
+                ongoing_str,
+                f"[yellow]{human_times}[/yellow]",
+            )
+
+        reqs_per_sec = self.calculate_requests_per_sec(re.compile(r".*"), skip_lock=True)
+
+        table.add_section()
+        table.add_row(
+            "TOTAL",
+            f"{total_count:,}",
+            f"{total_ongoing:,}",
+            f"{reqs_per_sec:,.2} reqs per second",
+        )
+
+        if THROTTLE_LOCKER.is_any_throttled():
+            throttled_title = f" - [bold][red]THROTTLED ({total_ongoing}/{total_count})[/bold][/red]"
+        else:
+            throttled_title = f" - [bold][green]OK ({total_ongoing}/{total_count})[/bold][/green]"
+
+        table.title = str(table.title) + throttled_title
+
+        return table
 
 
 class GracefulValidator(ABC):
