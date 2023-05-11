@@ -64,7 +64,7 @@ def _extract_response_format_args(response: httpx.Response | None) -> dict[str, 
     )
 
 
-def process_log_before_request(logevent: LogEvent, request_context: GracyRequestContext):
+def process_log_before_request(logevent: LogEvent, request_context: GracyRequestContext) -> None:
     format_args = _extract_base_format_args(request_context)
     _do_log(logevent, DefaultLogMessage.BEFORE, format_args)
 
@@ -113,7 +113,7 @@ def process_log_after_request(
     defaultmsg: str,
     request_context: GracyRequestContext,
     response: httpx.Response | None,
-):
+) -> None:
     format_args: dict[str, str] = dict(
         **_extract_base_format_args(request_context),
         **_extract_response_format_args(response),
