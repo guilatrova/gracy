@@ -452,6 +452,7 @@ Endpoint = t.TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 
 class GracefulRequest:
     request: t.Callable[..., t.Awaitable[httpx.Response]]
+    """Can't use coroutine because we need to retrigger it during retries, and coro can't be awaited twice"""
     args: tuple[t.Any, ...]
     kwargs: dict[str, t.Any]
 
