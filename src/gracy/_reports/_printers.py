@@ -21,7 +21,7 @@ class Titles:
     resp_3xx: t.Final = "3xx Resps"
     resp_4xx: t.Final = "4xx Resps"
     resp_5xx: t.Final = "5xx Resps"
-    reqs_aborted: t.Final = "Aborted"
+    reqs_aborted: t.Final = "Aborts"
     retries: t.Final = "Retries"
     throttles: t.Final = "Throttles"
     req_rate_per_sec: t.Final = "Avg Reqs/sec"
