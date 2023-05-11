@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.15.0 (2023-05-11)
+### Feature
+* Show 'Aborts' as title ([`8485409`](https://github.com/guilatrova/gracy/commit/8485409e899e5d4591754ad62e35cfa4a128f124))
+* **reports:** Show retries/throttles ([`f6de12a`](https://github.com/guilatrova/gracy/commit/f6de12a51a95b7c0ac8d0302004a3ad8c0d2e146))
+
 ## v1.14.0 (2023-05-11)
 ### Feature
 * Default safe format + retry status code ([`5d7f834`](https://github.com/guilatrova/gracy/commit/5d7f834db146284813341d55979e25b373855606))
