@@ -61,14 +61,14 @@ class ReportBuilder:
             resp_3xx = 0
             resp_4xx = 0
             resp_5xx = 0
-            errs = 0
+            aborted = 0
 
             for maybe_status, count in data.items():
                 if maybe_status == "total":
                     continue
 
                 if maybe_status == REQUEST_ERROR_STATUS:
-                    errs += count
+                    aborted += count
                     continue
 
                 status = maybe_status
@@ -89,7 +89,7 @@ class ReportBuilder:
                 resp_3xx=resp_3xx,
                 resp_4xx=resp_4xx,
                 resp_5xx=resp_5xx,
-                request_errors=errs,
+                reqs_aborted=aborted,
                 # General
                 avg_latency=mean(url_latency) if url_latency else 0,
                 max_latency=max(url_latency) if url_latency else 0,

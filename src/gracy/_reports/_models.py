@@ -25,7 +25,7 @@ class ReportGenericAggregatedRequest:
     resp_3xx: int
     resp_4xx: int
     resp_5xx: int
-    request_errors: int
+    reqs_aborted: int
 
     max_latency: float
 
@@ -87,7 +87,7 @@ class GracyReport:
             resp_3xx=0,
             resp_4xx=0,
             resp_5xx=0,
-            request_errors=0,
+            reqs_aborted=0,
             max_latency=0,
         )
         self.replay_settings = replay_settings
