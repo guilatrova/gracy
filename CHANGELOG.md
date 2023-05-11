@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v1.14.0 (2023-05-11)
+### Feature
+* Default safe format + retry status code ([`5d7f834`](https://github.com/guilatrova/gracy/commit/5d7f834db146284813341d55979e25b373855606))
+* Display aborted requests ([`67ac1ed`](https://github.com/guilatrova/gracy/commit/67ac1ed103248a8f65890826fc6732ec20adb683))
+
+### Documentation
+* Add note about graceful request ([`7e14c80`](https://github.com/guilatrova/gracy/commit/7e14c80205bd56df9297d2a169c3529397b4f05a))
+
 ## v1.13.0 (2023-05-10)
 ### Feature
 * Track broken requests ([`e40d8b8`](https://github.com/guilatrova/gracy/commit/e40d8b8774c86f766c69c0cd8f0d5d5b65f09d0f))
