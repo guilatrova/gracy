@@ -4,7 +4,7 @@ from enum import Enum
 
 import httpx
 
-from ._models import GracefulRetryState, GracyRequestContext, LogEvent, ThrottleRule
+from ._models import CurrentThrottleRate, GracefulRetryState, GracyRequestContext, LogEvent, ThrottleRule
 
 logger = logging.getLogger("gracy")
 
@@ -72,13 +72,14 @@ def process_log_before_request(logevent: LogEvent, request_context: GracyRequest
 def process_log_throttle(
     logevent: LogEvent,
     default_message: str,
-    await_time: float,
+    current_throttle_rate: CurrentThrottleRate,
     rule: ThrottleRule,
     request_context: GracyRequestContext,
 ):
     format_args = dict(
         **_extract_base_format_args(request_context),
-        THROTTLE_TIME=await_time,
+        THROTTLE_ONGOING_REQUESTS=current_throttle_rate.ongoing_requests,
+        THROTTLE_TIME=current_throttle_rate.await_time,
         THROTTLE_LIMIT=rule.max_requests,
         THROTTLE_TIME_RANGE=rule.readable_time_range,
     )

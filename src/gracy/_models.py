@@ -132,6 +132,23 @@ class GracefulRetry:
         return state
 
 
+NO_WAIT: t.Final = 0.0
+
+
+@dataclass
+class CurrentThrottleRate:
+    cur_rate: float
+
+    ongoing_requests: int
+    max_requests: int
+
+    await_time: float
+
+    @property
+    def requires_throttling(self) -> bool:
+        return self.await_time > NO_WAIT
+
+
 class ThrottleRule:
     url_pattern: t.Pattern[str]
     """
@@ -192,20 +209,34 @@ class ThrottleRule:
     def __str__(self) -> str:
         return f"{self.max_requests} requests per {self.readable_time_range} for URLs matching {self.url_pattern}"
 
-    def calculate_await_time(self, controller: ThrottleController) -> float:
+    def calculate_rate(
+        self, controller: ThrottleController, check_ongoing: bool, ongoing_wait_time: float
+    ) -> CurrentThrottleRate:
         """
         Checks current reqs/second and awaits if limit is reached.
-        Returns whether limit was hit or not.
+        If limit was not hit returns 0.0.
         """
         rate_limit = self.max_requests
         cur_rate = controller.calculate_requests_per_rule(self.url_pattern, self.per_time_range)
+        pending_reqs = controller.calculate_ongoing_requests_per_rule(self.url_pattern)
 
         if cur_rate >= rate_limit:
             time_diff = (rate_limit - cur_rate) or 1
             waiting_time = self.per_time_range.total_seconds() / time_diff
-            return waiting_time
 
-        return 0.0
+            return CurrentThrottleRate(cur_rate, pending_reqs, self.max_requests, waiting_time)
+
+        if check_ongoing:
+            if (cur_rate + pending_reqs) >= rate_limit:
+                return CurrentThrottleRate(cur_rate, pending_reqs, self.max_requests, ongoing_wait_time)
+
+        return CurrentThrottleRate(cur_rate, pending_reqs, self.max_requests, NO_WAIT)
+
+    def calculate_total_ongoing_requests(self, controller: ThrottleController) -> int:
+        """
+        Checks how many requests are ongoing.
+        """
+        return controller.calculate_ongoing_requests_per_rule(self.url_pattern)
 
 
 class ThrottleLocker:
@@ -245,33 +276,99 @@ class GracefulThrottle:
     log_limit_reached: None | LogEvent = None
     log_wait_over: None | LogEvent = None
 
+    check_ongoing_requests: bool = False
+    """
+    There're some SLOW APIs that may hang requests for a few seconds (or even minutes).
+
+    By default throttling only considers initiated requests which means that
+
+    - If one you set 1 req per second;
+    - Trigger a request at 10:01;
+    - Your request takes 12 seconds to complete (until 10:13);
+    - Gracy will allow you to trigger another request by 10:02;
+
+    This is not intended in some cases, so setting `check_ongoing_requests` to `True` will
+    ensure that Gracy also checks for ongoing requests which means that (for the same scenario mentioned above)
+
+    - If one you set 1 req per second;
+    - Trigger a request at 10:01;
+    - Your request takes 12 seconds to complete (until 10:13);
+    - 10:02 -> Gracy will notice that you have a pending request;
+    - 10:03 -> Gracy will notice that you have a pending request;
+    - 10:04 -> Gracy will notice that you have a pending request;
+    - ...
+    - Gracy will allow you to trigger another request by 10:14;
+    """
+    log_backoff: None | LogEvent = None
+    ongoing_wait_time: float = 1.0
+    """
+    How long should Gracy wait if rate limit was hit due to `check_ongoing_requests`?
+    Defaults to 1
+    """
+
     def __init__(
         self,
         rules: list[ThrottleRule] | ThrottleRule,
         log_limit_reached: None | LogEvent = None,
         log_wait_over: None | LogEvent = None,
+        backoff_if_ongoing_requests: bool = False,
     ) -> None:
         self.rules = rules if isinstance(rules, t.Iterable) else [rules]
         self.log_limit_reached = log_limit_reached
         self.log_wait_over = log_wait_over
+        self.check_ongoing_requests = backoff_if_ongoing_requests
+
+
+class RequestTimestamp:
+    started_at: datetime
+    ended_at: datetime | None
+    aborted: bool | None
+    duration: timedelta | None
+
+    def __init__(self) -> None:
+        self.started_at = datetime.now()
+
+    @property
+    def is_pending(self) -> bool:
+        return self.ended_at is None and self.aborted is None
+
+    def abort(self):
+        self.aborted = True
+
+    def finish(self):
+        self.ended_at = datetime.now()
+        self.duration = self.ended_at - self.started_at
 
 
 class ThrottleController:
     def __init__(self) -> None:
-        self._time_control: dict[str, list[datetime]] = defaultdict[str, list[datetime]](list)
+        self._time_control: dict[str, list[RequestTimestamp]] = defaultdict[str, list[RequestTimestamp]](list)
         self._ongoing_control = defaultdict[str, int](int)
 
     @contextmanager
     def request(self, request_context: GracyRequestContext):
+        req_time = None
+
         try:
             with THROTTLE_LOCKER.lock_check():
-                self._time_control[request_context.url].append(datetime.now())  # This should always keep it sorted asc
+                req_time = RequestTimestamp()
+                self._time_control[request_context.url].append(req_time)  # This should always keep it sorted asc
 
             self._ongoing_control[request_context.url] += 1
             yield
 
+        except Exception:
+            req_time = t.cast(RequestTimestamp, req_time)
+            req_time.abort()
+            raise
+
         finally:
+            req_time = t.cast(RequestTimestamp, req_time)  # type: ignore
+            req_time.finish()
             self._ongoing_control[request_context.url] -= 1
+
+    def get_total_ongoing(self) -> int:
+        return sum(self._ongoing_control.values())
 
     def calculate_requests_per_rule(self, url_pattern: t.Pattern[str], range: timedelta) -> float:
         with THROTTLE_LOCKER.lock_check():
@@ -280,7 +377,11 @@ class ThrottleController:
 
             request_times = sorted(
                 itertools.chain(
-                    *[started_ats for url, started_ats in self._time_control.items() if url_pattern.match(url)],
+                    *[
+                        [ts.started_at for ts in req_timestamps]
+                        for url, req_timestamps in self._time_control.items()
+                        if url_pattern.match(url)
+                    ],
                 ),
                 reverse=True,
             )
@@ -300,12 +401,21 @@ class ThrottleController:
 
             return request_rate
 
+    def calculate_ongoing_requests_per_rule(self, url_pattern: t.Pattern[str]) -> int:
+        with THROTTLE_LOCKER.lock_check():
+            total = [ongoing for url, ongoing in self._ongoing_control.items() if url_pattern.match(url)]
+            return sum(total)
+
     def calculate_requests_per_sec(self, url_pattern: t.Pattern[str], skip_lock: bool = False) -> float:
         with THROTTLE_LOCKER.lock_check(skip_lock):
             requests_per_second = 0.0
             coalesced_started_ats = sorted(
                 itertools.chain(
-                    *[started_ats for url, started_ats in self._time_control.items() if url_pattern.match(url)]
+                    *[
+                        [ts.started_at for ts in timestamps]
+                        for url, timestamps in self._time_control.items()
+                        if url_pattern.match(url)
+                    ]
                 )
             )
 
@@ -320,7 +430,7 @@ class ThrottleController:
 
             return requests_per_second
 
-    def debug_get_table(self):
+    def debug_get_table(self) -> t.Any:
         # Intended only for local development
         from rich.table import Table
 
@@ -332,12 +442,25 @@ class ThrottleController:
 
         total_count = 0
         total_ongoing = 0
+        TS_DEBUG_FORMAT: t.Final = "%H:%M:%S.%f"
 
-        for url, times in self._time_control.items():
-            human_times = [time.strftime("%H:%M:%S.%f") for time in times]
+        for url, reqs_timestamps in self._time_control.items():
+            human_times: list[str] = []
+
+            for idx, ts in enumerate(reqs_timestamps):
+                entry = " ".join(
+                    [
+                        f"#{idx}",
+                        ts.started_at.strftime(TS_DEBUG_FORMAT),
+                        " - ",
+                        ts.ended_at.strftime(TS_DEBUG_FORMAT) if ts.ended_at else "?",
+                    ]
+                )
+                human_times.append(entry)
+
             ongoing_count = self._ongoing_control[url]
 
-            total_count += len(times)
+            total_count += len(reqs_timestamps)
             total_ongoing += ongoing_count
 
             ongoing_str = f"{ongoing_count:,}"
@@ -346,7 +469,7 @@ class ThrottleController:
 
             table.add_row(
                 url,
-                f"{len(times):,}",
+                f"{len(reqs_timestamps):,}",
                 ongoing_str,
                 f"[yellow]{human_times}[/yellow]",
             )

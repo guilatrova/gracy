@@ -24,6 +24,7 @@ from ._models import (
     PARSER_TYPE,
     THROTTLE_LOCKER,
     UNSET_VALUE,
+    CurrentThrottleRate,
     Endpoint,
     GracefulRequest,
     GracefulRetry,
@@ -53,16 +54,23 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
         has_been_throttled = True
 
         while has_been_throttled:
-            wait_per_rule: list[tuple[ThrottleRule, float]] = [
-                (rule, wait_time)
+            rate_per_rule: list[tuple[ThrottleRule, CurrentThrottleRate]] = [
+                (rule, rate)
                 for rule in throttling.rules
-                if (wait_time := rule.calculate_await_time(controller)) > 0.0
+                if (
+                    rate := rule.calculate_rate(
+                        controller,
+                        throttling.check_ongoing_requests,
+                        throttling.ongoing_wait_time,
+                    )
+                ).requires_throttling
             ]
 
-            if wait_per_rule:
-                rule, await_time = max(wait_per_rule, key=lambda x: x[1])
+            if rate_per_rule:
+                rule, rate = max(rate_per_rule, key=lambda x: x[1].await_time)
+
                 if THROTTLE_LOCKER.is_rule_throttled(rule):
-                    await asyncio.sleep(await_time)
+                    await asyncio.sleep(rate.await_time)
                     continue
 
                 with THROTTLE_LOCKER.lock_rule(rule):
@@ -70,18 +78,18 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
                         process_log_throttle(
                             throttling.log_limit_reached,
                             DefaultLogMessage.THROTTLE_HIT,
-                            await_time,
+                            rate,
                             rule,
                             request_context,
                         )
 
-                    await asyncio.sleep(await_time)
+                    await asyncio.sleep(rate.await_time)
 
                     if throttling.log_wait_over:
                         process_log_throttle(
                             throttling.log_wait_over,
                             DefaultLogMessage.THROTTLE_DONE,
-                            await_time,
+                            rate,
                             rule,
                             request_context,
                         )
