@@ -8,21 +8,28 @@ import httpx
 
 from .._models import GracyRequestContext, ThrottleController
 from ..replays.storages._base import GracyReplay
-from ._models import GracyAggregatedRequest, GracyReport, GracyRequestResult
+from ._models import GracyAggregatedRequest, GracyReport, GracyRequestCounters, GracyRequestResult
 
 ANY_REGEX: t.Final = r".+"
 
 REQUEST_ERROR_STATUS: t.Final = 0
-REQUEST_SUM_KEY = HTTPStatus | t.Literal["total", 0]
+REQUEST_SUM_KEY = HTTPStatus | t.Literal["total", "retries", "throttles", 0]
 REQUEST_SUM_PER_STATUS_TYPE = dict[str, defaultdict[REQUEST_SUM_KEY, int]]
 
 
 class ReportBuilder:
     def __init__(self) -> None:
         self._results: t.List[GracyRequestResult] = []
+        self._counters = defaultdict[str, GracyRequestCounters](GracyRequestCounters)
 
     def track(self, request_context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
         self._results.append(GracyRequestResult(request_context.unformatted_url, response_or_exc))
+
+    def retried(self, request_context: GracyRequestContext):
+        self._counters[request_context.unformatted_url].retries += 1
+
+    def throttled(self, request_context: GracyRequestContext):
+        self._counters[request_context.unformatted_url].throttles += 1
 
     def _calculate_req_rate_for_url(self, unformatted_url: str, throttle_controller: ThrottleController) -> float:
         pattern = re.compile(re.sub(r"{(\w+)}", ANY_REGEX, unformatted_url))
@@ -40,6 +47,10 @@ class ReportBuilder:
                 requests_sum[result.uurl][HTTPStatus(result.response.status_code)] += 1
             else:
                 requests_sum[result.uurl][REQUEST_ERROR_STATUS] += 1
+
+        for uurl, counters in self._counters.items():
+            requests_sum[uurl]["throttles"] = counters.throttles
+            requests_sum[uurl]["retries"] = counters.retries
 
         requests_sum = dict(sorted(requests_sum.items(), key=lambda item: item[1]["total"], reverse=True))
 
@@ -62,6 +73,8 @@ class ReportBuilder:
             resp_4xx = 0
             resp_5xx = 0
             aborted = 0
+            retries = 0
+            throttles = 0
 
             for maybe_status, count in data.items():
                 if maybe_status == "total":
@@ -69,6 +82,14 @@ class ReportBuilder:
 
                 if maybe_status == REQUEST_ERROR_STATUS:
                     aborted += count
+                    continue
+
+                if maybe_status == "throttles":
+                    throttles += count
+                    continue
+
+                if maybe_status == "retries":
+                    retries += count
                     continue
 
                 status = maybe_status
@@ -90,6 +111,8 @@ class ReportBuilder:
                 resp_4xx=resp_4xx,
                 resp_5xx=resp_5xx,
                 reqs_aborted=aborted,
+                retries=retries,
+                throttles=throttles,
                 # General
                 avg_latency=mean(url_latency) if url_latency else 0,
                 max_latency=max(url_latency) if url_latency else 0,

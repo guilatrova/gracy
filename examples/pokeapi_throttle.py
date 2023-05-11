@@ -131,6 +131,7 @@ async def main():
 
     finally:
         pokeapi.report_status("rich")
+        pokeapi.report_status("list")
         pokeapi._throttle_controller.debug_print()  # type: ignore
 
 

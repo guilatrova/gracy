@@ -45,7 +45,9 @@ from .replays.storages._base import GracyReplay
 logger = logging.getLogger("gracy")
 
 
-async def _gracefully_throttle(controller: ThrottleController, request_context: GracyRequestContext):
+async def _gracefully_throttle(
+    report: ReportBuilder, controller: ThrottleController, request_context: GracyRequestContext
+):
     if isinstance(request_context.active_config.throttling, Unset):
         return
 
@@ -62,6 +64,7 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
             if wait_per_rule:
                 rule, await_time = max(wait_per_rule, key=lambda x: x[1])
                 if THROTTLE_LOCKER.is_rule_throttled(rule):
+                    report.throttled(request_context)
                     await asyncio.sleep(await_time)
                     continue
 
@@ -75,6 +78,7 @@ async def _gracefully_throttle(controller: ThrottleController, request_context: 
                             request_context,
                         )
 
+                    report.throttled(request_context)
                     await asyncio.sleep(await_time)
 
                     if throttling.log_wait_over:
@@ -114,7 +118,7 @@ async def _gracefully_retry(
             process_log_retry(retry.log_before, DefaultLogMessage.RETRY_BEFORE, request_context, state)
 
         await sleep(state.delay)
-        await _gracefully_throttle(throttle_controller, request_context)
+        await _gracefully_throttle(report, throttle_controller, request_context)
         throttle_controller.init_request(request_context)
 
         try:
@@ -124,6 +128,8 @@ async def _gracefully_retry(
             report.track(request_context, exc)
         else:
             report.track(request_context, result)
+        finally:
+            report.retried(request_context)
 
         if result:
             validation_exc = None
@@ -191,7 +197,7 @@ async def _gracify(
 
     validation_exc: Exception | None = None
 
-    await _gracefully_throttle(throttle_controller, request_context)
+    await _gracefully_throttle(report, throttle_controller, request_context)
     throttle_controller.init_request(request_context)
     try:
         result = await request()
