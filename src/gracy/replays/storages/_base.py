@@ -53,6 +53,11 @@ class GracyReplay:
     disable_throttling: bool = False
     """Only applicable to `smart-replay` and `replay` modes. If a replay exists then don't throttle the request"""
 
+    display_report: bool = True
+    """Whether to display records made and replays made to the final report"""
+    records_made: int = 0
+    replays_made: int = 0
+
     async def has_replay(self, request: httpx.Request) -> bool:
         replay = await self.storage.find_replay(request, self.discard_replays_older_than)
         return bool(replay)

@@ -28,13 +28,18 @@ class Titles:
 
 
 def _getreplays_warn(replay_settings: GracyReplay | None) -> str:
-    if replay_settings:
-        if replay_settings.mode == "record":
-            return "All Requests Recorded"
-        else:
-            return "REPLAY MODE"
+    res = ""
+    if replay_settings and replay_settings.display_report:
+        if replay_settings.records_made:
+            res = f"{replay_settings.records_made:,} Requests Recorded"
 
-    return ""
+        if replay_settings.replays_made:
+            if res:
+                res += " / "
+
+            res += f"{replay_settings.replays_made:,} Requests Replayed"
+
+    return f"({res})"
 
 
 def _format_value(
