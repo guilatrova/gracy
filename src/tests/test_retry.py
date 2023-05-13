@@ -39,7 +39,7 @@ def assert_log(record: logging.LogRecord, expected_event: LogEvent):
 class CustomValidator(GracefulValidator):
     def check(self, response: httpx.Response) -> None:
         if response.json()["order"] != 47:
-            raise ValueError("Pokemon #order should be 47")  # noqa: TC003
+            raise ValueError("Pokemon #order should be 47")  # noqa: TRY003
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
