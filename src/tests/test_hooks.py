@@ -7,7 +7,7 @@ from unittest.mock import patch
 import httpx
 
 from gracy import GracefulRetry, GracefulRetryState, Gracy, GracyConfig, GracyRequestContext
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint
+from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_requests_made
 
 RETRY: t.Final = GracefulRetry(
     delay=0.001,
@@ -65,6 +65,23 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
 
+class GracefulPokeAPIWithRequestHooks(GracefulPokeAPI):
+    async def before(self, context: GracyRequestContext):
+        await super().before(context)
+        # This shouldn't re-trigger any hook!
+        await self.get_pokemon(PRESENT_NAME)
+
+    async def after(
+        self,
+        context: GracyRequestContext,
+        response_or_exc: httpx.Response | Exception,
+        retry_state: GracefulRetryState | None,
+    ):
+        await super().after(context, response_or_exc, retry_state)
+        # This shouldn't re-trigger any hook!
+        await self.get_pokemon(PRESENT_NAME)
+
+
 MAKE_POKEAPI_TYPE = t.Callable[[], GracefulPokeAPI]
 
 
@@ -112,3 +129,27 @@ async def test_after_hook_counts_aborts():
     assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 0
     assert pokeapi.after_retries_counter == 0
     assert pokeapi.after_aborts == 1
+
+
+async def test_hook_has_no_recursion():
+    Gracy.dangerously_reset_report()
+    pokeapi = GracefulPokeAPIWithRequestHooks()
+
+    EXPECTED_REQS: t.Final = 1 + 2  # This + Before hook + After hook
+    await pokeapi.get_pokemon(PRESENT_NAME)
+
+    assert_requests_made(pokeapi, EXPECTED_REQS)
+
+
+async def test_hook_with_retries_has_no_recursion():
+    Gracy.dangerously_reset_report()
+    pokeapi = GracefulPokeAPIWithRequestHooks()
+
+    # (1 This + 2 Retries) + 2 hooks for each (3)
+    EXPECTED_REQS: t.Final = (1 + 2) + (2 * 3)
+    await pokeapi.get_pokemon(MISSING_NAME)
+
+    assert pokeapi.before_count == 3
+    assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 3
+    assert pokeapi.after_retries_counter == 2
+    assert_requests_made(pokeapi, EXPECTED_REQS)

@@ -10,7 +10,7 @@ import httpx
 
 from gracy.replays._wrappers import record_mode, replay_mode, smart_replay_mode
 
-from ._configs import custom_config_context, custom_gracy_config
+from ._configs import custom_config_context, custom_gracy_config, within_hook, within_hook_context
 from ._loggers import (
     DefaultLogMessage,
     process_log_after_request,
@@ -360,8 +360,8 @@ class Gracy(t.Generic[Endpoint]):
         graceful_request = _gracify(
             Gracy._reporter,
             Gracy._throttle_controller,
-            self.before,
-            self.after,
+            self._before,
+            self._after,
             GracefulRequest(
                 httpx_request_func,
                 request_context.method,
@@ -378,7 +378,13 @@ class Gracy(t.Generic[Endpoint]):
         ...
 
     async def _before(self, context: GracyRequestContext):
-        with custom_gracy_config(DISABLED_GRACY_CONFIG):
+        if within_hook_context.get():
+            return
+
+        with (
+            custom_gracy_config(DISABLED_GRACY_CONFIG),
+            within_hook(),
+        ):
             try:
                 await self.before(context)
             except Exception:
@@ -398,7 +404,13 @@ class Gracy(t.Generic[Endpoint]):
         response_or_exc: httpx.Response | Exception,
         retry_state: GracefulRetryState | None,
     ):
-        with custom_gracy_config(DISABLED_GRACY_CONFIG):
+        if within_hook_context.get():
+            return
+
+        with (
+            custom_gracy_config(DISABLED_GRACY_CONFIG),
+            within_hook(),
+        ):
             try:
                 await self.after(context, response_or_exc, retry_state)
             except Exception:
