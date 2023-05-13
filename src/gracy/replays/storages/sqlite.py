@@ -89,13 +89,21 @@ class SQLiteReplayStorage(GracyReplayStorage):
         fetch_res = cur.fetchone()
         return fetch_res
 
-    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    async def find_replay(self, request: httpx.Request, discard_before: datetime | None) -> t.Any | None:
         fetch_res = self._find_record(request)
         if fetch_res is None:
-            raise GracyReplayRequestNotFound(request)
+            return None
 
         updated_at: datetime = fetch_res[1]
         if discard_before and updated_at < discard_before:
+            return None
+
+        return fetch_res
+
+    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+        fetch_res = await self.find_replay(request, discard_before)
+
+        if fetch_res is None:
             raise GracyReplayRequestNotFound(request)
 
         serialized_response: bytes = fetch_res[0]

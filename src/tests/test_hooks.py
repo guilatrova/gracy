@@ -133,7 +133,7 @@ async def test_after_hook_counts_aborts():
 
 async def test_hook_has_no_recursion():
     Gracy.dangerously_reset_report()
-    pokeapi = GracefulPokeAPIWithRequestHooks()
+    pokeapi = GracefulPokeAPIWithRequestHooks(REPLAY)
 
     EXPECTED_REQS: t.Final = 1 + 2  # This + Before hook + After hook
     await pokeapi.get_pokemon(PRESENT_NAME)
@@ -143,7 +143,7 @@ async def test_hook_has_no_recursion():
 
 async def test_hook_with_retries_has_no_recursion():
     Gracy.dangerously_reset_report()
-    pokeapi = GracefulPokeAPIWithRequestHooks()
+    pokeapi = GracefulPokeAPIWithRequestHooks(REPLAY)
 
     # (1 This + 2 Retries) + 2 hooks for each (3)
     EXPECTED_REQS: t.Final = (1 + 2) + (2 * 3)

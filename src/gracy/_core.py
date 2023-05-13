@@ -203,6 +203,7 @@ def _maybe_parse_result(active_config: GracyConfig, request_context: GracyReques
 async def _gracify(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
+    replay: GracyReplay | None,
     before_hook: BEFORE_HOOK_TYPE,
     after_hook: AFTER_HOOK_TYPE,
     request: GracefulRequest,
@@ -215,8 +216,15 @@ async def _gracify(
 
     validation_exc: Exception | None = None
 
-    await _gracefully_throttle(report, throttle_controller, request_context)
-    throttle_controller.init_request(request_context)
+    do_throttle = True
+    if replay and replay.disable_throttling:
+        replay_available = await replay.has_replay(request.request)
+        if replay_available:
+            do_throttle = False
+
+    if do_throttle:
+        await _gracefully_throttle(report, throttle_controller, request_context)
+        throttle_controller.init_request(request_context)
 
     try:
         await before_hook(request_context)
@@ -357,12 +365,16 @@ class Gracy(t.Generic[Endpoint]):
             else:
                 httpx_request_func = smart_replay_mode(replays, self._client, httpx_request_func)
 
+        request = self._client.build_request(request_context.method, request_context.endpoint, *args, **kwargs)
+
         graceful_request = _gracify(
             Gracy._reporter,
             Gracy._throttle_controller,
+            replays,
             self._before,
             self._after,
             GracefulRequest(
+                request,
                 httpx_request_func,
                 request_context.method,
                 request_context.endpoint,
