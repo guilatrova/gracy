@@ -39,7 +39,10 @@ def _getreplays_warn(replay_settings: GracyReplay | None) -> str:
 
             res += f"{replay_settings.replays_made:,} Requests Replayed"
 
-    return f"({res})"
+    if res:
+        return f"({res})"
+
+    return res
 
 
 def _format_value(
