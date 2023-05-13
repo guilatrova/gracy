@@ -51,6 +51,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Customizing HTTPx client](#customizing-httpx-client)
   - [Overriding default request timeout](#overriding-default-request-timeout)
   - [Creating a custom Replay data source](#creating-a-custom-replay-data-source)
+  - [Hooks before/after request](#hooks-beforeafter-request)
 - [📚 Extra Resources](#-extra-resources)
 - [Change log](#change-log)
 - [License](#license)
@@ -730,6 +731,54 @@ replay_mode = GracyReplay("replay", MyCustomStorage())
 
 pokeapi = GracefulPokeAPI(record_mode)
 ```
+
+### Hooks before/after request
+
+You can set up hooks simply by defining `async def before` and `async def after` methods.
+
+⚠️ NOTE: Gracy configs are disabled within these methods which means that retries/parsers/throttling won't take effect inside it.
+
+```py
+class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
+    class Config:  # type: ignore
+        BASE_URL = "https://pokeapi.co/api/v2/"
+        SETTINGS = GracyConfig(
+            retry=RETRY,
+            allowed_status_code={HTTPStatus.NOT_FOUND},
+            parser={HTTPStatus.NOT_FOUND: None},
+        )
+
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+        self.before_count = 0
+
+        self.after_status_counter = defaultdict[HTTPStatus, int](int)
+        self.after_aborts = 0
+        self.after_retries_counter = 0
+
+        super().__init__(*args, **kwargs)
+
+    async def before(self, context: GracyRequestContext):
+        self.before_count += 1
+
+    async def after(
+        self,
+        context: GracyRequestContext, # Current request context
+        response_or_exc: httpx.Response | Exception,  # Either the request or an error
+        retry_state: GracefulRetryState | None,  # Set when this is generated from a retry
+    ):
+        if retry_state:
+            self.after_retries_counter += 1
+
+        if isinstance(response_or_exc, httpx.Response):
+            self.after_status_counter[HTTPStatus(response_or_exc.status_code)] += 1
+        else:
+            self.after_aborts += 1
+
+    async def get_pokemon(self, name: str):
+        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+```
+
+In the example above invoking `get_pokemon()` will trigger `before()`/`after()` hooks in sequence.
 
 ## 📚 Extra Resources
 
