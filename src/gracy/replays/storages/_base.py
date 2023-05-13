@@ -20,6 +20,10 @@ class GracyReplayStorage(ABC):
         pass
 
     @abstractmethod
+    async def find_replay(self, request: httpx.Request, discard_before: datetime | None) -> t.Any | None:
+        pass
+
+    @abstractmethod
     async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
         """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
         pass
@@ -45,3 +49,10 @@ class GracyReplay:
 
     discard_replays_older_than: datetime | None = None
     """If set, Gracy will treat all replays older than defined value as not found"""
+
+    disable_throttling: bool = False
+    """Only applicable to `smart-replay` and `replay` modes. If a replay exists then don't throttle the request"""
+
+    async def has_replay(self, request: httpx.Request) -> bool:
+        replay = await self.storage.find_replay(request, self.discard_replays_older_than)
+        return bool(replay)
