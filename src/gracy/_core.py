@@ -45,6 +45,15 @@ from .replays.storages._base import GracyReplay
 logger = logging.getLogger("gracy")
 
 
+ANY_COROUTINE = t.Coroutine[t.Any, t.Any, t.Any]
+
+P = t.ParamSpec("P")
+GRACEFUL_T = t.TypeVar("GRACEFUL_T", bound=ANY_COROUTINE)
+GRACEFUL_GEN_T = t.TypeVar("GRACEFUL_GEN_T", bound=t.AsyncGenerator[t.Any, t.Any])
+BEFORE_HOOK_TYPE = t.Callable[[GracyRequestContext], t.Awaitable[None]]
+AFTER_HOOK_TYPE = t.Callable[[GracyRequestContext, httpx.Response | Exception], t.Awaitable[None]]
+
+
 async def _gracefully_throttle(
     report: ReportBuilder, controller: ThrottleController, request_context: GracyRequestContext
 ):
@@ -97,6 +106,8 @@ async def _gracefully_retry(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
     last_response: httpx.Response | None,
+    before_hook: BEFORE_HOOK_TYPE,
+    after_hook: AFTER_HOOK_TYPE,
     request: GracefulRequest,
     request_context: GracyRequestContext,
     validators: list[GracefulValidator],
@@ -122,12 +133,15 @@ async def _gracefully_retry(
         throttle_controller.init_request(request_context)
 
         try:
+            await before_hook(request_context)
             result = await request()
         except Exception as exc:
             validation_exc = exc
             report.track(request_context, exc)
+            await after_hook(request_context, exc)
         else:
             report.track(request_context, result)
+            await after_hook(request_context, result)
         finally:
             report.retried(request_context)
 
@@ -187,6 +201,8 @@ def _maybe_parse_result(active_config: GracyConfig, request_context: GracyReques
 async def _gracify(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
+    before_hook: BEFORE_HOOK_TYPE,
+    after_hook: AFTER_HOOK_TYPE,
     request: GracefulRequest,
     request_context: GracyRequestContext,
 ):
@@ -199,16 +215,20 @@ async def _gracify(
 
     await _gracefully_throttle(report, throttle_controller, request_context)
     throttle_controller.init_request(request_context)
+
     try:
+        await before_hook(request_context)
         result = await request()
     except Exception as ex:
         validation_exc = ex
         result = None
         report.track(request_context, ex)
+        await after_hook(request_context, ex)
     else:
         # mypy didn't detect it properly
         result = t.cast(httpx.Response, result)  # type: ignore
         report.track(request_context, result)
+        await after_hook(request_context, result)
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
         process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
@@ -240,6 +260,8 @@ async def _gracify(
             report,
             throttle_controller,
             result,
+            before_hook,
+            after_hook,
             request,
             request_context,
             validators,
@@ -263,6 +285,18 @@ async def _gracify(
     final_result = _maybe_parse_result(active_config, request_context, result) if result else None
 
     return final_result
+
+
+DISABLED_GRACY_CONFIG: t.Final = GracyConfig(
+    strict_status_code=None,
+    allowed_status_code=None,
+    validators=None,
+    retry=None,
+    log_request=None,
+    log_response=None,
+    log_errors=None,
+    parser=None,
+)
 
 
 class Gracy(t.Generic[Endpoint]):
@@ -324,6 +358,8 @@ class Gracy(t.Generic[Endpoint]):
         graceful_request = _gracify(
             Gracy._reporter,
             Gracy._throttle_controller,
+            self.before,
+            self.after,
             GracefulRequest(
                 httpx_request_func,
                 request_context.method,
@@ -335,6 +371,26 @@ class Gracy(t.Generic[Endpoint]):
         )
 
         return await graceful_request
+
+    async def before(self, context: GracyRequestContext):
+        ...
+
+    async def _before(self, context: GracyRequestContext):
+        with custom_gracy_config(DISABLED_GRACY_CONFIG):
+            try:
+                await self.before(context)
+            except Exception:
+                logger.exception("Gracy before hook raised an unexpected exception")
+
+    async def after(self, context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
+        ...
+
+    async def _after(self, context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
+        with custom_gracy_config(DISABLED_GRACY_CONFIG):
+            try:
+                await self.after(context, response_or_exc)
+            except Exception:
+                logger.exception("Gracy after hook raised an unexpected exception")
 
     async def get(
         self,
@@ -414,13 +470,6 @@ class Gracy(t.Generic[Endpoint]):
         """
         cls._throttle_controller = ThrottleController()
         cls._reporter = ReportBuilder()
-
-
-ANY_COROUTINE = t.Coroutine[t.Any, t.Any, t.Any]
-
-P = t.ParamSpec("P")
-GRACEFUL_T = t.TypeVar("GRACEFUL_T", bound=ANY_COROUTINE)
-GRACEFUL_GEN_T = t.TypeVar("GRACEFUL_GEN_T", bound=t.AsyncGenerator[t.Any, t.Any])
 
 
 def graceful(
