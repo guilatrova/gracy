@@ -451,18 +451,26 @@ Endpoint = t.TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
 
 
 class GracefulRequest:
-    request: t.Callable[..., t.Awaitable[httpx.Response]]
+    request: httpx.Request
+    request_func: t.Callable[..., t.Awaitable[httpx.Response]]
     """Can't use coroutine because we need to retrigger it during retries, and coro can't be awaited twice"""
     args: tuple[t.Any, ...]
     kwargs: dict[str, t.Any]
 
-    def __init__(self, request: t.Callable[..., t.Awaitable[httpx.Response]], *args: t.Any, **kwargs: t.Any) -> None:
+    def __init__(
+        self,
+        request: httpx.Request,
+        request_func: t.Callable[..., t.Awaitable[httpx.Response]],
+        *args: t.Any,
+        **kwargs: t.Any,
+    ) -> None:
         self.request = request
+        self.request_func = request_func
         self.args = args
         self.kwargs = kwargs
 
     def __call__(self) -> t.Awaitable[httpx.Response]:
-        return self.request(*self.args, **self.kwargs)
+        return self.request_func(*self.args, **self.kwargs)
 
 
 class GracyRequestContext:
