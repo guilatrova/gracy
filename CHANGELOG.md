@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.0 (2023-05-13)
+### Feature
+* Count/display data about replays ([`658b5f5`](https://github.com/guilatrova/gracy/commit/658b5f52adf34d5d6e577abc7e6b9cd33a745919))
+* Implement skip throttle ([`efb259c`](https://github.com/guilatrova/gracy/commit/efb259c151ee0807af325901155b67184de062e2))
+
 ## v1.16.0 (2023-05-13)
 ### Feature
 * Pass retry state to after hook ([`218e510`](https://github.com/guilatrova/gracy/commit/218e510d84a3acf1fbee84141ec5f7123672cd6b))
