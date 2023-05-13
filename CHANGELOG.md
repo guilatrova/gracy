@@ -2,6 +2,18 @@
 
 <!--next-version-placeholder-->
 
+## v1.16.0 (2023-05-13)
+### Feature
+* Pass retry state to after hook ([`218e510`](https://github.com/guilatrova/gracy/commit/218e510d84a3acf1fbee84141ec5f7123672cd6b))
+* Implement gracy hooks ([`243dddb`](https://github.com/guilatrova/gracy/commit/243dddbd58845cbc92a0b84eaf44c612a125daf5))
+* Implement hooks ([`7a88e4c`](https://github.com/guilatrova/gracy/commit/7a88e4c93e3517b9ed095f179582f0fb2809e48a))
+
+### Fix
+* Resolve recursion for hooks ([`e1be02b`](https://github.com/guilatrova/gracy/commit/e1be02bb20395c207353de2ea3bae8d839a34c03))
+
+### Documentation
+* **hooks:** Add example about hook ([`3cb52db`](https://github.com/guilatrova/gracy/commit/3cb52db7600213252bb36d6de8442bd487fd57b7))
+
 ## v1.15.0 (2023-05-11)
 ### Feature
 * Show 'Aborts' as title ([`8485409`](https://github.com/guilatrova/gracy/commit/8485409e899e5d4591754ad62e35cfa4a128f124))
