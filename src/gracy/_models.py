@@ -456,9 +456,7 @@ class GracefulRequest:
     args: tuple[t.Any, ...]
     kwargs: dict[str, t.Any]
 
-    def __init__(
-        self, request: t.Callable[..., t.Awaitable[httpx.Response]], *args: t.Any, **kwargs: dict[str, t.Any]
-    ) -> None:
+    def __init__(self, request: t.Callable[..., t.Awaitable[httpx.Response]], *args: t.Any, **kwargs: t.Any) -> None:
         self.request = request
         self.args = args
         self.kwargs = kwargs
