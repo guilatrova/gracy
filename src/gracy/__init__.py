@@ -7,6 +7,7 @@ from ._models import (
     DEFAULT_CONFIG,
     BaseEndpoint,
     GracefulRetry,
+    GracefulRetryState,
     GracefulThrottle,
     GracefulValidator,
     GracyConfig,
@@ -31,6 +32,7 @@ __all__ = [
     # Models
     "BaseEndpoint",
     "GracefulRetry",
+    "GracefulRetryState",
     "GracefulValidator",
     "GracyRequestContext",
     "LogEvent",

@@ -6,8 +6,7 @@ from unittest.mock import patch
 
 import httpx
 
-from gracy import GracefulRetry, Gracy, GracyConfig
-from gracy._models import GracyRequestContext
+from gracy import GracefulRetry, GracefulRetryState, Gracy, GracyConfig, GracyRequestContext
 from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint
 
 RETRY: t.Final = GracefulRetry(
@@ -38,14 +37,25 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         self.before_count = 0
+
         self.after_status_counter = defaultdict[HTTPStatus, int](int)
         self.after_aborts = 0
+        self.after_retries_counter = 0
+
         super().__init__(*args, **kwargs)
 
     async def before(self, context: GracyRequestContext):
         self.before_count += 1
 
-    async def after(self, context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
+    async def after(
+        self,
+        context: GracyRequestContext,
+        response_or_exc: httpx.Response | Exception,
+        retry_state: GracefulRetryState | None,
+    ):
+        if retry_state:
+            self.after_retries_counter += 1
+
         if isinstance(response_or_exc, httpx.Response):
             self.after_status_counter[HTTPStatus(response_or_exc.status_code)] += 1
         else:
@@ -81,6 +91,7 @@ async def test_after_hook_counts_statuses(make_pokeapi: MAKE_POKEAPI_TYPE):
 
     assert pokeapi.after_status_counter[HTTPStatus.OK] == 2
     assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 6
+    assert pokeapi.after_retries_counter == 4
 
 
 async def test_after_hook_counts_aborts():
@@ -99,4 +110,5 @@ async def test_after_hook_counts_aborts():
 
     assert pokeapi.after_status_counter[HTTPStatus.OK] == 0
     assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 0
+    assert pokeapi.after_retries_counter == 0
     assert pokeapi.after_aborts == 1

@@ -51,7 +51,9 @@ P = t.ParamSpec("P")
 GRACEFUL_T = t.TypeVar("GRACEFUL_T", bound=ANY_COROUTINE)
 GRACEFUL_GEN_T = t.TypeVar("GRACEFUL_GEN_T", bound=t.AsyncGenerator[t.Any, t.Any])
 BEFORE_HOOK_TYPE = t.Callable[[GracyRequestContext], t.Awaitable[None]]
-AFTER_HOOK_TYPE = t.Callable[[GracyRequestContext, httpx.Response | Exception], t.Awaitable[None]]
+AFTER_HOOK_TYPE = t.Callable[
+    [GracyRequestContext, httpx.Response | Exception, GracefulRetryState | None], t.Awaitable[None]
+]
 
 
 async def _gracefully_throttle(
@@ -138,10 +140,10 @@ async def _gracefully_retry(
         except Exception as exc:
             validation_exc = exc
             report.track(request_context, exc)
-            await after_hook(request_context, exc)
+            await after_hook(request_context, exc, state)
         else:
             report.track(request_context, result)
-            await after_hook(request_context, result)
+            await after_hook(request_context, result, state)
         finally:
             report.retried(request_context)
 
@@ -223,12 +225,12 @@ async def _gracify(
         validation_exc = ex
         result = None
         report.track(request_context, ex)
-        await after_hook(request_context, ex)
+        await after_hook(request_context, ex, None)
     else:
         # mypy didn't detect it properly
         result = t.cast(httpx.Response, result)  # type: ignore
         report.track(request_context, result)
-        await after_hook(request_context, result)
+        await after_hook(request_context, result, None)
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
         process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
@@ -382,13 +384,23 @@ class Gracy(t.Generic[Endpoint]):
             except Exception:
                 logger.exception("Gracy before hook raised an unexpected exception")
 
-    async def after(self, context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
+    async def after(
+        self,
+        context: GracyRequestContext,
+        response_or_exc: httpx.Response | Exception,
+        retry_state: GracefulRetryState | None,
+    ):
         ...
 
-    async def _after(self, context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
+    async def _after(
+        self,
+        context: GracyRequestContext,
+        response_or_exc: httpx.Response | Exception,
+        retry_state: GracefulRetryState | None,
+    ):
         with custom_gracy_config(DISABLED_GRACY_CONFIG):
             try:
-                await self.after(context, response_or_exc)
+                await self.after(context, response_or_exc, retry_state)
             except Exception:
                 logger.exception("Gracy after hook raised an unexpected exception")
 
