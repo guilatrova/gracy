@@ -23,8 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.8/3.9 raises mypy issues
-        python-version: ['3.10', '3.11'] # [3.8, 3.9, '3.10', 3.11]
+        python-version: [3.8, 3.9, '3.10', 3.11]
         os: [ubuntu-latest] #, macOS-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
