@@ -52,6 +52,7 @@ python = ">=3.8.1,<4.0"
 httpx = "^0.23.3"
 rich = { version = "*", optional = true }
 pymongo = { version ="*", optional = true }
+typing-extensions = { version = "^4.5.0", python = "<3.10" }
 
 
 [tool.poetry.group.dev.dependencies]
@@ -73,11 +74,13 @@ pymongo = ["pymongo"]
 
 [tool.black]
 line-length = 120
+target-version = ["py38"]
 
 [tool.isort]
 profile = "black"
 line_length = 120
 extra_standard_library = ["pytest"]
+add_imports = "from __future__ import annotations"
 
 # https://mypy.readthedocs.io/en/stable/config_file.html
 [tool.mypy]

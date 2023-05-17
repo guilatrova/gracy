@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import typing as t
 from asyncio import sleep
 from http import HTTPStatus
@@ -42,17 +43,23 @@ from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusV
 from .exceptions import GracyParseFailed
 from .replays.storages._base import GracyReplay
 
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
+
 logger = logging.getLogger("gracy")
 
 
 ANY_COROUTINE = t.Coroutine[t.Any, t.Any, t.Any]
 
-P = t.ParamSpec("P")
+P = ParamSpec("P")
 GRACEFUL_T = t.TypeVar("GRACEFUL_T", bound=ANY_COROUTINE)
 GRACEFUL_GEN_T = t.TypeVar("GRACEFUL_GEN_T", bound=t.AsyncGenerator[t.Any, t.Any])
 BEFORE_HOOK_TYPE = t.Callable[[GracyRequestContext], t.Awaitable[None]]
 AFTER_HOOK_TYPE = t.Callable[
-    [GracyRequestContext, httpx.Response | Exception, GracefulRetryState | None], t.Awaitable[None]
+    [GracyRequestContext, t.Union[httpx.Response, Exception], t.Optional[GracefulRetryState]], t.Awaitable[None]
 ]
 
 
@@ -393,10 +400,7 @@ class Gracy(t.Generic[Endpoint]):
         if within_hook_context.get():
             return
 
-        with (
-            custom_gracy_config(DISABLED_GRACY_CONFIG),
-            within_hook(),
-        ):
+        with custom_gracy_config(DISABLED_GRACY_CONFIG), within_hook():
             try:
                 await self.before(context)
             except Exception:
@@ -419,10 +423,7 @@ class Gracy(t.Generic[Endpoint]):
         if within_hook_context.get():
             return
 
-        with (
-            custom_gracy_config(DISABLED_GRACY_CONFIG),
-            within_hook(),
-        ):
+        with custom_gracy_config(DISABLED_GRACY_CONFIG), within_hook():
             try:
                 await self.after(context, response_or_exc, retry_state)
             except Exception:

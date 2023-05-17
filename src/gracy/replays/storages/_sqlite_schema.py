@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 
 TABLE_NAME: t.Final = "gracy_recordings"
