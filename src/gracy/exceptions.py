@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 from abc import ABC, abstractmethod
 from http import HTTPStatus
@@ -6,7 +8,7 @@ import httpx
 
 from ._models import GracyRequestContext
 
-REDUCE_PICKABLE_RETURN = tuple[type[Exception], tuple[t.Any, ...]]
+REDUCE_PICKABLE_RETURN = t.Tuple[t.Type[Exception], t.Tuple[t.Any, ...]]
 
 
 class GracyException(Exception, ABC):

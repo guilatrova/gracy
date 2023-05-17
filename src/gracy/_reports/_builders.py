@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import typing as t
 from collections import defaultdict
@@ -13,14 +15,14 @@ from ._models import GracyAggregatedRequest, GracyReport, GracyRequestCounters, 
 ANY_REGEX: t.Final = r".+"
 
 REQUEST_ERROR_STATUS: t.Final = 0
-REQUEST_SUM_KEY = HTTPStatus | t.Literal["total", "retries", "throttles", 0]
-REQUEST_SUM_PER_STATUS_TYPE = dict[str, defaultdict[REQUEST_SUM_KEY, int]]
+REQUEST_SUM_KEY = t.Union[HTTPStatus, t.Literal["total", "retries", "throttles", 0]]
+REQUEST_SUM_PER_STATUS_TYPE = t.Dict[str, t.DefaultDict[REQUEST_SUM_KEY, int]]
 
 
 class ReportBuilder:
     def __init__(self) -> None:
         self._results: t.List[GracyRequestResult] = []
-        self._counters = defaultdict[str, GracyRequestCounters](GracyRequestCounters)
+        self._counters = t.DefaultDict[str, GracyRequestCounters](GracyRequestCounters)
 
     def track(self, request_context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
         self._results.append(GracyRequestResult(request_context.unformatted_url, response_or_exc))
@@ -37,7 +39,7 @@ class ReportBuilder:
         return rate
 
     def build(self, throttle_controller: ThrottleController, replay_settings: GracyReplay | None) -> GracyReport:
-        requests_by_uurl = defaultdict[str, t.Set[httpx.Response | Exception]](set)
+        requests_by_uurl = t.DefaultDict[str, t.Set[t.Union[httpx.Response, Exception]]](set)
         requests_sum: REQUEST_SUM_PER_STATUS_TYPE = defaultdict(lambda: defaultdict(int))
 
         for result in self._results:

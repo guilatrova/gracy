@@ -7,7 +7,6 @@ import logging
 import re
 import typing as t
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -60,7 +59,7 @@ class LogEvent:
     """
 
 
-LOG_EVENT_TYPE = None | Unset | LogEvent
+LOG_EVENT_TYPE = t.Union[None, Unset, LogEvent]
 
 
 class GracefulRetryState:
@@ -100,7 +99,7 @@ class GracefulRetryState:
             self._delay *= self._retry_config.delay_modifier
 
 
-STATUS_OR_EXCEPTION = HTTPStatus | type[Exception]
+STATUS_OR_EXCEPTION = t.Union[HTTPStatus, t.Type[Exception]]
 
 
 @dataclass
@@ -210,7 +209,7 @@ class ThrottleRule:
 
 class ThrottleLocker:
     def __init__(self) -> None:
-        self._regex_lock = defaultdict[t.Pattern[str], Lock](Lock)
+        self._regex_lock = t.DefaultDict[t.Pattern[str], Lock](Lock)
         self._generic_lock = Lock()
 
     @contextmanager
@@ -248,7 +247,7 @@ class GracefulThrottle:
 
 class ThrottleController:
     def __init__(self) -> None:
-        self._control: dict[str, list[datetime]] = defaultdict[str, list[datetime]](list)
+        self._control: dict[str, list[datetime]] = t.DefaultDict[str, t.List[datetime]](list)
 
     def init_request(self, request_context: GracyRequestContext):
         with THROTTLE_LOCKER.lock_check():
@@ -447,7 +446,7 @@ class BaseEndpoint(str, Enum):
         return self.value
 
 
-Endpoint = t.TypeVar("Endpoint", bound=BaseEndpoint | str)  # , default=str)
+Endpoint = t.TypeVar("Endpoint", bound=t.Union[BaseEndpoint, str])  # , default=str)
 
 
 class GracefulRequest:

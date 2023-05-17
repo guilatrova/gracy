@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import pytest
 import typing as t
-from collections import defaultdict
 from http import HTTPStatus
 from unittest.mock import patch
 
@@ -38,7 +39,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         self.before_count = 0
 
-        self.after_status_counter = defaultdict[HTTPStatus, int](int)
+        self.after_status_counter = t.DefaultDict[HTTPStatus, int](int)
         self.after_aborts = 0
         self.after_retries_counter = 0
 

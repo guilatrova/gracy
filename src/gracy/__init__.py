@@ -1,4 +1,6 @@
 """Gracefully manage your API interactions"""
+from __future__ import annotations
+
 import logging
 
 from . import exceptions, replays

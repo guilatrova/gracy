@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import typing as t
 from enum import Enum
@@ -9,7 +11,7 @@ from ._models import GracefulRetryState, GracyRequestContext, LogEvent, Throttle
 logger = logging.getLogger("gracy")
 
 
-class SafeDict(dict[str, str]):
+class SafeDict(t.Dict[str, str]):
     def __missing__(self, key: str):
         return "{" + key + "}"
 
