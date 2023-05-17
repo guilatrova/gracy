@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.1 (2023-05-17)
+### Fix
+* Support py38+ ([`1ac2f56`](https://github.com/guilatrova/gracy/commit/1ac2f56741094e5c0b4586093f8fa8cb26720d02))
+
 ## v1.17.0 (2023-05-13)
 ### Feature
 * Count/display data about replays ([`658b5f5`](https://github.com/guilatrova/gracy/commit/658b5f52adf34d5d6e577abc7e6b9cd33a745919))
