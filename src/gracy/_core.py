@@ -12,6 +12,7 @@ import httpx
 from gracy.replays._wrappers import record_mode, replay_mode, smart_replay_mode
 
 from ._configs import custom_config_context, custom_gracy_config, within_hook, within_hook_context
+from ._general import extract_request_kwargs
 from ._loggers import (
     DefaultLogMessage,
     process_log_after_request,
@@ -372,7 +373,8 @@ class Gracy(t.Generic[Endpoint]):
             else:
                 httpx_request_func = smart_replay_mode(replays, self._client, httpx_request_func)
 
-        request = self._client.build_request(request_context.method, request_context.endpoint, *args, **kwargs)
+        request_kwargs = extract_request_kwargs(kwargs)
+        request = self._client.build_request(request_context.method, request_context.endpoint, **request_kwargs)
 
         graceful_request = _gracify(
             Gracy._reporter,

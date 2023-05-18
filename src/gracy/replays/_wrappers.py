@@ -5,6 +5,7 @@ from functools import wraps
 
 import httpx
 
+from gracy._general import extract_request_kwargs
 from gracy.exceptions import GracyReplayRequestNotFound
 
 from .storages._base import GracyReplay
@@ -27,7 +28,8 @@ def record_mode(replay: GracyReplay, httpx_request_func: httpx_func_type):
 def replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_func: httpx_func_type):
     @wraps(httpx_request_func)
     async def _wrapper(*args: t.Any, **kwargs: t.Any):
-        request = client.build_request(*args, **kwargs)
+        request_kwargs = extract_request_kwargs(kwargs)
+        request = client.build_request(*args, **request_kwargs)
 
         stored_response = await replay.storage.load(request, replay.discard_replays_older_than)
         replay.replays_made += 1
@@ -40,7 +42,8 @@ def replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_fu
 def smart_replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_func: httpx_func_type):
     @wraps(httpx_request_func)
     async def _wrapper(*args: t.Any, **kwargs: t.Any):
-        request = client.build_request(*args, **kwargs)
+        request_kwargs = extract_request_kwargs(kwargs)
+        request = client.build_request(*args, **request_kwargs)
 
         try:
             stored_response = await replay.storage.load(request, replay.discard_replays_older_than)
