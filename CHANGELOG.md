@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.2 (2023-05-18)
+### Fix
+* Don't pass every kwargs to build_request ([`192838e`](https://github.com/guilatrova/gracy/commit/192838ed0dada8f0dbf30aa7a15a42efe7ad50b0))
+
 ## v1.17.1 (2023-05-17)
 ### Fix
 * Support py38+ ([`1ac2f56`](https://github.com/guilatrova/gracy/commit/1ac2f56741094e5c0b4586093f8fa8cb26720d02))
