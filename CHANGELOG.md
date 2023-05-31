@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.3 (2023-05-31)
+### Fix
+
+* **deps:** Requires httpx>=0.23 ([`c3fc7c0`](https://github.com/guilatrova/gracy/commit/c3fc7c08387204eee825a5b6bd17d10d41706d78))
+
 ## v1.17.2 (2023-05-18)
 ### Fix
 * Don't pass every kwargs to build_request ([`192838e`](https://github.com/guilatrova/gracy/commit/192838ed0dada8f0dbf30aa7a15a42efe7ad50b0))
