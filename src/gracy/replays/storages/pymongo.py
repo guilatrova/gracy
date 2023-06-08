@@ -94,7 +94,8 @@ class MongoReplayStorage(GracyReplayStorage):
         response_serialized = pickle.dumps(response)
 
         response_content = response.text or None
-        if "json" in response.headers.get("Content-Type"):
+        content_type = response.headers.get("Content-Type")
+        if content_type and "json" in content_type:
             try:
                 jsonified_content = response.json()
 
