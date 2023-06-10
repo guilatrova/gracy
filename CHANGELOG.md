@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v1.18.0 (2023-06-10)
+### Feature
+
+* Create request failed exc ([`8087365`](https://github.com/guilatrova/gracy/commit/8087365ebbefa1de8801fc232553e1a5f5d954b5))
+
+### Fix
+
+* **replays:** Handle content type none ([`0229218`](https://github.com/guilatrova/gracy/commit/02292182f99d925ea3cb3d916ba940489a6984e0))
+
 ## v1.17.3 (2023-05-31)
 ### Fix
 
