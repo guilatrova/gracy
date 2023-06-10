@@ -16,6 +16,10 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GRACY_GITHUB_TOKEN }}
 
+      - name: Install poetry
+        shell: bash
+        run: pipx install poetry
+
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
