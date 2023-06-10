@@ -23,7 +23,29 @@ class GracyException(Exception, ABC):
         pass
 
 
-class GracyParseFailed(Exception):
+class GracyRequestFailed(GracyException):
+    """
+    Sometimes the httpx's request fails for whatever reason (TCP, SSL, etc errors), this
+    is a wrapper exception so the client can be easily "retried" for any failed requests.
+
+    NOTE: Consider that failed requests means NO RESPONSE because the request never completed
+
+    Maybe this would be an `ExceptionGroup` if Gracy ever deprecates Python < 3.11
+    """
+
+    def __init__(self, context: GracyRequestContext, original_exc: Exception) -> None:
+        self.original_exc = original_exc
+        self.request_context = context
+
+        super().__init__(
+            f"The request for [{context.method}] {context.url} never got a response due to {str(original_exc)} "
+        )
+
+    def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
+        return (GracyRequestFailed, (self.request_context, self.original_exc))
+
+
+class GracyParseFailed(GracyException):
     def __init__(self, response: httpx.Response) -> None:
         msg = (
             f"Unable to parse result from [{response.request.method}] {response.url} ({response.status_code}). "

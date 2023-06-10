@@ -41,7 +41,7 @@ from ._models import (
 from ._reports._builders import ReportBuilder
 from ._reports._printers import PRINTERS, print_report
 from ._validators import AllowedStatusValidator, DefaultValidator, StrictStatusValidator
-from .exceptions import GracyParseFailed
+from .exceptions import GracyParseFailed, GracyRequestFailed
 from .replays.storages._base import GracyReplay
 
 if sys.version_info >= (3, 10):
@@ -126,8 +126,8 @@ async def _gracefully_retry(
     state = retry.create_state(last_response)
 
     config = request_context.active_config
-    result = None
-    validation_exc: Exception | None = None
+    response = None
+    resulting_exc: Exception | None = None
 
     failing = True
     while failing:
@@ -144,45 +144,45 @@ async def _gracefully_retry(
 
         try:
             await before_hook(request_context)
-            result = await request()
-        except Exception as exc:
-            validation_exc = exc
-            report.track(request_context, exc)
-            await after_hook(request_context, exc, state)
+            response = await request()
+        except Exception as request_err:
+            resulting_exc = GracyRequestFailed(request_context, request_err)
+            report.track(request_context, request_err)
+            await after_hook(request_context, request_err, state)
         else:
-            report.track(request_context, result)
-            await after_hook(request_context, result, state)
+            report.track(request_context, response)
+            await after_hook(request_context, response, state)
         finally:
             report.retried(request_context)
 
-        if result:
-            validation_exc = None
+        if response:
+            resulting_exc = None
 
             for validator in validators:
                 try:
-                    validator.check(result)
+                    validator.check(response)
                 except Exception as ex:
-                    validation_exc = ex
+                    resulting_exc = ex
                     break
 
         # Even if all validators are passing, we check whether
         # it should retry for cases like:
         # e.g. Allow = 404 (so it's a success),
         #      but Retry it up to 3 times to see whether it becomes 200
-        if config.should_retry(result, validation_exc) is False:
+        if config.should_retry(response, resulting_exc) is False:
             state.success = True
             failing = False
 
         if retry.log_after:
-            process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, result)
+            process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, response)
 
-    if result:  # Unlikely to be None
-        state.final_response = result
+    if response:  # Unlikely to be None
+        state.final_response = response
 
-    state.final_validation_exc = validation_exc
+    state.final_validation_exc = resulting_exc
 
-    if state.cant_retry and config.should_retry(state.final_response, validation_exc) and retry.log_exhausted:
-        process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, result)
+    if state.cant_retry and config.should_retry(state.final_response, resulting_exc) and retry.log_exhausted:
+        process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, response)
 
     return state
 
@@ -222,7 +222,7 @@ async def _gracify(
     if isinstance(active_config.log_request, LogEvent):
         process_log_before_request(active_config.log_request, request_context)
 
-    validation_exc: Exception | None = None
+    resulting_exc: Exception | None = None
 
     do_throttle = True
     if replay and replay.disable_throttling:
@@ -236,20 +236,20 @@ async def _gracify(
 
     try:
         await before_hook(request_context)
-        result = await request()
-    except Exception as ex:
-        validation_exc = ex
-        result = None
-        report.track(request_context, ex)
-        await after_hook(request_context, ex, None)
+        response = await request()
+    except Exception as request_err:
+        resulting_exc = GracyRequestFailed(request_context, request_err)
+        response = None
+        report.track(request_context, resulting_exc)
+        await after_hook(request_context, resulting_exc, None)
     else:
         # mypy didn't detect it properly
-        result = t.cast(httpx.Response, result)  # type: ignore
-        report.track(request_context, result)
-        await after_hook(request_context, result, None)
+        response = t.cast(httpx.Response, response)  # type: ignore
+        report.track(request_context, response)
+        await after_hook(request_context, response, None)
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
-        process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, result)
+        process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, response)
 
     validators: list[GracefulValidator] = []
     if active_config.strict_status_code and not isinstance(active_config.strict_status_code, Unset):
@@ -264,20 +264,20 @@ async def _gracify(
     elif isinstance(active_config.validators, t.Iterable):
         validators += active_config.validators
 
-    if result:
+    if response:
         for validator in validators:
             try:
-                validator.check(result)
+                validator.check(response)
             except Exception as ex:
-                validation_exc = ex
+                resulting_exc = ex
                 break
 
     retry_result: GracefulRetryState | None = None
-    if active_config.should_retry(result, validation_exc):
+    if active_config.should_retry(response, resulting_exc):
         retry_result = await _gracefully_retry(
             report,
             throttle_controller,
-            result,
+            response,
             before_hook,
             after_hook,
             request,
@@ -285,22 +285,22 @@ async def _gracify(
             validators,
         )
 
-        result = retry_result.final_response
-        validation_exc = retry_result.final_validation_exc
+        response = retry_result.final_response
+        resulting_exc = retry_result.final_validation_exc
 
-    did_request_fail = bool(validation_exc)
+    did_request_fail = bool(resulting_exc)
     if did_request_fail:
         if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-            process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, result)
+            process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, response)
 
     must_break = True
     if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
         must_break = False
 
-    if validation_exc and must_break:
-        raise validation_exc
+    if resulting_exc and must_break:
+        raise resulting_exc
 
-    final_result = _maybe_parse_result(active_config, request_context, result) if result else None
+    final_result = _maybe_parse_result(active_config, request_context, response) if response else None
 
     return final_result
 
