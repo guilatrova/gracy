@@ -9,7 +9,7 @@ from unittest.mock import patch
 import httpx
 
 from gracy import GracefulRetry, GracefulValidator, Gracy, GracyConfig, GracyReplay, LogEvent, LogLevel, graceful
-from gracy.exceptions import NonOkResponse
+from gracy.exceptions import GracyRequestFailed, NonOkResponse
 from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, FakeReplayStorage, PokeApiEndpoint, assert_requests_made
 
 RETRY: t.Final = GracefulRetry(
@@ -341,13 +341,13 @@ async def test_retry_without_replay_request_without_response_generic(make_pokeap
 
     # Regardless of replay being disabled, no request will be triggered as we're mocking httpx
     pokeapi = make_pokeapi(3, break_or_pass="break", replay_enabled=False)
-    pokeapi._base_config.retry.retry_on.add(SomeRequestException)  # type: ignore
+    pokeapi._base_config.retry.retry_on.add(GracyRequestFailed)  # type: ignore
 
     mock: t.Any
     with patch.object(pokeapi, "_client", autospec=True) as mock:
         mock.request.side_effect = SomeRequestException("Request failed")
 
-        with pytest.raises(SomeRequestException):
+        with pytest.raises(GracyRequestFailed):
             await pokeapi.get_pokemon(PRESENT_NAME)
 
     assert_requests_made(pokeapi, EXPECTED_REQS)

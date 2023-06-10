@@ -8,6 +8,7 @@ from unittest.mock import patch
 import httpx
 
 from gracy import GracefulRetry, GracefulRetryState, Gracy, GracyConfig, GracyRequestContext
+from gracy.exceptions import GracyRequestFailed
 from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_requests_made
 
 RETRY: t.Final = GracefulRetry(
@@ -123,7 +124,7 @@ async def test_after_hook_counts_aborts():
     with patch.object(pokeapi, "_client", autospec=True) as mock:
         mock.request.side_effect = SomeRequestException("Request failed")
 
-        with pytest.raises(SomeRequestException):
+        with pytest.raises(GracyRequestFailed):
             await pokeapi.get_pokemon(PRESENT_NAME)
 
     assert pokeapi.after_status_counter[HTTPStatus.OK] == 0
