@@ -41,6 +41,11 @@ class GracyRequestFailed(GracyException):
             f"The request for [{context.method}] {context.url} never got a response due to {str(original_exc)} "
         )
 
+        # Inspired by https://stackoverflow.com/a/54716092/2811539
+        # We include the original exception as parte of the stack trace by doing that.
+        self.__cause__ = original_exc
+        self.__context__ = original_exc
+
     def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
         return (GracyRequestFailed, (self.request_context, self.original_exc))
 
