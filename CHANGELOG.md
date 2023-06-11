@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.19.0 (2023-06-11)
+### Feature
+
+* Include cause/context to the req exception ([`b2a96f1`](https://github.com/guilatrova/gracy/commit/b2a96f1caba229ef8ae2b102f160b107bde1f9dd))
+
 ## v1.18.0 (2023-06-10)
 ### Feature
 
