@@ -112,3 +112,6 @@ class SQLiteReplayStorage(GracyReplayStorage):
         response: httpx.Response = pickle.loads(serialized_response)
 
         return response
+
+    def __del__(self) -> None:
+        self.flush()

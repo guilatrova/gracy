@@ -50,10 +50,11 @@ build_command = "pip install poetry && poetry build"
 [tool.poetry.dependencies]
 python = ">=3.8.1,<4.0"
 httpx = ">=0.23.0"
+typing-extensions = { version = "^4.5.0", python = "<3.10" }
 rich = { version = "*", optional = true }
 pymongo = { version ="*", optional = true }
-typing-extensions = { version = "^4.5.0", python = "<3.10" }
-
+aiobotocore = { version ="*", optional = true }
+types-aiobotocore = { version ="*", extras=["s3"], optional = true }
 
 [tool.poetry.group.dev.dependencies]
 python-semantic-release = "^7.33.0"
@@ -71,6 +72,7 @@ pytest-asyncio = "^0.20.3"
 [tool.poetry.extras]
 rich = ["rich"]
 pymongo = ["pymongo"]
+s3 = ["aiobotocore", "types-aiobotocore"]
 
 [tool.black]
 line-length = 120
