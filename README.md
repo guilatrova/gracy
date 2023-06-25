@@ -306,6 +306,7 @@ class Config:
 | `log_after`      | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
 | `log_exhausted`  | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
 | `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure                       | `pass` or `break` (default)                                                                                                          |
+| `overrides`      | Allows to override `delay` based on last response status code                                                   | `{HTTPStatus.BAD_REQUEST: OverrideRetryOn(delay=0), HTTPStatus.INTERNAL_SERVER_ERROR: OverrideRetryOn(delay=10)}`                    |
 
 
 ### Throttling

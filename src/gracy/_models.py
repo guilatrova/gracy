@@ -71,9 +71,12 @@ class GracefulRetryState:
     def __init__(self, retry_config: GracefulRetry) -> None:
         self._retry_config = retry_config
         self._delay = retry_config.delay
+        self._override_delay: float | None = None
 
     @property
     def delay(self) -> float:
+        if self._override_delay:
+            return self._override_delay
         return self._delay
 
     @property
@@ -92,14 +95,23 @@ class GracefulRetryState:
     def cant_retry(self):
         return not self.can_retry
 
-    def increment(self):
+    def increment(self, response: httpx.Response | None):
         self.cur_attempt += 1
 
         if self.cur_attempt > 1:
             self._delay *= self._retry_config.delay_modifier
 
+        self._override_delay = None
+        if response and self._retry_config.overrides and self._retry_config.overrides[HTTPStatus(response.status_code)]:
+            self._override_delay = self._retry_config.overrides[HTTPStatus(response.status_code)].delay
+
 
 STATUS_OR_EXCEPTION = t.Union[HTTPStatus, t.Type[Exception]]
+
+
+@dataclass
+class OverrideRetryOn:
+    delay: float
 
 
 @dataclass
@@ -109,10 +121,11 @@ class GracefulRetry:
 
     delay_modifier: float = 1
     retry_on: STATUS_OR_EXCEPTION | t.Iterable[STATUS_OR_EXCEPTION] | None = None
-    log_before: None | LogEvent = None
-    log_after: None | LogEvent = None
-    log_exhausted: None | LogEvent = None
+    log_before: LogEvent | None = None
+    log_after: LogEvent | None = None
+    log_exhausted: LogEvent | None = None
     behavior: t.Literal["break", "pass"] = "break"
+    overrides: t.Union[t.Dict[HTTPStatus, OverrideRetryOn], None] = None
 
     def needs_retry(self, response_result: HTTPStatus) -> bool:
         if self.retry_on is None:
@@ -231,14 +244,14 @@ THROTTLE_LOCKER: t.Final = ThrottleLocker()
 
 class GracefulThrottle:
     rules: list[ThrottleRule] = []
-    log_limit_reached: None | LogEvent = None
-    log_wait_over: None | LogEvent = None
+    log_limit_reached: LogEvent | None = None
+    log_wait_over: LogEvent | None = None
 
     def __init__(
         self,
         rules: list[ThrottleRule] | ThrottleRule,
-        log_limit_reached: None | LogEvent = None,
-        log_wait_over: None | LogEvent = None,
+        log_limit_reached: LogEvent | None = None,
+        log_wait_over: LogEvent | None = None,
     ) -> None:
         self.rules = rules if isinstance(rules, t.Iterable) else [rules]
         self.log_limit_reached = log_limit_reached

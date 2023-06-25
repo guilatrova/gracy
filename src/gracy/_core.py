@@ -122,16 +122,16 @@ async def _gracefully_retry(
     request_context: GracyRequestContext,
     validators: list[GracefulValidator],
 ) -> GracefulRetryState:
-    retry = t.cast(GracefulRetry, request_context.active_config.retry)
+    config = request_context.active_config
+    retry = t.cast(GracefulRetry, config.retry)
     state = retry.create_state(last_response)
 
-    config = request_context.active_config
     response = None
     resulting_exc: Exception | None = None
 
     failing = True
     while failing:
-        state.increment()
+        state.increment(response)
         if state.cant_retry:
             break
 
@@ -145,13 +145,16 @@ async def _gracefully_retry(
         try:
             await before_hook(request_context)
             response = await request()
+
         except Exception as request_err:
             resulting_exc = GracyRequestFailed(request_context, request_err)
             report.track(request_context, request_err)
             await after_hook(request_context, request_err, state)
+
         else:
             report.track(request_context, response)
             await after_hook(request_context, response, state)
+
         finally:
             report.retried(request_context)
 
