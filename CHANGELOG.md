@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.21.1 (2023-06-26)
+### Fix
+
+* Expose OverrideRetryOn ([`0f14782`](https://github.com/guilatrova/gracy/commit/0f14782aa870efcec829cd9efb2bc72ea101305e))
+
 ## v1.21.0 (2023-06-26)
 ### Feature
 
