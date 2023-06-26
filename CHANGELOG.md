@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v1.20.0 (2023-06-26)
+### Feature
+
+* **hooks:** Handle dates for retry_after header ([`3feef65`](https://github.com/guilatrova/gracy/commit/3feef652b1de9aa32b551c54307965f24a92e1b7))
+* **hooks:** Add a common hook ([`04734ad`](https://github.com/guilatrova/gracy/commit/04734adcbea3ecc3cde93e1330f58992bb20b3be))
+* **retry:** Implement retry override ([`0045413`](https://github.com/guilatrova/gracy/commit/004541385ca1956d6d3cc3c4807ec09cf9999177))
+
 ## v1.19.0 (2023-06-11)
 ### Feature
 
