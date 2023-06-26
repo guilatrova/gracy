@@ -4,6 +4,7 @@ import asyncio
 import logging
 import typing as t
 from asyncio import Lock
+from collections import defaultdict
 from datetime import datetime
 from http import HTTPStatus
 
@@ -37,10 +38,14 @@ class HttpHeaderRetryAfterBackOffHook:
     """
 
     DEFAULT_LOG_MESSAGE: t.Final = "[{METHOD}] {URL} requested to wait for {RETRY_AFTER}s"
+    ALL_CLIENT_LOCK: t.Final = "CLIENT"
 
-    def __init__(self, reporter: ReportBuilder, log_event: LogEvent | None = None) -> None:
+    def __init__(
+        self, reporter: ReportBuilder, lock_per_endpoint: bool = False, log_event: LogEvent | None = None
+    ) -> None:
         self._reporter = reporter
-        self._lock = Lock()
+        self._lock_per_endpoint = lock_per_endpoint
+        self._lock_manager = defaultdict[str, Lock](Lock)
         self._log_event = log_event
 
     def _process_log(self, request_context: GracyRequestContext, response: httpx.Response, retry_after: float) -> None:
@@ -74,8 +79,10 @@ class HttpHeaderRetryAfterBackOffHook:
         else:
             return date_as_seconds
 
-    async def before(self):
-        while self._lock.locked():
+    async def before(self, context: GracyRequestContext):
+        lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
+
+        while self._lock_manager[lock_name].locked():
             await asyncio.sleep(1)
 
     async def after(
@@ -87,7 +94,9 @@ class HttpHeaderRetryAfterBackOffHook:
             retry_after_seconds = self._parse_retry_after_as_seconds(response_or_exc)
 
             if retry_after_seconds > 0:
-                async with self._lock:
+                lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
+
+                async with self._lock_manager[lock_name]:
                     self._reporter.throttled(context)
                     self._process_log(context, response_or_exc, retry_after_seconds)
                     await asyncio.sleep(retry_after_seconds)
