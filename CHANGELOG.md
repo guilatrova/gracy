@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.21.0 (2023-06-26)
+### Feature
+
+* **hooks:** Implement flag for diff locks ([`dcce610`](https://github.com/guilatrova/gracy/commit/dcce6104f1129ee4710b50fc034c1a8629f57cf2))
+
 ## v1.20.0 (2023-06-26)
 ### Feature
 
