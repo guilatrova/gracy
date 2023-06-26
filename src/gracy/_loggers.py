@@ -31,7 +31,7 @@ class DefaultLogMessage(str, Enum):
     RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT}"
 
 
-def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
+def do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
     # Let's protect ourselves against potential customizations with undefined {key}
     safe_format_args = SafeDict(**format_args)
 
@@ -46,7 +46,7 @@ def _do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], 
     logger.log(logevent.level, message, extra=format_args)
 
 
-def _extract_base_format_args(request_context: GracyRequestContext) -> dict[str, str]:
+def extract_base_format_args(request_context: GracyRequestContext) -> dict[str, str]:
     return dict(
         URL=request_context.url,
         ENDPOINT=request_context.endpoint,
@@ -56,7 +56,7 @@ def _extract_base_format_args(request_context: GracyRequestContext) -> dict[str,
     )
 
 
-def _extract_response_format_args(response: httpx.Response | None) -> dict[str, str]:
+def extract_response_format_args(response: httpx.Response | None) -> dict[str, str]:
     status_code = response.status_code if response else "ABORTED"
     elapsed = response.elapsed if response else "UNKNOWN"
 
@@ -67,8 +67,8 @@ def _extract_response_format_args(response: httpx.Response | None) -> dict[str, 
 
 
 def process_log_before_request(logevent: LogEvent, request_context: GracyRequestContext) -> None:
-    format_args = _extract_base_format_args(request_context)
-    _do_log(logevent, DefaultLogMessage.BEFORE, format_args)
+    format_args = extract_base_format_args(request_context)
+    do_log(logevent, DefaultLogMessage.BEFORE, format_args)
 
 
 def process_log_throttle(
@@ -79,13 +79,13 @@ def process_log_throttle(
     request_context: GracyRequestContext,
 ):
     format_args = dict(
-        **_extract_base_format_args(request_context),
+        **extract_base_format_args(request_context),
         THROTTLE_TIME=await_time,
         THROTTLE_LIMIT=rule.max_requests,
         THROTTLE_TIME_RANGE=rule.readable_time_range,
     )
 
-    _do_log(logevent, default_message, format_args)
+    do_log(logevent, default_message, format_args)
 
 
 def process_log_retry(
@@ -97,17 +97,17 @@ def process_log_retry(
 ):
     maybe_response_args: dict[str, str] = {}
     if response:
-        maybe_response_args = _extract_response_format_args(response)
+        maybe_response_args = extract_response_format_args(response)
 
     format_args = dict(
-        **_extract_base_format_args(request_context),
+        **extract_base_format_args(request_context),
         **maybe_response_args,
         RETRY_DELAY=state.delay,
         CUR_ATTEMPT=state.cur_attempt,
         MAX_ATTEMPT=state.max_attempts,
     )
 
-    _do_log(logevent, defaultmsg, format_args, response)
+    do_log(logevent, defaultmsg, format_args, response)
 
 
 def process_log_after_request(
@@ -117,8 +117,8 @@ def process_log_after_request(
     response: httpx.Response | None,
 ) -> None:
     format_args: dict[str, str] = dict(
-        **_extract_base_format_args(request_context),
-        **_extract_response_format_args(response),
+        **extract_base_format_args(request_context),
+        **extract_response_format_args(response),
     )
 
-    _do_log(logevent, defaultmsg, format_args, response)
+    do_log(logevent, defaultmsg, format_args, response)
