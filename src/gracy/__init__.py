@@ -16,6 +16,7 @@ from ._models import (
     GracyRequestContext,
     LogEvent,
     LogLevel,
+    OverrideRetryOn,
     ThrottleRule,
 )
 from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, GracyReport
@@ -34,6 +35,7 @@ __all__ = [
     # Models
     "BaseEndpoint",
     "GracefulRetry",
+    "OverrideRetryOn",
     "GracefulRetryState",
     "GracefulValidator",
     "GracyRequestContext",
