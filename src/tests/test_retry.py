@@ -8,7 +8,17 @@ from unittest.mock import patch
 
 import httpx
 
-from gracy import GracefulRetry, GracefulValidator, Gracy, GracyConfig, GracyReplay, LogEvent, LogLevel, graceful
+from gracy import (
+    GracefulRetry,
+    GracefulValidator,
+    Gracy,
+    GracyConfig,
+    GracyReplay,
+    LogEvent,
+    LogLevel,
+    OverrideRetryOn,
+    graceful,
+)
 from gracy.exceptions import GracyRequestFailed, NonOkResponse
 from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, FakeReplayStorage, PokeApiEndpoint, assert_requests_made
 
@@ -30,6 +40,15 @@ RETRY_3_TIMES_LOG: t.Final = GracefulRetry(
     log_before=RETRY_LOG_BEFORE,
     log_after=RETRY_LOG_AFTER,
     log_exhausted=RETRY_LOG_EXHAUSTED,
+)
+
+RETRY_3_TIMES_OVERRIDE_PLACEHOLDER_LOG: t.Final = GracefulRetry(
+    delay=90,  # Will be overriden
+    max_attempts=3,
+    retry_on=HTTPStatus.NOT_FOUND,
+    overrides={HTTPStatus.NOT_FOUND: OverrideRetryOn(delay=0.001)},
+    log_before=LogEvent(LogLevel.WARNING, "BEFORE: {RETRY_DELAY} {RETRY_CAUSE}"),
+    log_after=LogEvent(LogLevel.WARNING, "AFTER: {RETRY_CAUSE}"),
 )
 
 
@@ -86,6 +105,10 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
     @graceful(retry=RETRY_3_TIMES_LOG, allowed_status_code=None)
     async def get_pokemon_with_log_retry_3_times(self, name: str):
+        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+
+    @graceful(retry=RETRY_3_TIMES_OVERRIDE_PLACEHOLDER_LOG, allowed_status_code=None)
+    async def get_pokemon_with_retry_overriden_log_placeholder(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
 
@@ -310,6 +333,25 @@ async def test_retry_logs(make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytes
     assert_log(caplog.records[3], RETRY_LOG_AFTER)
     assert_log(caplog.records[4], RETRY_LOG_BEFORE)
     assert_log(caplog.records[5], RETRY_LOG_AFTER)
+
+
+async def test_retry_logs_fail_reason(make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytest.LogCaptureFixture):
+    FLAKY_REQUESTS: t.Final = 2
+    EXPECTED_REQS: t.Final = FLAKY_REQUESTS + 1
+
+    pokeapi = make_flaky_pokeapi(FLAKY_REQUESTS)
+
+    result = await pokeapi.get_pokemon_with_retry_overriden_log_placeholder(PRESENT_NAME)
+
+    # Test
+    assert result is not None
+    assert_requests_made(pokeapi, EXPECTED_REQS)
+
+    assert len(caplog.records) == 4
+    assert caplog.records[0].message == "BEFORE: 0.001 [Bad Status Code: 404]"
+    assert caplog.records[1].message == "AFTER: [Bad Status Code: 404]"
+    assert caplog.records[2].message == "BEFORE: 0.001 [Bad Status Code: 404]"
+    assert caplog.records[3].message == "AFTER: SUCCESSFUL"
 
 
 async def test_retry_logs_exhausts(make_pokeapi: PokeApiFactory, caplog: pytest.LogCaptureFixture):
