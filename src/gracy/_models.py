@@ -132,7 +132,11 @@ class GracefulRetryState:
             self._delay *= self._retry_config.delay_modifier
 
         self._override_delay = None
-        if response and self._retry_config.overrides and self._retry_config.overrides[HTTPStatus(response.status_code)]:
+        if (
+            response
+            and self._retry_config.overrides
+            and self._retry_config.overrides.get(HTTPStatus(response.status_code))
+        ):
             self._override_delay = self._retry_config.overrides[HTTPStatus(response.status_code)].delay
 
 
