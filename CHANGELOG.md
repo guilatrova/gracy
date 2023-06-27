@@ -2,6 +2,19 @@
 
 <!--next-version-placeholder-->
 
+## v1.22.0 (2023-06-27)
+### Feature
+
+* **retry:** Add RETRY_CAUSE to log ([`3bf1c72`](https://github.com/guilatrova/gracy/commit/3bf1c72776874b3b77f5620ce57e34a912e0a197))
+* **retry:** Add cause ([`2b468fd`](https://github.com/guilatrova/gracy/commit/2b468fde1c1a8d3374268c54814bdfb4f992f191))
+
+### Fix
+
+* **retry:** Check override for status ([`1b9383d`](https://github.com/guilatrova/gracy/commit/1b9383d0e340c3a422e87f69c17ab1e097ca7112))
+* Make it compatible with py3.8 ([`96e3e61`](https://github.com/guilatrova/gracy/commit/96e3e610eee324047c63adcddd5a6fa534cb51a8))
+* **retry:** Set last rep for overriden retry ([`d0241e5`](https://github.com/guilatrova/gracy/commit/d0241e54a4f6cbd5f0b5541366cae3c3a64eb6c3))
+* Typo and wrong attrs ([`07d30e0`](https://github.com/guilatrova/gracy/commit/07d30e09a4767084bbfcca5654682486b579bb42))
+
 ## v1.21.1 (2023-06-26)
 ### Fix
 
