@@ -42,7 +42,7 @@ class GracyRequestFailed(GracyException):
         )
 
         # Inspired by https://stackoverflow.com/a/54716092/2811539
-        # We include the original exception as parte of the stack trace by doing that.
+        # We include the original exception as part of the stack trace by doing that.
         self.__cause__ = original_exc
         self.__context__ = original_exc
 
@@ -103,12 +103,12 @@ class UnexpectedResponse(BadResponse):
     def __init__(self, url: str, response: httpx.Response, expected: str | HTTPStatus | t.Iterable[HTTPStatus]) -> None:
         super().__init__(None, url, response, expected)
 
-        self.arg1 = url
-        self.arg2 = response
-        self.arg3 = expected
+        self.url = url
+        self.response = response
+        self.expected = expected
 
     def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
-        return (UnexpectedResponse, (self.arg1, self.arg2, self.arg3))
+        return (UnexpectedResponse, (self.url, self.response, self.expected))
 
 
 class NonOkResponse(BadResponse):
@@ -155,7 +155,7 @@ class GracyUserDefinedException(GracyException):
 
     @property
     def endpoint(self):
-        return self._request_context.url
+        return self._request_context.endpoint
 
     @property
     def response(self):
