@@ -65,8 +65,9 @@ LOG_EVENT_TYPE = t.Union[None, Unset, LogEvent]
 class GracefulRetryState:
     cur_attempt: int = 0
     success: bool = False
-    final_validation_exc: Exception | None = None
-    final_response: httpx.Response | None
+
+    last_exc: Exception | None = None
+    last_response: httpx.Response | None
 
     def __init__(self, retry_config: GracefulRetry) -> None:
         self._retry_config = retry_config
@@ -94,6 +95,35 @@ class GracefulRetryState:
     @property
     def cant_retry(self):
         return not self.can_retry
+
+    @property
+    def cause(self) -> str:
+        """Describes why the Retry was triggered"""
+
+        # Importing here to avoid cyclic imports
+        from gracy.exceptions import GracyRequestFailed, GracyUserDefinedException, NonOkResponse, UnexpectedResponse
+
+        if self.success:
+            return "NONE"
+
+        exc = self.last_exc
+
+        if self.last_response:
+            if isinstance(exc, NonOkResponse) or isinstance(exc, UnexpectedResponse):
+                return f"[Bad Status Code: {self.last_response.status_code}]"
+
+            if isinstance(exc, GracyUserDefinedException):
+                return f"[User Error: {type(exc).__name__}]"
+
+        if exc:
+            if isinstance(exc, GracyRequestFailed):
+                return f"[Request Error: {type(exc.original_exc).__name__}]"
+
+            return f"[{type(exc).__name__}]"
+
+        # This final block is unlikely to ever happen
+        resp = t.cast(httpx.Response, self.last_response)
+        return f"[Bad Status Code: {resp.status_code}]"
 
     def increment(self, response: httpx.Response | None):
         self.cur_attempt += 1
@@ -140,7 +170,7 @@ class GracefulRetry:
     def create_state(self, result: httpx.Response | None) -> GracefulRetryState:
         state = GracefulRetryState(self)
         # Only needed to handle cases where the user sets 0 as max attempts
-        state.final_response = result
+        state.last_response = result
         return state
 
 

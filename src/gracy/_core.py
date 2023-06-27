@@ -168,6 +168,9 @@ async def _gracefully_retry(
                     resulting_exc = ex
                     break
 
+        state.last_response = response
+        state.last_exc = resulting_exc
+
         # Even if all validators are passing, we check whether
         # it should retry for cases like:
         # e.g. Allow = 404 (so it's a success),
@@ -179,12 +182,7 @@ async def _gracefully_retry(
         if retry.log_after:
             process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, response)
 
-    if response:  # Unlikely to be None
-        state.final_response = response
-
-    state.final_validation_exc = resulting_exc
-
-    if state.cant_retry and config.should_retry(state.final_response, resulting_exc) and retry.log_exhausted:
+    if state.cant_retry and config.should_retry(state.last_response, resulting_exc) and retry.log_exhausted:
         process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, response)
 
     return state
@@ -288,8 +286,8 @@ async def _gracify(
             validators,
         )
 
-        response = retry_result.final_response
-        resulting_exc = retry_result.final_validation_exc
+        response = retry_result.last_response
+        resulting_exc = retry_result.last_exc
 
     did_request_fail = bool(resulting_exc)
     if did_request_fail:
