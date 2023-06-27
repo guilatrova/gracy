@@ -4,7 +4,6 @@ import asyncio
 import logging
 import typing as t
 from asyncio import Lock
-from collections import defaultdict
 from datetime import datetime
 from http import HTTPStatus
 
@@ -45,7 +44,7 @@ class HttpHeaderRetryAfterBackOffHook:
     ) -> None:
         self._reporter = reporter
         self._lock_per_endpoint = lock_per_endpoint
-        self._lock_manager = defaultdict[str, Lock](Lock)
+        self._lock_manager = t.DefaultDict[str, Lock](Lock)
         self._log_event = log_event
 
     def _process_log(self, request_context: GracyRequestContext, response: httpx.Response, retry_after: float) -> None:
