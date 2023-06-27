@@ -127,7 +127,7 @@ async def _gracefully_retry(
     retry = t.cast(GracefulRetry, config.retry)
     state = retry.create_state(last_response, last_err)
 
-    response = None
+    response = last_response
     resulting_exc: Exception | None = None
 
     failing = True
