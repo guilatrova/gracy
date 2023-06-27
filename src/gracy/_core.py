@@ -116,6 +116,7 @@ async def _gracefully_retry(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
     last_response: httpx.Response | None,
+    last_err: Exception | None,
     before_hook: BEFORE_HOOK_TYPE,
     after_hook: AFTER_HOOK_TYPE,
     request: GracefulRequest,
@@ -124,7 +125,7 @@ async def _gracefully_retry(
 ) -> GracefulRetryState:
     config = request_context.active_config
     retry = t.cast(GracefulRetry, config.retry)
-    state = retry.create_state(last_response)
+    state = retry.create_state(last_response, last_err)
 
     response = None
     resulting_exc: Exception | None = None
@@ -279,6 +280,7 @@ async def _gracify(
             report,
             throttle_controller,
             response,
+            resulting_exc,
             before_hook,
             after_hook,
             request,

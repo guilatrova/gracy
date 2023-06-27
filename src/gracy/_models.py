@@ -167,10 +167,10 @@ class GracefulRetry:
 
         return response_result in retry_on_status
 
-    def create_state(self, result: httpx.Response | None) -> GracefulRetryState:
+    def create_state(self, result: httpx.Response | None, exc: Exception | None) -> GracefulRetryState:
         state = GracefulRetryState(self)
-        # Only needed to handle cases where the user sets 0 as max attempts
         state.last_response = result
+        state.last_exc = exc
         return state
 
 

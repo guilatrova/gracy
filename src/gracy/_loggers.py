@@ -25,10 +25,11 @@ class DefaultLogMessage(str, Enum):
     THROTTLE_DONE = "Done waiting {THROTTLE_TIME}s to hit {URL}"
 
     RETRY_BEFORE = (
-        "GracefulRetry: {URL} will wait {RETRY_DELAY}s before next attempt ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
+        "GracefulRetry: {URL} will wait {RETRY_DELAY}s before next attempt due to "
+        "{RETRY_CAUSE} ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
     )
-    RETRY_AFTER = "GracefulRetry: {URL} replied {STATUS} attempt ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
-    RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT}"
+    RETRY_AFTER = "GracefulRetry: {URL} replied {STATUS} ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
+    RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT} due to {RETRY_CAUSE}"
 
 
 def do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
@@ -103,6 +104,7 @@ def process_log_retry(
         **extract_base_format_args(request_context),
         **maybe_response_args,
         RETRY_DELAY=state.delay,
+        RETRY_CAUSE=state.cause,
         CUR_ATTEMPT=state.cur_attempt,
         MAX_ATTEMPT=state.max_attempts,
     )
