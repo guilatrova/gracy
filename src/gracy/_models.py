@@ -104,7 +104,7 @@ class GracefulRetryState:
         from gracy.exceptions import GracyRequestFailed, GracyUserDefinedException, NonOkResponse, UnexpectedResponse
 
         if self.success:
-            return "NONE"
+            return "SUCCESSFUL"
 
         exc = self.last_exc
 
