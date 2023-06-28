@@ -2,6 +2,18 @@
 
 <!--next-version-placeholder-->
 
+## v1.23.0 (2023-06-28)
+### Feature
+
+* **hooks:** Make reporter optional + dryrun ([`ea0ec00`](https://github.com/guilatrova/gracy/commit/ea0ec007ff5cbd19d1371fe157e9d563d50230bb))
+* **hooks:** Add RateLimitBackOffHook ([`d941c68`](https://github.com/guilatrova/gracy/commit/d941c6880494c41171792fe54b9b6189bba964b9))
+* Allow to modify retry-after ([`a5f043d`](https://github.com/guilatrova/gracy/commit/a5f043dc4a93fa2ade28967d8b019e483d52c6f7))
+* **hooks:** Return hook result ([`ee8f102`](https://github.com/guilatrova/gracy/commit/ee8f10235bced2ed6fe8af1abe219e51950d943f))
+
+### Fix
+
+* **retry:** Validate log correctly ([`dbddcf5`](https://github.com/guilatrova/gracy/commit/dbddcf5f881f2873f3149bd25e4f06ad930b6c51))
+
 ## v1.22.0 (2023-06-27)
 ### Feature
 
