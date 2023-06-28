@@ -4,6 +4,7 @@ import asyncio
 import logging
 import typing as t
 from asyncio import Lock
+from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 
@@ -16,9 +17,14 @@ from ._reports._builders import ReportBuilder
 logger = logging.getLogger("gracy")
 
 
+@dataclass
+class HookResult:
+    executed: bool
+
+
 class HttpHeaderRetryAfterBackOffHook:
     """
-    Provides two method `before()` and `after()` to be used as hooks by Gracy.
+    Provides two methods `before()` and `after()` to be used as hooks by Gracy.
 
     This hook checks for 429 (TOO MANY REQUESTS), and then reads the
     `retry-after` header (https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After).
@@ -78,17 +84,14 @@ class HttpHeaderRetryAfterBackOffHook:
         else:
             return date_as_seconds
 
-    async def before(self, context: GracyRequestContext):
-        lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
-
-        while self._lock_manager[lock_name].locked():
-            await asyncio.sleep(1)
+    async def before(self, context: GracyRequestContext) -> HookResult:
+        return HookResult(False)
 
     async def after(
         self,
         context: GracyRequestContext,
         response_or_exc: httpx.Response | Exception,
-    ):
+    ) -> HookResult:
         if isinstance(response_or_exc, httpx.Response) and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS:
             retry_after_seconds = self._parse_retry_after_as_seconds(response_or_exc)
 
@@ -99,3 +102,6 @@ class HttpHeaderRetryAfterBackOffHook:
                     self._reporter.throttled(context)
                     self._process_log(context, response_or_exc, retry_after_seconds)
                     await asyncio.sleep(retry_after_seconds)
+                    return HookResult(True)
+
+        return HookResult(False)
