@@ -76,8 +76,9 @@ class GracefulRetryState:
 
     @property
     def delay(self) -> float:
-        if self._override_delay:
+        if self._override_delay is not None:
             return self._override_delay
+
         return self._delay
 
     @property
