@@ -21,6 +21,7 @@ logger = logging.getLogger("gracy")
 class HookResult:
     executed: bool
     awaited: float = 0
+    dry_run: bool = False
 
 
 class HttpHeaderRetryAfterBackOffHook:
@@ -33,12 +34,12 @@ class HttpHeaderRetryAfterBackOffHook:
     If the value is set, then Gracy pauses **ALL** client requests until the time is over.
     This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
 
-    ### Retry
+    ### ⚠️ Retry
     This doesn't replace `GracefulRetry`.
     Make sure you implement a proper retry logic, otherwise the 429 will break the client.
 
     ### Throttling
-    It takes the reporter, because it counts every await as "throttled" for that UURL.
+    If you pass the reporter, it will count every await as "throttled" for that UURL.
 
     ### Processor
     You can optionally pass in a lambda, that can be used to modify/increase the wait time from the header.
@@ -54,16 +55,19 @@ class HttpHeaderRetryAfterBackOffHook:
 
     def __init__(
         self,
-        reporter: ReportBuilder,
+        reporter: ReportBuilder | None = None,
         lock_per_endpoint: bool = False,
         log_event: LogEvent | None = None,
         seconds_processor: None | t.Callable[[float], float] = None,
+        *,
+        dry_run: bool = False,
     ) -> None:
         self._reporter = reporter
         self._lock_per_endpoint = lock_per_endpoint
         self._lock_manager = t.DefaultDict[str, Lock](Lock)
         self._log_event = log_event
         self._processor = seconds_processor or (lambda x: x)
+        self._dry_run = dry_run
 
     def _process_log(
         self, request_context: GracyRequestContext, response: httpx.Response, retry_after: float, actual_wait: float
@@ -115,14 +119,17 @@ class HttpHeaderRetryAfterBackOffHook:
                 lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
 
                 async with self._lock_manager[lock_name]:
-                    self._reporter.throttled(context)
                     self._process_log(context, response_or_exc, retry_after_seconds, actual_wait)
 
-                    await asyncio.sleep(actual_wait)
+                    if self._reporter:
+                        self._reporter.throttled(context)
 
-                    return HookResult(True, actual_wait)
+                    if self._dry_run is False:
+                        await asyncio.sleep(actual_wait)
 
-        return HookResult(False)
+                    return HookResult(True, actual_wait, self._dry_run)
+
+        return HookResult(False, dry_run=self._dry_run)
 
 
 class RateLimitBackOffHook:
@@ -134,33 +141,36 @@ class RateLimitBackOffHook:
     If the value is set, then Gracy pauses **ALL** client requests until the time is over.
     This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
 
-    ### Retry
+    ### ⚠️ Retry
     This doesn't replace `GracefulRetry`.
     Make sure you implement a proper retry logic, otherwise the 429 will break the client.
 
     ### Throttling
-    It takes the reporter, because it counts every await as "throttled" for that UURL.
+    If you pass the reporter, it will count every await as "throttled" for that UURL.
 
     ### Log Event
     You can optionally define a log event.
     It provides the response and the context, but also `WAIT_TIME` that contains the wait value.
     """
 
-    DEFAULT_LOG_MESSAGE: t.Final = "[{METHOD}] {URL} got rate limited, waiting for {WAIT_TIME}s"
+    DEFAULT_LOG_MESSAGE: t.Final = "[{METHOD}] {UENDPOINT} got rate limited, waiting for {WAIT_TIME}s"
     ALL_CLIENT_LOCK: t.Final = "CLIENT"
 
     def __init__(
         self,
-        reporter: ReportBuilder,
         delay: float,
+        reporter: ReportBuilder | None = None,
         lock_per_endpoint: bool = False,
         log_event: LogEvent | None = None,
+        *,
+        dry_run: bool = False,
     ) -> None:
         self._reporter = reporter
         self._lock_per_endpoint = lock_per_endpoint
         self._lock_manager = t.DefaultDict[str, Lock](Lock)
         self._log_event = log_event
         self._delay = delay
+        self._dry_run = dry_run
 
     def _process_log(self, request_context: GracyRequestContext, response: httpx.Response) -> None:
         if event := self._log_event:
@@ -184,11 +194,14 @@ class RateLimitBackOffHook:
             lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
 
             async with self._lock_manager[lock_name]:
-                self._reporter.throttled(context)
                 self._process_log(context, response_or_exc)
 
-                await asyncio.sleep(self._delay)
+                if self._reporter:
+                    self._reporter.throttled(context)
 
-                return HookResult(True, self._delay)
+                if self._dry_run is False:
+                    await asyncio.sleep(self._delay)
 
-        return HookResult(False)
+                return HookResult(True, self._delay, self._dry_run)
+
+        return HookResult(False, dry_run=self._dry_run)
