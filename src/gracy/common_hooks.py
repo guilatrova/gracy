@@ -20,6 +20,7 @@ logger = logging.getLogger("gracy")
 @dataclass
 class HookResult:
     executed: bool
+    awaited: float = 0
 
 
 class HttpHeaderRetryAfterBackOffHook:
@@ -30,9 +31,11 @@ class HttpHeaderRetryAfterBackOffHook:
     `retry-after` header (https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After).
 
     If the value is set, then Gracy pauses **ALL** client requests until the time is over.
+    This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
 
     ### Retry
-    Make sure you implement a proper retry logic, otherwise the 429 will break.
+    This doesn't replace `GracefulRetry`.
+    Make sure you implement a proper retry logic, otherwise the 429 will break the client.
 
     ### Throttling
     It takes the reporter, because it counts every await as "throttled" for that UURL.
@@ -117,6 +120,75 @@ class HttpHeaderRetryAfterBackOffHook:
 
                     await asyncio.sleep(actual_wait)
 
-                    return HookResult(True)
+                    return HookResult(True, actual_wait)
+
+        return HookResult(False)
+
+
+class RateLimitBackOffHook:
+    """
+    Provides two methods `before()` and `after()` to be used as hooks by Gracy.
+
+    This hook checks for 429 (TOO MANY REQUESTS) and locks requests for an arbitrary amount of time defined by you.
+
+    If the value is set, then Gracy pauses **ALL** client requests until the time is over.
+    This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
+
+    ### Retry
+    This doesn't replace `GracefulRetry`.
+    Make sure you implement a proper retry logic, otherwise the 429 will break the client.
+
+    ### Throttling
+    It takes the reporter, because it counts every await as "throttled" for that UURL.
+
+    ### Log Event
+    You can optionally define a log event.
+    It provides the response and the context, but also `WAIT_TIME` that contains the wait value.
+    """
+
+    DEFAULT_LOG_MESSAGE: t.Final = "[{METHOD}] {URL} got rate limited, waiting for {WAIT_TIME}s"
+    ALL_CLIENT_LOCK: t.Final = "CLIENT"
+
+    def __init__(
+        self,
+        reporter: ReportBuilder,
+        delay: float,
+        lock_per_endpoint: bool = False,
+        log_event: LogEvent | None = None,
+    ) -> None:
+        self._reporter = reporter
+        self._lock_per_endpoint = lock_per_endpoint
+        self._lock_manager = t.DefaultDict[str, Lock](Lock)
+        self._log_event = log_event
+        self._delay = delay
+
+    def _process_log(self, request_context: GracyRequestContext, response: httpx.Response) -> None:
+        if event := self._log_event:
+            format_args: t.Dict[str, str] = dict(
+                **extract_base_format_args(request_context),
+                **extract_response_format_args(response),
+                WAIT_TIME=str(self._delay),
+            )
+
+            do_log(event, self.DEFAULT_LOG_MESSAGE, format_args, response)
+
+    async def before(self, context: GracyRequestContext) -> HookResult:
+        return HookResult(False)
+
+    async def after(
+        self,
+        context: GracyRequestContext,
+        response_or_exc: httpx.Response | Exception,
+    ) -> HookResult:
+        if isinstance(response_or_exc, httpx.Response) and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+            lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
+
+            async with self._lock_manager[lock_name]:
+                self._reporter.throttled(context)
+                self._process_log(context, response_or_exc)
+
+                await asyncio.sleep(self._delay)
+
+                return HookResult(True, self._delay)
 
         return HookResult(False)
