@@ -15,7 +15,7 @@ from ._models import GracyAggregatedRequest, GracyReport, GracyRequestCounters, 
 ANY_REGEX: t.Final = r".+"
 
 REQUEST_ERROR_STATUS: t.Final = 0
-REQUEST_SUM_KEY = t.Union[HTTPStatus, t.Literal["total", "retries", "throttles", 0]]
+REQUEST_SUM_KEY = t.Union[HTTPStatus, t.Literal["total", "retries", "throttles", "replays", 0]]
 REQUEST_SUM_PER_STATUS_TYPE = t.Dict[str, t.DefaultDict[REQUEST_SUM_KEY, int]]
 
 
@@ -58,6 +58,7 @@ class ReportBuilder:
         for uurl, counters in self._counters.items():
             requests_sum[uurl]["throttles"] = counters.throttles
             requests_sum[uurl]["retries"] = counters.retries
+            requests_sum[uurl]["replays"] = counters.replays
 
         requests_sum = dict(sorted(requests_sum.items(), key=lambda item: item[1]["total"], reverse=True))
 
@@ -82,6 +83,7 @@ class ReportBuilder:
             aborted = 0
             retries = 0
             throttles = 0
+            replays = 0
 
             for maybe_status, count in data.items():
                 if maybe_status == "total":
@@ -97,6 +99,10 @@ class ReportBuilder:
 
                 if maybe_status == "retries":
                     retries += count
+                    continue
+
+                if maybe_status == "replays":
+                    replays += count
                     continue
 
                 status = maybe_status
@@ -120,6 +126,7 @@ class ReportBuilder:
                 reqs_aborted=aborted,
                 retries=retries,
                 throttles=throttles,
+                replays=replays,
                 # General
                 avg_latency=mean(url_latency) if url_latency else 0,
                 max_latency=max(url_latency) if url_latency else 0,

@@ -38,6 +38,7 @@ class ReportGenericAggregatedRequest:
 
     retries: int
     throttles: int
+    replays: int
 
     max_latency: float
 
@@ -86,6 +87,7 @@ class GracyAggregatedTotal(ReportGenericAggregatedRequest):
         self.reqs_aborted += row.reqs_aborted
         self.throttles += row.throttles
         self.retries += row.retries
+        self.replays += row.replays
 
         self.all_avg_latency.append(row.avg_latency)
         if row.req_rate_per_sec > 0:
@@ -105,6 +107,7 @@ class GracyReport:
             reqs_aborted=0,
             retries=0,
             throttles=0,
+            replays=0,
             max_latency=0,
         )
         self.replay_settings = replay_settings
