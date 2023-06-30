@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v1.25.0 (2023-06-30)
+### Feature
+
+* **replays:** Support log events for replays ([`f9c6b80`](https://github.com/guilatrova/gracy/commit/f9c6b8071302b2262b2973830e7c3d378ae64288))
+
+### Fix
+
+* **reports:** Hide replays if display disabled ([`68692e0`](https://github.com/guilatrova/gracy/commit/68692e0e94ed1ec1d81ea343787abadd34ce3340))
+
 ## v1.24.1 (2023-06-30)
 ### Fix
 
