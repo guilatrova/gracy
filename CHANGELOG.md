@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.24.1 (2023-06-30)
+### Fix
+
+* **replays:** Pass discard flag ([`2083a52`](https://github.com/guilatrova/gracy/commit/2083a524ed515758ccf1ff6b814d41eafd64ebf5))
+
 ## v1.24.0 (2023-06-30)
 ### Feature
 
