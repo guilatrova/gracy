@@ -8,6 +8,8 @@ from datetime import datetime
 
 import httpx
 
+from gracy.exceptions import GracyReplayRequestNotFound
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,10 +39,16 @@ class GracyReplayStorage(ABC):
         """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
         pass
 
-    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    async def load(
+        self, request: httpx.Request, discard_before: datetime | None, discard_bad_responses: bool = False
+    ) -> httpx.Response:
         """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
         resp = await self._load(request, discard_before)
         setattr(resp, REPLAY_FLAG, True)
+
+        if discard_bad_responses and resp.is_success is False:
+            raise GracyReplayRequestNotFound(request)
+
         return resp
 
     def flush(self) -> None:
@@ -64,6 +72,9 @@ class GracyReplay:
 
     discard_replays_older_than: datetime | None = None
     """If set, Gracy will treat all replays older than defined value as not found"""
+
+    discard_bad_responses: bool = False
+    """If set True, then Gracy will discard bad requests (e.g. non 2xx)"""
 
     disable_throttling: bool = False
     """Only applicable to `smart-replay` and `replay` modes. If a replay exists then don't throttle the request"""
