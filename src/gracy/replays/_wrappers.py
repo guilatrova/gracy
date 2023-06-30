@@ -31,7 +31,11 @@ def replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_fu
         request_kwargs = extract_request_kwargs(kwargs)
         request = client.build_request(*args, **request_kwargs)
 
-        stored_response = await replay.storage.load(request, replay.discard_replays_older_than)
+        stored_response = await replay.storage.load(
+            request,
+            replay.discard_replays_older_than,
+            replay.discard_bad_responses,
+        )
         replay.replays_made += 1
 
         return stored_response
@@ -46,7 +50,11 @@ def smart_replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_requ
         request = client.build_request(*args, **request_kwargs)
 
         try:
-            stored_response = await replay.storage.load(request, replay.discard_replays_older_than)
+            stored_response = await replay.storage.load(
+                request,
+                replay.discard_replays_older_than,
+                replay.discard_bad_responses,
+            )
 
         except GracyReplayRequestNotFound:
             httpx_response = await httpx_request_func(*args, **kwargs)
