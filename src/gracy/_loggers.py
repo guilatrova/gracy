@@ -7,9 +7,12 @@ from enum import Enum
 import httpx
 
 from ._models import GracefulRetryState, GracyRequestContext, LogEvent, ThrottleRule
-from .replays.storages._base import is_replay
 
 logger = logging.getLogger("gracy")
+
+
+def is_replay(resp: httpx.Response) -> bool:
+    return getattr(resp, "_gracy_replayed", False)
 
 
 class SafeDict(t.Dict[str, str]):
@@ -31,6 +34,9 @@ class DefaultLogMessage(str, Enum):
     )
     RETRY_AFTER = "GracefulRetry: {URL} replied {STATUS} ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
     RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT} due to {RETRY_CAUSE}"
+
+    REPLAY_RECORDED = "Gracy Replay: Recorded {RECORDED_COUNT} requests"
+    REPLAY_REPLAYED = "Gracy Replay: Replayed {REPLAYED_COUNT} requests"
 
 
 def do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):

@@ -20,7 +20,7 @@ from ._models import (
     ThrottleRule,
 )
 from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, GracyReport
-from .replays.storages._base import GracyReplay, GracyReplayStorage
+from .replays.storages._base import GracyReplay, GracyReplayStorage, ReplayLogEvent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
@@ -49,6 +49,7 @@ __all__ = [
     "replays",
     "GracyReplay",
     "GracyReplayStorage",
+    "ReplayLogEvent",
     # Reports
     "GracyReport",
     "GracyAggregatedTotal",

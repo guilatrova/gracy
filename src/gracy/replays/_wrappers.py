@@ -18,7 +18,7 @@ def record_mode(replay: GracyReplay, httpx_request_func: httpx_func_type):
     async def _wrapper(*args: t.Any, **kwargs: t.Any):
         httpx_response = await httpx_request_func(*args, **kwargs)
         await replay.storage.record(httpx_response)
-        replay.records_made += 1
+        replay.inc_record()
 
         return httpx_response
 
@@ -36,7 +36,7 @@ def replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_fu
             replay.discard_replays_older_than,
             replay.discard_bad_responses,
         )
-        replay.replays_made += 1
+        replay.inc_replay()
 
         return stored_response
 
@@ -60,11 +60,11 @@ def smart_replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_requ
             httpx_response = await httpx_request_func(*args, **kwargs)
             await replay.storage.record(httpx_response)
             response = httpx_response
-            replay.records_made += 1
+            replay.inc_record()
 
         else:
             response = stored_response
-            replay.replays_made += 1
+            replay.inc_replay()
 
         return response
 

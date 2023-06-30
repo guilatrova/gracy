@@ -5,7 +5,17 @@ from http import HTTPStatus
 
 import httpx
 
-from gracy import BaseEndpoint, GracefulRetry, Gracy, GracyReplay, GracyRequestContext, LogEvent, LogLevel, graceful
+from gracy import (
+    BaseEndpoint,
+    GracefulRetry,
+    Gracy,
+    GracyReplay,
+    GracyRequestContext,
+    LogEvent,
+    LogLevel,
+    ReplayLogEvent,
+    graceful,
+)
 from gracy.exceptions import GracyUserDefinedException
 from gracy.replays.storages.sqlite import SQLiteReplayStorage
 
@@ -20,8 +30,13 @@ retry = GracefulRetry(
     behavior="pass",
 )
 
-record_mode = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))
-replay_mode = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
+record_mode = GracyReplay(
+    "record",
+    SQLiteReplayStorage("pokeapi.sqlite3"),
+)
+replay_mode = GracyReplay(
+    "replay", SQLiteReplayStorage("pokeapi.sqlite3"), log_replay=ReplayLogEvent(LogLevel.WARNING, frequency=1)
+)
 
 
 class PokemonNotFound(GracyUserDefinedException):
