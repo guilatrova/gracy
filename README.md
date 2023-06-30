@@ -723,7 +723,7 @@ class MyCustomStorage(GracyReplayStorage):
   async def record(self, response: httpx.Response) -> None:
     ... # REQUIRED. Your logic to store the response object. Note the httpx.Response has request data.
 
-  async def load(self, request: httpx.Request) -> httpx.Response:
+  async def _load(self, request: httpx.Request) -> httpx.Response:
     ... # REQUIRED. Your logic to load a response object based on the request.
 
 

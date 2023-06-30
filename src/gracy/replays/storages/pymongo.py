@@ -128,7 +128,7 @@ class MongoReplayStorage(GracyReplayStorage):
 
         return doc
 
-    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    async def _load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
         doc = await self.find_replay(request, discard_before)
 
         if doc is None:

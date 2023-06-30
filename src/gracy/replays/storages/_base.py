@@ -11,6 +11,13 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
+REPLAY_FLAG: t.Final = "_gracy_replayed"
+
+
+def is_replay(resp: httpx.Response) -> bool:
+    return getattr(resp, REPLAY_FLAG, False)
+
+
 class GracyReplayStorage(ABC):
     def prepare(self) -> None:
         """(Optional) Executed upon API instance creation."""
@@ -26,9 +33,15 @@ class GracyReplayStorage(ABC):
         pass
 
     @abstractmethod
-    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    async def _load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
         """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
         pass
+
+    async def load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+        """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
+        resp = await self._load(request, discard_before)
+        setattr(resp, REPLAY_FLAG, True)
+        return resp
 
     def flush(self) -> None:
         """(Optional) Executed during close (preferably once all requests were made)."""
