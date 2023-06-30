@@ -114,7 +114,7 @@ class RichPrinter(BasePrinter):
         from rich.console import Console
         from rich.table import Table
 
-        in_replay_mode = bool(report.replay_settings)
+        in_replay_mode = report.replay_settings and report.replay_settings.display_report
 
         console = Console()
         title_warn = f"[yellow]{_getreplays_warn(report.replay_settings)}[/yellow]" if in_replay_mode else ""
@@ -183,7 +183,7 @@ class ListPrinter(BasePrinter):
 
         entries = report.requests
         entries.append(report.total)
-        in_replay_mode = bool(report.replay_settings)
+        in_replay_mode = report.replay_settings and report.replay_settings.display_report
 
         PAD_PREFIX: t.Final = 20
 
