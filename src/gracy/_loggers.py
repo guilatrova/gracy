@@ -7,6 +7,7 @@ from enum import Enum
 import httpx
 
 from ._models import GracefulRetryState, GracyRequestContext, LogEvent, ThrottleRule
+from .replays.storages._base import is_replay
 
 logger = logging.getLogger("gracy")
 
@@ -18,7 +19,7 @@ class SafeDict(t.Dict[str, str]):
 
 class DefaultLogMessage(str, Enum):
     BEFORE = "Request on {URL} is ongoing"
-    AFTER = "[{METHOD}] {URL} returned {STATUS}"
+    AFTER = "{REPLAY}[{METHOD}] {URL} returned {STATUS}"
     ERRORS = "[{METHOD}] {URL} returned a bad status ({STATUS})"
 
     THROTTLE_HIT = "{URL} hit {THROTTLE_LIMIT} reqs/{THROTTLE_TIME_RANGE}"
@@ -61,9 +62,18 @@ def extract_response_format_args(response: httpx.Response | None) -> dict[str, s
     status_code = response.status_code if response else "ABORTED"
     elapsed = response.elapsed if response else "UNKNOWN"
 
+    if response and is_replay(response):
+        replayed = "TRUE"
+        replayed_str = "REPLAYED"
+    else:
+        replayed = "FALSE"
+        replayed_str = ""
+
     return dict(
         STATUS=str(status_code),
         ELAPSED=str(elapsed),
+        IS_REPLAY=replayed,
+        REPLAY=replayed_str,
     )
 
 

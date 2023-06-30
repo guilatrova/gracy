@@ -51,6 +51,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             if r
             else "",
         ),
+        log_response=LogEvent(LogLevel.INFO),
         parser={
             "default": lambda r: r.json()["name"],
             HTTPStatus.NOT_FOUND: PokemonNotFound,
