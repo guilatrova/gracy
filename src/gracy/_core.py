@@ -239,11 +239,13 @@ async def _gracify(
     try:
         await before_hook(request_context)
         response = await request()
+
     except Exception as request_err:
         resulting_exc = GracyRequestFailed(request_context, request_err)
         response = None
         report.track(request_context, resulting_exc)
         await after_hook(request_context, resulting_exc, None)
+
     else:
         # mypy didn't detect it properly
         response = t.cast(httpx.Response, response)  # type: ignore

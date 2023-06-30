@@ -9,7 +9,7 @@ from statistics import mean
 import httpx
 
 from .._models import GracyRequestContext, ThrottleController
-from ..replays.storages._base import GracyReplay
+from ..replays.storages._base import GracyReplay, is_replay
 from ._models import GracyAggregatedRequest, GracyReport, GracyRequestCounters, GracyRequestResult
 
 ANY_REGEX: t.Final = r".+"
@@ -26,12 +26,17 @@ class ReportBuilder:
 
     def track(self, request_context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
         self._results.append(GracyRequestResult(request_context.unformatted_url, response_or_exc))
+        if isinstance(response_or_exc, httpx.Response) and is_replay(response_or_exc):
+            self.replayed(request_context)
 
     def retried(self, request_context: GracyRequestContext):
         self._counters[request_context.unformatted_url].retries += 1
 
     def throttled(self, request_context: GracyRequestContext):
         self._counters[request_context.unformatted_url].throttles += 1
+
+    def replayed(self, request_context: GracyRequestContext):
+        self._counters[request_context.unformatted_url].replays += 1
 
     def _calculate_req_rate_for_url(self, unformatted_url: str, throttle_controller: ThrottleController) -> float:
         pattern = re.compile(re.sub(r"{(\w+)}", ANY_REGEX, unformatted_url))

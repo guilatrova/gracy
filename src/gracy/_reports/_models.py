@@ -20,6 +20,7 @@ class GracyRequestResult:
 class GracyRequestCounters:
     throttles: int = 0
     retries: int = 0
+    replays: int = 0
 
 
 @dataclass
