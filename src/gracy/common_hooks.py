@@ -13,6 +13,7 @@ import httpx
 from ._loggers import do_log, extract_base_format_args, extract_response_format_args
 from ._models import GracyRequestContext, LogEvent
 from ._reports._builders import ReportBuilder
+from .replays.storages._base import is_replay
 
 logger = logging.getLogger("gracy")
 
@@ -112,6 +113,9 @@ class HttpHeaderRetryAfterBackOffHook:
         response_or_exc: httpx.Response | Exception,
     ) -> HookResult:
         if isinstance(response_or_exc, httpx.Response) and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+            if is_replay(response_or_exc):
+                return HookResult(executed=False, dry_run=self._dry_run)
+
             retry_after_seconds = self._parse_retry_after_as_seconds(response_or_exc)
             actual_wait = self._processor(retry_after_seconds)
 
@@ -191,6 +195,9 @@ class RateLimitBackOffHook:
         response_or_exc: httpx.Response | Exception,
     ) -> HookResult:
         if isinstance(response_or_exc, httpx.Response) and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+            if is_replay(response_or_exc):
+                return HookResult(executed=False, dry_run=self._dry_run)
+
             lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
 
             async with self._lock_manager[lock_name]:
