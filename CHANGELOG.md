@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v1.24.0 (2023-06-30)
+### Feature
+
+* **replays:** Allow to discard bad status ([`9926ae3`](https://github.com/guilatrova/gracy/commit/9926ae3282ab9632261af204734cbfcf2fce721e))
+* **loggers:** Add REPLAY placeholder ([`911a9ec`](https://github.com/guilatrova/gracy/commit/911a9ecdcb83bf877350b96d325047cea80edbd5))
+* **reports:** Show replays ([`fc82bd7`](https://github.com/guilatrova/gracy/commit/fc82bd7322f35a61506bc2b42bc53c51d0ae1029))
+* Track replays per request ([`e7322a3`](https://github.com/guilatrova/gracy/commit/e7322a3b31aa55d31e93e71cda43ba1ee55c53c2))
+* **hooks:** Don't wait if replayed ([`785959f`](https://github.com/guilatrova/gracy/commit/785959f92a8bcacba9d7523a15c7682294bf2a00))
+* **replays:** Add flag when replayed ([`8ae8394`](https://github.com/guilatrova/gracy/commit/8ae839489e338b8fbde18e96771dc7765587a6b2))
+
 ## v1.23.0 (2023-06-28)
 ### Feature
 
