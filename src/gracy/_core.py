@@ -340,6 +340,7 @@ class Gracy(t.Generic[Endpoint]):
         self._base_config = t.cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
         self._client = self._create_client(**kwargs)
         self.replays = replay
+        self.ongoing_requests_count = 0
 
         if replay:
             replay.storage.prepare()
@@ -398,7 +399,12 @@ class Gracy(t.Generic[Endpoint]):
             request_context,
         )
 
-        return await graceful_request
+        self.ongoing_requests_count += 1
+
+        try:
+            return await graceful_request
+        finally:
+            self.ongoing_requests_count -= 1
 
     async def before(self, context: GracyRequestContext):
         ...
