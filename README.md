@@ -52,6 +52,9 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Overriding default request timeout](#overriding-default-request-timeout)
   - [Creating a custom Replay data source](#creating-a-custom-replay-data-source)
   - [Hooks before/after request](#hooks-beforeafter-request)
+    - [Common Hooks](#common-hooks)
+      - [`HttpHeaderRetryAfterBackOffHook`](#httpheaderretryafterbackoffhook)
+      - [`RateLimitBackOffHook`](#ratelimitbackoffhook)
 - [📚 Extra Resources](#-extra-resources)
 - [Change log](#change-log)
 - [License](#license)
@@ -783,6 +786,92 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 ```
 
 In the example above invoking `get_pokemon()` will trigger `before()`/`after()` hooks in sequence.
+
+#### Common Hooks
+
+##### `HttpHeaderRetryAfterBackOffHook`
+
+This hook checks for 429 (TOO MANY REQUESTS), and then reads the
+[`retry-after` header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After).
+
+If the value is set, then Gracy pauses **ALL** client requests until the time is over. This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
+
+Example Usage:
+
+```py
+from gracy.common_hooks import HttpHeaderRetryAfterBackOffHook
+
+class GracefulAPI(GracyAPI[Endpoint]):
+  def __init__(self):
+    self._retry_after_hook = HttpHeaderRetryAfterBackOffHook(
+        self._reporter,
+        lock_per_endpoint=True,
+        log_event=LogEvent(
+            LogLevel.WARNING,
+            custom_message=(
+                "{ENDPOINT} produced {STATUS} and requested to wait {RETRY_AFTER}s "
+                "- waiting {RETRY_AFTER_ACTUAL_WAIT}s"
+            ),
+        ),
+        # Wait +10s to avoid this from happening again too soon
+        seconds_processor=lambda secs_requested: secs_requested + 10,
+    )
+
+    super().__init__()
+
+  async def before(self, context: GracyRequestContext):
+    await self._retry_after_hook.before(context)
+
+  async def after(
+    self,
+    context: GracyRequestContext,
+    response_or_exc: httpx.Response | Exception,
+    retry_state: GracefulRetryState | None,
+  ):
+    retry_after_result = await self._retry_after_hook.after(context, response_or_exc)
+```
+
+##### `RateLimitBackOffHook`
+
+This hook checks for 429 (TOO MANY REQUESTS) and locks requests for an arbitrary amount of time defined by you.
+
+If the value is set, then Gracy pauses **ALL** client requests until the time is over.
+This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
+
+
+```py
+from gracy.common_hooks import RateLimitBackOffHook
+
+class GracefulAPI(GracyAPI[Endpoint]):
+  def __init__(self):
+    self._ratelimit_backoff_hook = RateLimitBackOffHook(
+      30,
+      self._reporter,
+      lock_per_endpoint=True,
+      log_event=LogEvent(
+          LogLevel.INFO,
+          custom_message="{UENDPOINT} got rate limited, waiting for {WAIT_TIME}s",
+      ),
+    )
+
+    super().__init__()
+
+  async def before(self, context: GracyRequestContext):
+    await self._ratelimit_backoff_hook.before(context)
+
+  async def after(
+    self,
+    context: GracyRequestContext,
+    response_or_exc: httpx.Response | Exception,
+    retry_state: GracefulRetryState | None,
+  ):
+    backoff_result = await self._ratelimit_backoff_hook.after(context, response_or_exc)
+```
+
+
+```py
+from gracy.common_hooks import HttpHeaderRetryAfterBackOffHook, RateLimitBackOffHook
+```
 
 ## 📚 Extra Resources
 
