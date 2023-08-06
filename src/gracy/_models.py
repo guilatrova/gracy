@@ -357,6 +357,45 @@ class GracefulValidator(ABC):
 
 
 @dataclass
+class ConcurrentCallLimit:
+    """
+    Limits how many concurrent calls for a specific endpoint can be active.
+
+    e.g. If you limit 10 requests to the endpoing /xyz
+    """
+
+    limit: int
+    uurl_pattern: t.Pattern[str] = re.compile(".*")
+    blocking_args: t.Optional[t.Iterable[str]] = None
+    """
+    Combine endpoint args to decide whether to limit.
+    Optional, leaving it blank means that any request to the endpoint will be blocked
+    """
+
+    free_on_capacitity: float = 0
+
+    log_limit_reached: LOG_EVENT_TYPE = UNSET_VALUE
+    log_limit_freed: LOG_EVENT_TYPE = UNSET_VALUE
+
+    def get_blocking_key(self, request_context: GracyRequestContext) -> t.Tuple[str, ...]:
+        if self.blocking_args:
+            args = [arg for arg in self.blocking_args]
+            return (request_context.unformatted_url, *args)
+
+        return (request_context.unformatted_url,)
+
+    def should_free(self, done: int) -> bool:
+        if self.free_on_capacitity == 0:
+            return done == self.limit
+
+        cur_cap = (done / self.limit) * 100
+        return cur_cap >= self.free_on_capacitity
+
+
+CONCURRENT_CALL_TYPE = t.Iterable[ConcurrentCallLimit] | ConcurrentCallLimit | None | Unset
+
+
+@dataclass
 class GracyConfig:
     log_request: LOG_EVENT_TYPE = UNSET_VALUE
     log_response: LOG_EVENT_TYPE = UNSET_VALUE
@@ -396,6 +435,8 @@ class GracyConfig:
     """
 
     throttling: GracefulThrottle | None | Unset = UNSET_VALUE
+
+    concurrent_calls: CONCURRENT_CALL_TYPE = UNSET_VALUE
 
     def should_retry(self, response: httpx.Response | None, req_or_validation_exc: Exception | None) -> bool:
         """Only checks if given status requires retry. Does not consider attempts."""
@@ -459,6 +500,22 @@ class GracyConfig:
 
         return new_obj
 
+    def get_concurrent_limit(self, context: GracyRequestContext) -> t.Optional[ConcurrentCallLimit]:
+        if isinstance(self.concurrent_calls, Unset) or self.concurrent_calls is None:
+            return None
+
+        if isinstance(self.concurrent_calls, ConcurrentCallLimit):
+            if self.concurrent_calls.uurl_pattern.match(context.unformatted_url):
+                return self.concurrent_calls
+
+            return None
+
+        for rule in self.concurrent_calls:
+            if rule.uurl_pattern.match(context.unformatted_url):
+                return rule
+
+        return None
+
 
 DEFAULT_CONFIG: t.Final = GracyConfig(
     log_request=None,
@@ -507,7 +564,7 @@ class GracyRequestContext:
         method: str,
         base_url: str,
         endpoint: str,
-        endpoint_args: dict[str, str] | None,
+        endpoint_args: t.Union[t.Dict[str, str], None],
         active_config: GracyConfig,
     ) -> None:
         if base_url.endswith("/"):

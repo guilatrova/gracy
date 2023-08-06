@@ -38,6 +38,9 @@ class DefaultLogMessage(str, Enum):
     REPLAY_RECORDED = "Gracy Replay: Recorded {RECORDED_COUNT} requests"
     REPLAY_REPLAYED = "Gracy Replay: Replayed {REPLAYED_COUNT} requests"
 
+    CONCURRENT_CALL_LIMIT_HIT = "{UURL} hit {CONCURRENT_CALLS} ongoing concurrent requests"
+    CONCURRENT_CALL_LIMIT_FREED = "{UURL} concurrency has been freed at {CONCURRENCY_CAP}"
+
 
 def do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
     # Let's protect ourselves against potential customizations with undefined {key}
@@ -140,3 +143,20 @@ def process_log_after_request(
     )
 
     do_log(logevent, defaultmsg, format_args, response)
+
+
+def process_log_concurrency_limit(logevent: LogEvent, count: int, request_context: GracyRequestContext):
+    format_args: t.Dict[str, str] = dict(
+        CONCURRENT_CALLS=f"{count:,}",
+        **extract_base_format_args(request_context),
+    )
+
+    do_log(logevent, DefaultLogMessage.CONCURRENT_CALL_LIMIT_HIT, format_args)
+
+
+def process_log_concurrency_freed(logevent: LogEvent, request_context: GracyRequestContext, cur_cap: float):
+    format_args: t.Dict[str, str] = dict(
+        CONCURRENCY_CAP=f"{cur_cap:.2f}%",
+        **extract_base_format_args(request_context),
+    )
+    do_log(logevent, DefaultLogMessage.CONCURRENT_CALL_LIMIT_FREED, format_args)

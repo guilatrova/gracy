@@ -4,7 +4,8 @@ import asyncio
 import logging
 import sys
 import typing as t
-from asyncio import sleep
+from asyncio import Lock, sleep
+from contextlib import asynccontextmanager
 from http import HTTPStatus
 
 import httpx
@@ -17,15 +18,19 @@ from ._loggers import (
     DefaultLogMessage,
     process_log_after_request,
     process_log_before_request,
+    process_log_concurrency_freed,
+    process_log_concurrency_limit,
     process_log_retry,
     process_log_throttle,
 )
 from ._models import (
+    CONCURRENT_CALL_TYPE,
     DEFAULT_CONFIG,
     LOG_EVENT_TYPE,
     PARSER_TYPE,
     THROTTLE_LOCKER,
     UNSET_VALUE,
+    ConcurrentCallLimit,
     Endpoint,
     GracefulRequest,
     GracefulRetry,
@@ -310,6 +315,80 @@ async def _gracify(
     return final_result
 
 
+def _is_coro_done(coro: t.Coroutine[t.Any, t.Any, t.Any]) -> bool:
+    """This simple check guarantess two things: The coroutine has been started, and it has been completed."""
+    return coro.cr_frame is None  # type: ignore
+
+
+class OngoingRequestsTracker:
+    ARBITRARY_WAIT_SECS = 0.2
+    """We need to force a wait to ensure the coroutines will be completed,
+    we can't tell how long it will take, so let's aim for a small time range."""
+
+    def __init__(self) -> None:
+        self._count = 0
+        self._control = t.DefaultDict[t.Tuple[str, ...], t.List[t.Coroutine[t.Any, t.Any, t.Any]]](list)
+        self._uurl_lock = t.DefaultDict[str, Lock](Lock)
+
+    @property
+    def count(self) -> int:
+        return self._count
+
+    @asynccontextmanager
+    async def request(
+        self,
+        context: GracyRequestContext,
+        concurrent_call: t.Optional[ConcurrentCallLimit],
+        coro: t.Coroutine[t.Any, t.Any, t.Any],
+    ):
+        limit_key = None
+        has_been_limited = False
+
+        try:
+            self._count += 1
+            done_coros = 0
+
+            if concurrent_call is None:
+                yield
+                return
+
+            limit_key = concurrent_call.get_blocking_key(context)
+            cur_count = len(self._control[limit_key])
+            has_been_limited = cur_count >= concurrent_call.limit
+
+            if has_been_limited:
+                while self._uurl_lock[context.unformatted_url].locked():
+                    await asyncio.sleep(self.ARBITRARY_WAIT_SECS)
+
+                if isinstance(concurrent_call.log_limit_reached, LogEvent):
+                    process_log_concurrency_limit(concurrent_call.log_limit_reached, concurrent_call.limit, context)
+
+                async with self._uurl_lock[context.unformatted_url]:
+                    # We don't want to await!
+                    while concurrent_call.should_free(done_coros) is False:
+                        await asyncio.sleep(self.ARBITRARY_WAIT_SECS)
+
+                        pending_coros = self._control[limit_key]
+                        if len(pending_coros) == 0:
+                            break
+
+                        done_coros = len([True for coro in pending_coros if _is_coro_done(coro)])
+                        done_coros += len(pending_coros) - concurrent_call.limit
+
+                if isinstance(concurrent_call.log_limit_freed, LogEvent):
+                    cur_capacity = (len(self._control[limit_key]) / concurrent_call.limit) * 100
+                    process_log_concurrency_freed(concurrent_call.log_limit_freed, context, cur_capacity)
+
+            self._control[limit_key].append(coro)
+
+            yield
+
+        finally:
+            self._count -= 1
+            if limit_key and coro in self._control[limit_key]:
+                self._control[limit_key].remove(coro)
+
+
 DISABLED_GRACY_CONFIG: t.Final = GracyConfig(
     strict_status_code=None,
     allowed_status_code=None,
@@ -340,10 +419,14 @@ class Gracy(t.Generic[Endpoint]):
         self._base_config = t.cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
         self._client = self._create_client(**kwargs)
         self.replays = replay
-        self.ongoing_requests_count = 0
+        self._ongoing_tracker = OngoingRequestsTracker()
 
         if replay:
             replay.storage.prepare()
+
+    @property
+    def ongoing_requests_count(self) -> int:
+        return self._ongoing_tracker.count
 
     def _create_client(self, **kwargs: t.Any) -> httpx.AsyncClient:
         base_url = getattr(self.Config, "BASE_URL", "")
@@ -399,12 +482,16 @@ class Gracy(t.Generic[Endpoint]):
             request_context,
         )
 
-        self.ongoing_requests_count += 1
+        result_coro = graceful_request
 
-        try:
-            return await graceful_request
-        finally:
-            self.ongoing_requests_count -= 1
+        concurrent = active_config.get_concurrent_limit(request_context)
+
+        async with self._ongoing_tracker.request(
+            request_context,
+            concurrent,
+            result_coro,
+        ):
+            return await result_coro
 
     async def before(self, context: GracyRequestContext):
         ...
@@ -531,6 +618,7 @@ def graceful(
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
     log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
     parser: PARSER_TYPE = UNSET_VALUE,
+    concurrent_calls: CONCURRENT_CALL_TYPE = UNSET_VALUE,
 ):
     config = GracyConfig(
         strict_status_code=strict_status_code,
@@ -541,6 +629,7 @@ def graceful(
         log_response=log_response,
         log_errors=log_errors,
         parser=parser,
+        concurrent_calls=concurrent_calls,
     )
 
     def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_T]) -> t.Callable[P, GRACEFUL_T]:
@@ -563,6 +652,7 @@ def graceful_generator(
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
     log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
     parser: PARSER_TYPE = UNSET_VALUE,
+    concurrent_calls: CONCURRENT_CALL_TYPE = UNSET_VALUE,
 ):
     config = GracyConfig(
         strict_status_code=strict_status_code,
@@ -573,6 +663,7 @@ def graceful_generator(
         log_response=log_response,
         log_errors=log_errors,
         parser=parser,
+        concurrent_calls=concurrent_calls,
     )
 
     def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_GEN_T]) -> t.Callable[P, GRACEFUL_GEN_T]:
