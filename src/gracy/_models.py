@@ -118,15 +118,11 @@ class GracefulRetryState:
             self._delay *= self._retry_config.delay_modifier
 
         self._override_delay = None
-        if (
-            response
-            and self._retry_config.overrides
-            and self._retry_config.overrides.get(HTTPStatus(response.status_code))
-        ):
-            self._override_delay = self._retry_config.overrides[HTTPStatus(response.status_code)].delay
+        if response and self._retry_config.overrides and self._retry_config.overrides.get(response.status_code):
+            self._override_delay = self._retry_config.overrides[response.status_code].delay
 
 
-STATUS_OR_EXCEPTION = t.Union[HTTPStatus, t.Type[Exception]]
+STATUS_OR_EXCEPTION = t.Union[int, t.Type[Exception]]
 
 
 @dataclass
@@ -145,9 +141,9 @@ class GracefulRetry:
     log_after: LogEvent | None = None
     log_exhausted: LogEvent | None = None
     behavior: t.Literal["break", "pass"] = "break"
-    overrides: t.Union[t.Dict[HTTPStatus, OverrideRetryOn], None] = None
+    overrides: t.Union[t.Dict[int, OverrideRetryOn], None] = None
 
-    def needs_retry(self, response_result: HTTPStatus) -> bool:
+    def needs_retry(self, response_result: int) -> bool:
         if self.retry_on is None:
             return True
 
@@ -432,7 +428,7 @@ class GracyConfig:
                     return True
 
             if isinstance(retry.retry_on, t.Iterable):
-                if HTTPStatus(response_status) in retry.retry_on:
+                if response_status in retry.retry_on:
                     return True
 
                 for maybe_exc in retry.retry_on:

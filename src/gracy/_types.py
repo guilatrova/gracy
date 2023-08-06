@@ -17,7 +17,7 @@ class Unset:
         return False
 
 
-PARSER_KEY = t.Union[HTTPStatus, t.Literal["default"]]
+PARSER_KEY = t.Union[HTTPStatus, int, t.Literal["default"]]
 PARSER_VALUE = t.Union[t.Type[Exception], t.Callable[[httpx.Response], t.Any], None]
 PARSER_TYPE = t.Union[t.Dict[PARSER_KEY, PARSER_VALUE], Unset, None]
 

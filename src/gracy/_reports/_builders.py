@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import typing as t
 from collections import defaultdict
-from http import HTTPStatus
 from statistics import mean
 
 import httpx
@@ -15,7 +14,7 @@ from ._models import GracyAggregatedRequest, GracyReport, GracyRequestCounters, 
 ANY_REGEX: t.Final = r".+"
 
 REQUEST_ERROR_STATUS: t.Final = 0
-REQUEST_SUM_KEY = t.Union[HTTPStatus, t.Literal["total", "retries", "throttles", "replays", 0]]
+REQUEST_SUM_KEY = t.Union[int, t.Literal["total", "retries", "throttles", "replays", 0]]
 REQUEST_SUM_PER_STATUS_TYPE = t.Dict[str, t.DefaultDict[REQUEST_SUM_KEY, int]]
 
 
@@ -51,7 +50,7 @@ class ReportBuilder:
             requests_by_uurl[result.uurl].add(result.response)
             requests_sum[result.uurl]["total"] += 1
             if isinstance(result.response, httpx.Response):
-                requests_sum[result.uurl][HTTPStatus(result.response.status_code)] += 1
+                requests_sum[result.uurl][result.response.status_code] += 1
             else:
                 requests_sum[result.uurl][REQUEST_ERROR_STATUS] += 1
 
@@ -106,13 +105,13 @@ class ReportBuilder:
                     continue
 
                 status = maybe_status
-                if 200 <= status.value < 300:
+                if 200 <= status < 300:
                     resp_2xx += count
-                elif 300 <= status.value < 400:
+                elif 300 <= status < 400:
                     resp_3xx += count
-                elif 400 <= status.value < 500:
+                elif 400 <= status < 500:
                     resp_4xx += count
-                elif 500 <= status.value:
+                elif 500 <= status:
                     resp_5xx += count
 
             report_request = GracyAggregatedRequest(

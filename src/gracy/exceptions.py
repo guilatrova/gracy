@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import typing as t
 from abc import ABC, abstractmethod
-from http import HTTPStatus
 
 import httpx
 
@@ -72,7 +71,7 @@ class BadResponse(GracyException):
         message: str | None,
         url: str,
         response: httpx.Response,
-        expected: str | HTTPStatus | t.Iterable[HTTPStatus],
+        expected: str | int | t.Iterable[int],
     ) -> None:
         self.url = url
         self.response = response
@@ -86,10 +85,10 @@ class BadResponse(GracyException):
 
         if isinstance(expected, str):
             expectedstr = expected
-        elif isinstance(expected, HTTPStatus):
-            expectedstr = str(expected.value)
+        elif isinstance(expected, int):
+            expectedstr = str(expected)
         else:
-            expectedstr = ", ".join([str(s.value) for s in expected])
+            expectedstr = ", ".join([str(s) for s in expected])
 
         curmsg = message or f"{url} raised {response.status_code}, but it was expecting {expectedstr}"
 
@@ -100,7 +99,7 @@ class BadResponse(GracyException):
 
 
 class UnexpectedResponse(BadResponse):
-    def __init__(self, url: str, response: httpx.Response, expected: str | HTTPStatus | t.Iterable[HTTPStatus]) -> None:
+    def __init__(self, url: str, response: httpx.Response, expected: str | int | t.Iterable[int]) -> None:
         super().__init__(None, url, response, expected)
 
         self.url = url

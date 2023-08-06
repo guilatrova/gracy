@@ -40,7 +40,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         self.before_count = 0
 
-        self.after_status_counter = t.DefaultDict[HTTPStatus, int](int)
+        self.after_status_counter = t.DefaultDict[int, int](int)
         self.after_aborts = 0
         self.after_retries_counter = 0
 
@@ -59,7 +59,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             self.after_retries_counter += 1
 
         if isinstance(response_or_exc, httpx.Response):
-            self.after_status_counter[HTTPStatus(response_or_exc.status_code)] += 1
+            self.after_status_counter[response_or_exc.status_code] += 1
         else:
             self.after_aborts += 1
 

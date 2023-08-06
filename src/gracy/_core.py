@@ -192,7 +192,7 @@ async def _gracefully_retry(
 def _maybe_parse_result(active_config: GracyConfig, request_context: GracyRequestContext, result: httpx.Response):
     if active_config.parser and not isinstance(active_config.parser, Unset):
         default_fallback = active_config.parser.get("default", UNSET_VALUE)
-        parse_result = active_config.parser.get(HTTPStatus(result.status_code), default_fallback)
+        parse_result = active_config.parser.get(result.status_code, default_fallback)
 
         if not isinstance(parse_result, Unset):
             if isinstance(parse_result, type) and issubclass(parse_result, Exception):
