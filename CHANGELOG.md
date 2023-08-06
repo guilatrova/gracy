@@ -2,6 +2,19 @@
 
 <!--next-version-placeholder-->
 
+## v1.26.0 (2023-08-06)
+### Feature
+
+* Count ongoing requests ([`9495d4e`](https://github.com/guilatrova/gracy/commit/9495d4ed98839562fc470da2964d370638b6f727))
+
+### Fix
+
+* Use int over HttpStatus enum ([`abebe93`](https://github.com/guilatrova/gracy/commit/abebe938191b760f64490477abad595259537c79))
+
+### Documentation
+
+* Add common hooks ([`3a85897`](https://github.com/guilatrova/gracy/commit/3a85897baf65222e156e9762cd3f09d8bc35e2e4))
+
 ## v1.25.0 (2023-06-30)
 ### Feature
 
