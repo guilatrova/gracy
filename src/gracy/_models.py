@@ -392,7 +392,7 @@ class ConcurrentRequestLimit:
         return cur_cap >= self.free_on_capacitity
 
 
-CONCURRENT_REQUEST_TYPE = t.Iterable[ConcurrentRequestLimit] | ConcurrentRequestLimit | None | Unset
+CONCURRENT_REQUEST_TYPE = t.Union[t.Iterable[ConcurrentRequestLimit], ConcurrentRequestLimit, None, Unset]
 
 
 @dataclass
