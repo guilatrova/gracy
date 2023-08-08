@@ -37,6 +37,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Parsing](#parsing)
   - [Retry](#retry)
   - [Throttling](#throttling)
+  - [Concurrent Requests](#concurrent-requests)
   - [Logging](#logging)
   - [Custom Exceptions](#custom-exceptions)
 - [Reports](#reports)
@@ -352,6 +353,38 @@ class Config:
         log_wait_over=LogEvent(LogLevel.WARNING),
     ),
   )
+```
+
+### Concurrent Requests
+
+Maybe the API you're hitting have some slow endpoints and you want to ensure that no more than a custom number of requests are being made concurrently.
+
+You can define a `ConcurrentRequestLimit` config.
+
+The simplest usage is:
+
+```py
+from gracy import ConcurrentRequestLimit
+
+
+class Config:
+  GracyConfig(
+    concurrent_requests=ConcurrentRequestLimit(
+      limit=1, # How many concurrent requests
+      log_limit_reached=LogEvent(LogLevel.WARNING),
+      log_limit_freed=LogEvent(LogLevel.INFO),
+    ),
+  )
+```
+
+But you can also define it easily per method as:
+
+```py
+class MyApiClient(Gracy[Endpoint]):
+
+  @graceful(concurrent_requests=5)
+  async def get_concurrently_five(self, name: str):
+      ...
 ```
 
 ### Logging
