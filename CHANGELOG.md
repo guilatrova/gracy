@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v1.27.0 (2023-08-08)
+### Feature
+
+* Add concurrent calls ([`69976d3`](https://github.com/guilatrova/gracy/commit/69976d36d25fe45ae7b6cefe5e8800bf926aa4f8))
+
+### Documentation
+
+* Add note about concurrent requests ([`487dbed`](https://github.com/guilatrova/gracy/commit/487dbedbf707dbe38caf4529be1488ad72a0f2d9))
+
 ## v1.26.0 (2023-08-06)
 ### Feature
 
