@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.27.1 (2023-08-08)
+### Fix
+
+* Use Union for python 3.8 ([`02415ac`](https://github.com/guilatrova/gracy/commit/02415aca8009e7bcae70f93b0c0b54c5a7d61473))
+
 ## v1.27.0 (2023-08-08)
 ### Feature
 
