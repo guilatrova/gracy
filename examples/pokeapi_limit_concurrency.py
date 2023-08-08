@@ -8,17 +8,7 @@ from http import HTTPStatus
 
 from rich import print
 
-from gracy import (
-    BaseEndpoint,
-    GracefulRetry,
-    GracefulThrottle,
-    Gracy,
-    GracyConfig,
-    LogEvent,
-    LogLevel,
-    ThrottleRule,
-    graceful,
-)
+from gracy import BaseEndpoint, ConcurrentCallLimit, GracefulRetry, Gracy, GracyConfig, LogEvent, LogLevel, graceful
 
 RETRY = GracefulRetry(
     delay=0,  # Force throttling to work
@@ -28,8 +18,6 @@ RETRY = GracefulRetry(
     log_exhausted=LogEvent(LogLevel.CRITICAL),
     behavior="pass",
 )
-
-THROTTLE_RULE = ThrottleRule(r".*", 4, timedelta(seconds=2))
 
 
 class PokeApiEndpoint(BaseEndpoint):
@@ -47,10 +35,10 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
                 "default": lambda r: r.json(),
                 HTTPStatus.NOT_FOUND: None,
             },
-            throttling=GracefulThrottle(
-                rules=THROTTLE_RULE,
-                log_limit_reached=LogEvent(LogLevel.ERROR),
-                log_wait_over=LogEvent(LogLevel.WARNING),
+            concurrent_calls=ConcurrentCallLimit(
+                1,
+                log_limit_reached=LogEvent(LogLevel.WARNING),
+                log_limit_freed=LogEvent(LogLevel.INFO),
             ),
         )
 
@@ -124,7 +112,6 @@ async def main():
         "incineroar",
     ]
     # pokemon_names = pokemon_names[:10]
-    print(f"Will query {len(pokemon_names)} pokemons concurrently - {str(THROTTLE_RULE)}")
 
     try:
         start = time.time()
