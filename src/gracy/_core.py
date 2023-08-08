@@ -24,13 +24,13 @@ from ._loggers import (
     process_log_throttle,
 )
 from ._models import (
-    CONCURRENT_CALL_TYPE,
+    CONCURRENT_REQUEST_TYPE,
     DEFAULT_CONFIG,
     LOG_EVENT_TYPE,
     PARSER_TYPE,
     THROTTLE_LOCKER,
     UNSET_VALUE,
-    ConcurrentCallLimit,
+    ConcurrentRequestLimit,
     Endpoint,
     GracefulRequest,
     GracefulRetry,
@@ -338,7 +338,7 @@ class OngoingRequestsTracker:
     async def request(
         self,
         context: GracyRequestContext,
-        concurrent_call: t.Optional[ConcurrentCallLimit],
+        concurrent_request: t.Optional[ConcurrentRequestLimit],
         coro: t.Coroutine[t.Any, t.Any, t.Any],
     ):
         limit_key = None
@@ -348,24 +348,26 @@ class OngoingRequestsTracker:
             self._count += 1
             done_coros = 0
 
-            if concurrent_call is None:
+            if concurrent_request is None:
                 yield
                 return
 
-            limit_key = concurrent_call.get_blocking_key(context)
+            limit_key = concurrent_request.get_blocking_key(context)
             cur_count = len(self._control[limit_key])
-            has_been_limited = cur_count >= concurrent_call.limit
+            has_been_limited = cur_count >= concurrent_request.limit
 
             if has_been_limited:
                 while self._uurl_lock[context.unformatted_url].locked():
                     await asyncio.sleep(self.ARBITRARY_WAIT_SECS)
 
-                if isinstance(concurrent_call.log_limit_reached, LogEvent):
-                    process_log_concurrency_limit(concurrent_call.log_limit_reached, concurrent_call.limit, context)
+                if isinstance(concurrent_request.log_limit_reached, LogEvent):
+                    process_log_concurrency_limit(
+                        concurrent_request.log_limit_reached, concurrent_request.limit, context
+                    )
 
                 async with self._uurl_lock[context.unformatted_url]:
                     # We don't want to await!
-                    while concurrent_call.should_free(done_coros) is False:
+                    while concurrent_request.should_free(done_coros) is False:
                         await asyncio.sleep(self.ARBITRARY_WAIT_SECS)
 
                         pending_coros = self._control[limit_key]
@@ -373,11 +375,11 @@ class OngoingRequestsTracker:
                             break
 
                         done_coros = len([True for coro in pending_coros if _is_coro_done(coro)])
-                        done_coros += len(pending_coros) - concurrent_call.limit
+                        done_coros += len(pending_coros) - concurrent_request.limit
 
-                if isinstance(concurrent_call.log_limit_freed, LogEvent):
-                    cur_capacity = (len(self._control[limit_key]) / concurrent_call.limit) * 100
-                    process_log_concurrency_freed(concurrent_call.log_limit_freed, context, cur_capacity)
+                if isinstance(concurrent_request.log_limit_freed, LogEvent):
+                    cur_capacity = (len(self._control[limit_key]) / concurrent_request.limit) * 100
+                    process_log_concurrency_freed(concurrent_request.log_limit_freed, context, cur_capacity)
 
             self._control[limit_key].append(coro)
 
@@ -618,8 +620,14 @@ def graceful(
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
     log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
     parser: PARSER_TYPE = UNSET_VALUE,
-    concurrent_calls: CONCURRENT_CALL_TYPE = UNSET_VALUE,
+    concurrent_requests: t.Union[CONCURRENT_REQUEST_TYPE, int] = UNSET_VALUE,
 ):
+    concurrent_requests_config: CONCURRENT_REQUEST_TYPE
+    if isinstance(concurrent_requests, int):
+        concurrent_requests_config = ConcurrentRequestLimit(concurrent_requests)
+    else:
+        concurrent_requests_config = concurrent_requests
+
     config = GracyConfig(
         strict_status_code=strict_status_code,
         allowed_status_code=allowed_status_code,
@@ -629,7 +637,7 @@ def graceful(
         log_response=log_response,
         log_errors=log_errors,
         parser=parser,
-        concurrent_calls=concurrent_calls,
+        concurrent_requests=concurrent_requests_config,
     )
 
     def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_T]) -> t.Callable[P, GRACEFUL_T]:
@@ -652,8 +660,14 @@ def graceful_generator(
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
     log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
     parser: PARSER_TYPE = UNSET_VALUE,
-    concurrent_calls: CONCURRENT_CALL_TYPE = UNSET_VALUE,
+    concurrent_requests: t.Union[CONCURRENT_REQUEST_TYPE, int] = UNSET_VALUE,
 ):
+    concurrent_requests_config: CONCURRENT_REQUEST_TYPE
+    if isinstance(concurrent_requests, int):
+        concurrent_requests_config = ConcurrentRequestLimit(concurrent_requests)
+    else:
+        concurrent_requests_config = concurrent_requests
+
     config = GracyConfig(
         strict_status_code=strict_status_code,
         allowed_status_code=allowed_status_code,
@@ -663,7 +677,7 @@ def graceful_generator(
         log_response=log_response,
         log_errors=log_errors,
         parser=parser,
-        concurrent_calls=concurrent_calls,
+        concurrent_requests=concurrent_requests_config,
     )
 
     def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_GEN_T]) -> t.Callable[P, GRACEFUL_GEN_T]:

@@ -8,7 +8,7 @@ from http import HTTPStatus
 
 from rich import print
 
-from gracy import BaseEndpoint, ConcurrentCallLimit, GracefulRetry, Gracy, GracyConfig, LogEvent, LogLevel, graceful
+from gracy import BaseEndpoint, ConcurrentRequestLimit, GracefulRetry, Gracy, GracyConfig, LogEvent, LogLevel, graceful
 
 RETRY = GracefulRetry(
     delay=0,  # Force throttling to work
@@ -35,7 +35,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
                 "default": lambda r: r.json(),
                 HTTPStatus.NOT_FOUND: None,
             },
-            concurrent_calls=ConcurrentCallLimit(
+            concurrent_requests=ConcurrentRequestLimit(
                 1,
                 log_limit_reached=LogEvent(LogLevel.WARNING),
                 log_limit_freed=LogEvent(LogLevel.INFO),

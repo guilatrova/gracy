@@ -8,7 +8,7 @@ from ._core import Gracy, graceful, graceful_generator
 from ._models import (
     DEFAULT_CONFIG,
     BaseEndpoint,
-    ConcurrentCallLimit,
+    ConcurrentRequestLimit,
     GracefulRetry,
     GracefulRetryState,
     GracefulThrottle,
@@ -46,7 +46,7 @@ __all__ = [
     "ThrottleRule",
     "GracyConfig",
     "DEFAULT_CONFIG",
-    "ConcurrentCallLimit",
+    "ConcurrentRequestLimit",
     # Replays
     "replays",
     "GracyReplay",

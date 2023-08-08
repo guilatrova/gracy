@@ -357,7 +357,7 @@ class GracefulValidator(ABC):
 
 
 @dataclass
-class ConcurrentCallLimit:
+class ConcurrentRequestLimit:
     """
     Limits how many concurrent calls for a specific endpoint can be active.
 
@@ -374,12 +374,12 @@ class ConcurrentCallLimit:
 
     free_on_capacitity: float = 0
 
-    log_limit_reached: LOG_EVENT_TYPE = UNSET_VALUE
-    log_limit_freed: LOG_EVENT_TYPE = UNSET_VALUE
+    log_limit_reached: LOG_EVENT_TYPE = None
+    log_limit_freed: LOG_EVENT_TYPE = None
 
     def get_blocking_key(self, request_context: GracyRequestContext) -> t.Tuple[str, ...]:
         if self.blocking_args:
-            args = [arg for arg in self.blocking_args]
+            args = [request_context.endpoint_args.get(arg, "") for arg in self.blocking_args]
             return (request_context.unformatted_url, *args)
 
         return (request_context.unformatted_url,)
@@ -392,7 +392,7 @@ class ConcurrentCallLimit:
         return cur_cap >= self.free_on_capacitity
 
 
-CONCURRENT_CALL_TYPE = t.Iterable[ConcurrentCallLimit] | ConcurrentCallLimit | None | Unset
+CONCURRENT_REQUEST_TYPE = t.Iterable[ConcurrentRequestLimit] | ConcurrentRequestLimit | None | Unset
 
 
 @dataclass
@@ -436,7 +436,7 @@ class GracyConfig:
 
     throttling: GracefulThrottle | None | Unset = UNSET_VALUE
 
-    concurrent_calls: CONCURRENT_CALL_TYPE = UNSET_VALUE
+    concurrent_requests: CONCURRENT_REQUEST_TYPE = UNSET_VALUE
 
     def should_retry(self, response: httpx.Response | None, req_or_validation_exc: Exception | None) -> bool:
         """Only checks if given status requires retry. Does not consider attempts."""
@@ -500,17 +500,17 @@ class GracyConfig:
 
         return new_obj
 
-    def get_concurrent_limit(self, context: GracyRequestContext) -> t.Optional[ConcurrentCallLimit]:
-        if isinstance(self.concurrent_calls, Unset) or self.concurrent_calls is None:
+    def get_concurrent_limit(self, context: GracyRequestContext) -> t.Optional[ConcurrentRequestLimit]:
+        if isinstance(self.concurrent_requests, Unset) or self.concurrent_requests is None:
             return None
 
-        if isinstance(self.concurrent_calls, ConcurrentCallLimit):
-            if self.concurrent_calls.uurl_pattern.match(context.unformatted_url):
-                return self.concurrent_calls
+        if isinstance(self.concurrent_requests, ConcurrentRequestLimit):
+            if self.concurrent_requests.uurl_pattern.match(context.unformatted_url):
+                return self.concurrent_requests
 
             return None
 
-        for rule in self.concurrent_calls:
+        for rule in self.concurrent_requests:
             if rule.uurl_pattern.match(context.unformatted_url):
                 return rule
 
