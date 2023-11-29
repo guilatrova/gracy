@@ -611,6 +611,55 @@ class Gracy(t.Generic[Endpoint]):
         cls._reporter = ReportBuilder()
 
 
+class GracyNamespace(t.Generic[Endpoint], Gracy[Endpoint]):
+    Config = None  # type: ignore
+    """Resetted to rely on parent"""
+
+    def __init__(self, parent: Gracy[Endpoint], **kwargs: t.Any) -> None:
+        self.DEBUG_ENABLED = parent.DEBUG_ENABLED
+        self.replays = parent.replays
+        self._parent = parent
+        self._ongoing_tracker = parent._ongoing_tracker
+
+        self._client = self._get_namespace_client(parent, **kwargs)
+        self._setup_namespace_config(parent)
+
+    def _get_namespace_client(self, parent: Gracy[Endpoint], **kwargs: t.Any) -> httpx.AsyncClient:
+        return parent._client
+
+    def _setup_namespace_config(self, parent: Gracy[Endpoint]):
+        if self.Config is None:  # type: ignore
+            self.Config = parent.Config
+            self._base_config = parent._base_config
+
+        else:
+            parent_config = parent.Config
+
+            if not hasattr(self.Config, "BASE_URL"):
+                self.Config.BASE_URL = parent_config.BASE_URL
+
+            if not hasattr(self.Config, "REQUEST_TIMEOUT"):
+                self.Config.REQUEST_TIMEOUT = parent_config.REQUEST_TIMEOUT
+
+            if hasattr(self.Config, "SETTINGS"):
+                settings_config = GracyConfig.merge_config(self.Config.SETTINGS, parent_config.SETTINGS)
+            else:
+                settings_config = parent_config.SETTINGS
+
+            self._base_config = settings_config
+
+        parent_settings = parent._base_config
+        parent_config = parent.Config
+
+        namespace_config = self.Config
+        namespace_config.BASE_URL = parent_config.BASE_URL
+
+        if hasattr(self.Config, "SETTINGS"):
+            self._base_config = GracyConfig.merge_config(parent_settings, self.Config.SETTINGS)
+        else:
+            self._base_config = parent_settings
+
+
 def graceful(
     strict_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
     allowed_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
