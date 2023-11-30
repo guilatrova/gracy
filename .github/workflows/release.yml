@@ -26,6 +26,9 @@ jobs:
           python-version: "3.10"
           cache: poetry
 
+      - name: Install dependencies
+        run: poetry install --with=dev
+
       - name: Python Semantic Release
         run: |
           git config --global user.name "github-actions"

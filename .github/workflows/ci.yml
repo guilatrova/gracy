@@ -43,7 +43,7 @@ jobs:
           # key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
 
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --with=dev
 
       - name: Lint
         uses: pre-commit/action@v2.0.3
