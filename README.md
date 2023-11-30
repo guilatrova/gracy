@@ -2,7 +2,7 @@
     <img src="https://raw.githubusercontent.com/guilatrova/gracy/main/img/logo.png">
 </p>
 
-<h2 align="center">Gracefully manage your API interactions</h2>
+<h2 align="center">Python's most graceful API Client Framework</h2>
 
 <p align="center">
   <!-- CI --><a href="https://github.com/guilatrova/gracy/actions"><img alt="Actions Status" src="https://github.com/guilatrova/gracy/workflows/CI/badge.svg"></a>
@@ -47,6 +47,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
 - [Replay requests](#replay-requests)
   - [Recording](#recording)
   - [Replay](#replay)
+- [Resource Namespacing](#resource-namespacing)
 - [Advanced Usage](#advanced-usage)
   - [Customizing/Overriding configs per method](#customizingoverriding-configs-per-method)
   - [Customizing HTTPx client](#customizing-httpx-client)
@@ -652,6 +653,58 @@ pokeapi = GracefulPokeAPI(replay_mode)
 **Every request** will be routed to the defined data source resulting in faster responses.
 
 **⚠️ Note that parsers, retries, throttling, and similar configs will work as usual**.
+
+
+## Resource Namespacing
+
+You can have multiple namespaces to organize your API endpoints as you wish.
+
+To do so, you just have to inherit from `GracyNamespace` and instantiate it within the `GracyAPI`:
+
+```py
+from gracy import Gracy, GracyNamespace, GracyConfig
+
+class PokemonNamespace(GracyNamespace[PokeApiEndpoint]):
+    async def get_one(self, name: str):
+        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+
+
+class BerryNamespace(GracyNamespace[PokeApiEndpoint]):
+    async def get_one(self, name: str):
+        return await self.get(PokeApiEndpoint.GET_BERRY, {"NAME": name})
+
+
+class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
+    class Config:  # type: ignore
+        BASE_URL = "https://pokeapi.co/api/v2/"
+        SETTINGS = GracyConfig(
+            retry=RETRY,
+            allowed_status_code={HTTPStatus.NOT_FOUND},
+            parser={HTTPStatus.NOT_FOUND: None},
+        )
+
+    def __init__(self, *args, **kwargs: t.Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._berry_ns = BerryNamespace(self)
+        self._pokemon_ns = PokemonNamespace(self)
+
+    @property
+    def berry(self):
+        return self._berry_ns
+
+    @property
+    def pokemon(self):
+        return self._pokemon_ns
+```
+
+And the usage will work as:
+
+```py
+await pokeapi.pokemon.get_one("pikachu")
+await pokeapi.berry.get_one("cheri")
+```
+
+Note all configs are propagated to namespaces, but namespaces can still have their own which would cause merges when instantiatedg.
 
 
 ## Advanced Usage
