@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v1.28.0 (2023-11-30)
+### Feature
+
+* Introduce namespaces ([`67a70f3`](https://github.com/guilatrova/gracy/commit/67a70f3550a77a37d309fcb65800b1b6759fb8f8))
+
+### Documentation
+
+* Write about namespaces ([`468e205`](https://github.com/guilatrova/gracy/commit/468e205fddb1166770bddb4c8c241668b27d03a7))
+
 ## v1.27.1 (2023-08-08)
 ### Fix
 
