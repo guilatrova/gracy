@@ -6,7 +6,7 @@ from http import HTTPStatus
 
 from gracy import Gracy, GracyConfig, graceful
 from gracy.exceptions import GracyParseFailed
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
+from tests.conftest import MISSING_NAME, PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
@@ -35,11 +35,11 @@ def make_pokeapi():
 async def test_pokemon_ok_json(make_pokeapi: t.Callable[[], GracefulPokeAPI]):
     pokeapi = make_pokeapi()
 
-    result: dict[str, t.Any] = await pokeapi.get_pokemon(PRESENT_NAME)
+    result: dict[str, t.Any] = await pokeapi.get_pokemon(PRESENT_POKEMON_NAME)
 
     assert isinstance(result, dict)
     assert "name" in result
-    assert result["name"] == PRESENT_NAME
+    assert result["name"] == PRESENT_POKEMON_NAME
     assert_one_request_made(pokeapi)
 
 

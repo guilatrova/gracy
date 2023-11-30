@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 
 from . import common_hooks, exceptions, replays
-from ._core import Gracy, graceful, graceful_generator
+from ._core import Gracy, GracyNamespace, graceful, graceful_generator
 from ._models import (
     DEFAULT_CONFIG,
     BaseEndpoint,
@@ -21,6 +21,7 @@ from ._models import (
     ThrottleRule,
 )
 from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, GracyReport
+from ._types import parsed_response
 from .replays.storages._base import GracyReplay, GracyReplayStorage, ReplayLogEvent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -31,6 +32,7 @@ __all__ = [
     "exceptions",
     # Core
     "Gracy",
+    "GracyNamespace",
     "graceful",
     "graceful_generator",
     # Models
@@ -58,4 +60,6 @@ __all__ = [
     "GracyAggregatedRequest",
     # Hooks
     "common_hooks",
+    # Types
+    "parsed_response",
 ]

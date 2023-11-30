@@ -9,7 +9,7 @@ import httpx
 
 from gracy import GracefulRetry, GracefulRetryState, Gracy, GracyConfig, GracyRequestContext
 from gracy.exceptions import GracyRequestFailed
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_requests_made
+from tests.conftest import MISSING_NAME, PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint, assert_requests_made
 
 RETRY: t.Final = GracefulRetry(
     delay=0.001,
@@ -71,7 +71,7 @@ class GracefulPokeAPIWithRequestHooks(GracefulPokeAPI):
     async def before(self, context: GracyRequestContext):
         await super().before(context)
         # This shouldn't re-trigger any hook!
-        await self.get_pokemon(PRESENT_NAME)
+        await self.get_pokemon(PRESENT_POKEMON_NAME)
 
     async def after(
         self,
@@ -81,7 +81,7 @@ class GracefulPokeAPIWithRequestHooks(GracefulPokeAPI):
     ):
         await super().after(context, response_or_exc, retry_state)
         # This shouldn't re-trigger any hook!
-        await self.get_pokemon(PRESENT_NAME)
+        await self.get_pokemon(PRESENT_POKEMON_NAME)
 
 
 MAKE_POKEAPI_TYPE = t.Callable[[], GracefulPokeAPI]
@@ -91,9 +91,9 @@ async def test_before_hook_counts(make_pokeapi: MAKE_POKEAPI_TYPE):
     pokeapi = make_pokeapi()
 
     assert pokeapi.before_count == 0
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_NAME))
+    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME))
     assert pokeapi.before_count == 1
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_NAME))
+    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME))
     assert pokeapi.before_count == 2
 
 
@@ -103,8 +103,8 @@ async def test_after_hook_counts_statuses(make_pokeapi: MAKE_POKEAPI_TYPE):
     assert pokeapi.after_status_counter[HTTPStatus.OK] == 0
     assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 0
 
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_NAME))  # 200
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_NAME))  # 200
+    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME))  # 200
+    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME))  # 200
     await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=MISSING_NAME))  # 404 + retry 2x
     await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=MISSING_NAME))  # 404 + retry 2x
 
@@ -125,7 +125,7 @@ async def test_after_hook_counts_aborts():
         mock.request.side_effect = SomeRequestException("Request failed")
 
         with pytest.raises(GracyRequestFailed):
-            await pokeapi.get_pokemon(PRESENT_NAME)
+            await pokeapi.get_pokemon(PRESENT_POKEMON_NAME)
 
     assert pokeapi.after_status_counter[HTTPStatus.OK] == 0
     assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 0
@@ -138,7 +138,7 @@ async def test_hook_has_no_recursion():
     pokeapi = GracefulPokeAPIWithRequestHooks(REPLAY)
 
     EXPECTED_REQS: t.Final = 1 + 2  # This + Before hook + After hook
-    await pokeapi.get_pokemon(PRESENT_NAME)
+    await pokeapi.get_pokemon(PRESENT_POKEMON_NAME)
 
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
