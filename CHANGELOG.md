@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.28.1 (2023-11-30)
+### Fix
+
+* Resolve deploy issue ([`2ae3717`](https://github.com/guilatrova/gracy/commit/2ae3717aa4620e114e750b01eb363f49b0f0fd97))
+
 ## v1.28.0 (2023-11-30)
 ### Feature
 
