@@ -8,7 +8,7 @@ import httpx
 
 from gracy import GracefulValidator, Gracy, GracyConfig, LogEvent, LogLevel
 from gracy.exceptions import NonOkResponse
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint
+from tests.conftest import MISSING_NAME, PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint
 
 
 class CustomValidator(GracefulValidator):
@@ -48,7 +48,7 @@ def pokeapi():
 
 
 async def test_pokemon_log_request_response(pokeapi: GracefulPokeAPI, caplog: pytest.LogCaptureFixture):
-    await pokeapi.get_pokemon(PRESENT_NAME)
+    await pokeapi.get_pokemon(PRESENT_POKEMON_NAME)
 
     assert len(caplog.records) == 2
     assert_log(caplog.records[0], ON_REQUEST)

@@ -8,7 +8,7 @@ import httpx
 
 from gracy import GracefulValidator, Gracy, graceful
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
+from tests.conftest import MISSING_NAME, PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
 
 
 class CustomValidator(GracefulValidator):
@@ -49,7 +49,7 @@ def make_pokeapi():
 async def test_pokemon_ok_default(make_pokeapi: t.Callable[[], GracefulPokeAPI]):
     pokeapi = make_pokeapi()
 
-    result = t.cast(httpx.Response, await pokeapi.get_pokemon(PRESENT_NAME))
+    result = t.cast(httpx.Response, await pokeapi.get_pokemon(PRESENT_POKEMON_NAME))
 
     assert result.status_code == HTTPStatus.OK
 
@@ -75,7 +75,7 @@ async def test_pokemon_strict_status_fail(make_pokeapi: t.Callable[[], GracefulP
     pokeapi = make_pokeapi()
 
     try:
-        _ = await pokeapi.get_pokemon_with_wrong_strict_status(PRESENT_NAME)
+        _ = await pokeapi.get_pokemon_with_wrong_strict_status(PRESENT_POKEMON_NAME)
 
     except UnexpectedResponse as ex:
         assert ex.response.status_code == HTTPStatus.OK
@@ -89,7 +89,7 @@ async def test_pokemon_strict_status_fail(make_pokeapi: t.Callable[[], GracefulP
 async def test_pokemon_strict_status_success(make_pokeapi: t.Callable[[], GracefulPokeAPI]):
     pokeapi = make_pokeapi()
 
-    result = await pokeapi.get_pokemon_with_correct_strict_status(PRESENT_NAME)
+    result = await pokeapi.get_pokemon_with_correct_strict_status(PRESENT_POKEMON_NAME)
 
     assert result.status_code == HTTPStatus.OK
     assert_one_request_made(pokeapi)

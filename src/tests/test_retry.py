@@ -20,7 +20,14 @@ from gracy import (
     graceful,
 )
 from gracy.exceptions import GracyRequestFailed, NonOkResponse
-from tests.conftest import MISSING_NAME, PRESENT_NAME, REPLAY, FakeReplayStorage, PokeApiEndpoint, assert_requests_made
+from tests.conftest import (
+    MISSING_NAME,
+    PRESENT_POKEMON_NAME,
+    REPLAY,
+    FakeReplayStorage,
+    PokeApiEndpoint,
+    assert_requests_made,
+)
 
 RETRY: t.Final = GracefulRetry(
     delay=0.001, max_attempts=0, retry_on={HTTPStatus.NOT_FOUND, ValueError}, behavior="pass"
@@ -224,7 +231,7 @@ async def test_retry_with_failing_custom_validation(make_pokeapi: PokeApiFactory
     EXPECTED_REQS: t.Final = 1 + MAX_RETRIES  # First request + Retries (2) = 3 requests
 
     pokeapi = make_pokeapi(MAX_RETRIES)
-    result = await pokeapi.get_pokemon_with_custom_validator(PRESENT_NAME)
+    result = await pokeapi.get_pokemon_with_custom_validator(PRESENT_POKEMON_NAME)
 
     assert result is not None
 
@@ -258,7 +265,7 @@ async def test_retry_none_for_successful_request(make_pokeapi: PokeApiFactory):
 
     pokeapi = make_pokeapi(0)  # Won't have effect
 
-    result = await pokeapi.get_pokemon_with_retry_on_none(PRESENT_NAME)
+    result = await pokeapi.get_pokemon_with_retry_on_none(PRESENT_POKEMON_NAME)
 
     assert result is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)
@@ -280,7 +287,7 @@ async def test_retry_none_for_failing_validator(make_pokeapi: PokeApiFactory):
 
     pokeapi = make_pokeapi(0)  # Won't have effect
 
-    response = await pokeapi.get_pokemon_with_retry_on_none_and_validator(PRESENT_NAME)
+    response = await pokeapi.get_pokemon_with_retry_on_none_and_validator(PRESENT_POKEMON_NAME)
 
     assert response is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)
@@ -293,7 +300,7 @@ async def test_retry_eventually_recovers(make_flaky_pokeapi: FlakyPokeApiFactory
     # Scenario: 1 + 3 Retry attemps fail + Last attempt works
     pokeapi = make_flaky_pokeapi(4, RETRY_ATTEMPTS)
 
-    result = await pokeapi.get_pokemon(PRESENT_NAME)
+    result = await pokeapi.get_pokemon(PRESENT_POKEMON_NAME)
 
     # Test
     assert result is not None
@@ -307,7 +314,7 @@ async def test_retry_eventually_recovers_with_strict(make_flaky_pokeapi: FlakyPo
     # Scenario: 1 + 3 Retry attempts fail + last attempt works
     pokeapi = make_flaky_pokeapi(4, RETRY_ATTEMPTS)
 
-    result = await pokeapi.get_pokemon_with_strict_status(PRESENT_NAME)
+    result = await pokeapi.get_pokemon_with_strict_status(PRESENT_POKEMON_NAME)
 
     # Test
     assert result is not None
@@ -320,7 +327,7 @@ async def test_retry_logs(make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytes
 
     pokeapi = make_flaky_pokeapi(FLAKY_REQUESTS)
 
-    result = await pokeapi.get_pokemon_with_log_retry_3_times(PRESENT_NAME)
+    result = await pokeapi.get_pokemon_with_log_retry_3_times(PRESENT_POKEMON_NAME)
 
     # Test
     assert result is not None
@@ -341,7 +348,7 @@ async def test_retry_logs_fail_reason(make_flaky_pokeapi: FlakyPokeApiFactory, c
 
     pokeapi = make_flaky_pokeapi(FLAKY_REQUESTS)
 
-    result = await pokeapi.get_pokemon_with_retry_overriden_log_placeholder(PRESENT_NAME)
+    result = await pokeapi.get_pokemon_with_retry_overriden_log_placeholder(PRESENT_POKEMON_NAME)
 
     # Test
     assert result is not None
@@ -390,6 +397,6 @@ async def test_retry_without_replay_request_without_response_generic(make_pokeap
         mock.request.side_effect = SomeRequestException("Request failed")
 
         with pytest.raises(GracyRequestFailed):
-            await pokeapi.get_pokemon(PRESENT_NAME)
+            await pokeapi.get_pokemon(PRESENT_POKEMON_NAME)
 
     assert_requests_made(pokeapi, EXPECTED_REQS)

@@ -5,7 +5,7 @@ import typing as t
 from http import HTTPStatus
 
 from gracy import GracefulRetry, Gracy, GracyConfig
-from tests.conftest import PRESENT_NAME, REPLAY, PokeApiEndpoint
+from tests.conftest import PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint
 
 RETRY: t.Final = GracefulRetry(
     delay=0.001,
@@ -33,14 +33,11 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             parser={HTTPStatus.NOT_FOUND: None},
         )
 
-    async def get_pokemon(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-
 
 MAKE_POKEAPI_TYPE = t.Callable[[], GracefulPokeAPI]
 
 
-async def test_before_hook_counts(make_pokeapi: MAKE_POKEAPI_TYPE):
+async def test_pass_kwargs(make_pokeapi: MAKE_POKEAPI_TYPE):
     pokeapi = make_pokeapi()
 
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_NAME), follow_redirects=True)
+    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME), follow_redirects=True)
