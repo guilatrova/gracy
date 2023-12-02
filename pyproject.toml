@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gracy"
-version = "1.28.1"
+version = "1.29.0"
 description = "Gracefully manage your API interactions"
 authors = ["Guilherme Latrova <hello@guilatrova.dev>"]
 license = "MIT"

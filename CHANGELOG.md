@@ -2,6 +2,19 @@
 
 <!--next-version-placeholder-->
 
+## v1.29.0 (2023-12-02)
+### Feature
+
+* Add generated_parsed_response ([`d9add8e`](https://github.com/guilatrova/gracy/commit/d9add8e208c54f72a08df5bfd4b66192c7aba751))
+
+### Fix
+
+* Specify parsed response type properly ([`2ef4566`](https://github.com/guilatrova/gracy/commit/2ef4566069e8f9a6bec129f393eb8b12c946b139))
+
+### Documentation
+
+* Explain parsed_response ([`792fd32`](https://github.com/guilatrova/gracy/commit/792fd32af1bed7ed2584f166082c6ca35d9cdaae))
+
 ## v1.28.1 (2023-11-30)
 ### Fix
 
