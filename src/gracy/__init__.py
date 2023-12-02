@@ -21,7 +21,7 @@ from ._models import (
     ThrottleRule,
 )
 from ._reports._models import GracyAggregatedRequest, GracyAggregatedTotal, GracyReport
-from ._types import parsed_response
+from ._types import generated_parsed_response, parsed_response
 from .replays.storages._base import GracyReplay, GracyReplayStorage, ReplayLogEvent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -62,4 +62,5 @@ __all__ = [
     "common_hooks",
     # Types
     "parsed_response",
+    "generated_parsed_response",
 ]
