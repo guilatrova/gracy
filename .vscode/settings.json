@@ -1,7 +1,4 @@
 {
-  "python.linting.enabled": true,
-  "python.linting.flake8Enabled": true,
-  "python.formatting.provider": "black",
   "python.analysis.typeCheckingMode": "strict",
   "editor.formatOnSave": true,
   "[python]": {
@@ -9,6 +6,7 @@
       120
     ],
     "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.codeActionsOnSave": {
       "source.organizeImports": true
     }
