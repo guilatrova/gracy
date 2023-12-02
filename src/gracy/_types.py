@@ -34,10 +34,21 @@ P = ParamSpec("P")
 T = t.TypeVar("T")
 
 
-def parsed_response(return_type: T):  # type: ignore
+def parsed_response(return_type: t.Type[T]):  # type: ignore
     def _decorated(func: t.Callable[P, t.Any]) -> t.Callable[P, t.Coroutine[t.Any, t.Any, T]]:
         async def _gracy_method(*args: P.args, **kwargs: P.kwargs) -> T:
             return await func(*args, **kwargs)
+
+        return _gracy_method
+
+    return _decorated
+
+
+def generated_parsed_response(return_type: t.Type[T]):  # type: ignore
+    def _decorated(func: t.Callable[P, t.AsyncGenerator[t.Any, t.Any]]) -> t.Callable[P, t.AsyncGenerator[t.Any, T]]:
+        async def _gracy_method(*args: P.args, **kwargs: P.kwargs) -> t.AsyncGenerator[t.Any, T]:
+            async for i in func(*args, **kwargs):
+                yield i
 
         return _gracy_method
 
