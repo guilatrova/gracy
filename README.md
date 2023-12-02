@@ -49,6 +49,7 @@ Gracy helps you handle failures, logging, retries, throttling, and tracking for 
   - [Recording](#recording)
   - [Replay](#replay)
 - [Resource Namespacing](#resource-namespacing)
+- [Pagination](#pagination)
 - [Advanced Usage](#advanced-usage)
   - [Customizing/Overriding configs per method](#customizingoverriding-configs-per-method)
   - [Customizing HTTPx client](#customizing-httpx-client)
@@ -727,6 +728,49 @@ await pokeapi.berry.get_one("cheri")
 
 Note all configs are propagated to namespaces, but namespaces can still have their own which would cause merges when instantiatedg.
 
+
+## Pagination
+
+There're endpoints that may require pagination. For that you can use `GracyPaginator`.
+
+For a simple case where you pass `offset` and `limit`, you can use `GracyOffsetPaginator`:
+
+```py
+from gracy import GracyOffsetPaginator
+
+class BerryNamespace(GracyNamespace[PokeApiEndpoint]):
+    @parsed_response(ResourceList)
+    async def list(self, offset: int = 0, limit: int = 20):
+        params = dict(offset=offset, limit=limit)
+        return await self.get(PokeApiEndpoint.BERRY_LIST, params=params)
+
+    def paginate(self, limit: int = 20) -> GracyOffsetPaginator[ResourceList]:
+        return GracyOffsetPaginator[ResourceList](
+            gracy_func=self.list,
+            has_next=lambda r: bool(r["next"]) if r else True,
+            page_size=limit,
+        )
+
+```
+
+and then use it as:
+
+```py
+async def main():
+    api = PokeApi()
+    paginator = api.berry.paginate(2)
+
+    # Just grabs the next page
+    first = await paginator.next_page()
+    print(first)
+
+    # Resets current page to 0
+    paginator.set_page(0)
+
+    # Loop throught it all
+    async for page in paginator:
+        print(page)
+```
 
 ## Advanced Usage
 
