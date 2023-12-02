@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.30.0 (2023-12-02)
+### Feature
+
+* Add paginator ([`f8a1db8`](https://github.com/guilatrova/gracy/commit/f8a1db8108b2662c88c182679a71f2b4bb4476fd))
+
 ## v1.29.0 (2023-12-02)
 ### Feature
 
