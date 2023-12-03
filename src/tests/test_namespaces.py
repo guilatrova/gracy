@@ -1,12 +1,10 @@
 from __future__ import annotations
 
+import pytest
 import typing as t
 from http import HTTPStatus
 
-import pytest
-
 from gracy import GracefulRetry, Gracy, GracyConfig, GracyNamespace
-from gracy.replays.storages._base import GracyReplay
 from tests.conftest import (
     PRESENT_BERRY_NAME,
     PRESENT_POKEMON_NAME,
@@ -34,7 +32,7 @@ class BerryNamespace(GracyNamespace[PokeApiEndpoint]):
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             retry=RETRY,
@@ -42,23 +40,8 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             parser={HTTPStatus.NOT_FOUND: None},
         )
 
-    def __init__(
-        self,
-        replay: GracyReplay | None = None,
-        DEBUG_ENABLED: bool = False,
-        **kwargs: t.Any,
-    ) -> None:
-        super().__init__(replay, DEBUG_ENABLED, **kwargs)
-        self._berry_ns = BerryNamespace(self)
-        self._pokemon_ns = PokemonNamespace(self)
-
-    @property
-    def berry(self):
-        return self._berry_ns
-
-    @property
-    def pokemon(self):
-        return self._pokemon_ns
+    berry: BerryNamespace
+    pokemon: PokemonNamespace
 
 
 @pytest.fixture()

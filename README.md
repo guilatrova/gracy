@@ -697,7 +697,7 @@ class BerryNamespace(GracyNamespace[PokeApiEndpoint]):
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             retry=RETRY,
@@ -705,18 +705,9 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             parser={HTTPStatus.NOT_FOUND: None},
         )
 
-    def __init__(self, *args, **kwargs: t.Any) -> None:
-        super().__init__(*args, **kwargs)
-        self._berry_ns = BerryNamespace(self)
-        self._pokemon_ns = PokemonNamespace(self)
-
-    @property
-    def berry(self):
-        return self._berry_ns
-
-    @property
-    def pokemon(self):
-        return self._pokemon_ns
+    # These will be automatically assigned on init
+    berry: BerryNamespace
+    pokemon: PokemonNamespace
 ```
 
 And the usage will work as:

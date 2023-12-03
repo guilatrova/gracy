@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 import asyncio
+import httpx
+import inspect
 import logging
 import sys
 import typing as t
 from asyncio import Lock, sleep
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-
-import httpx
 
 from gracy.replays._wrappers import record_mode, replay_mode, smart_replay_mode
 
@@ -495,8 +493,29 @@ class Gracy(t.Generic[Endpoint]):
         self.replays = replay
         self._ongoing_tracker = OngoingRequestsTracker()
 
-        if replay:
-            replay.storage.prepare()
+        self._post_init()
+
+    def _post_init(self):
+        """Initializes namespaces and replays after init"""
+
+        if self.replays:
+            self.replays.storage.prepare()
+
+        self._instantiate_namespaces()
+
+    def _instantiate_namespaces(self):
+        annotations = self.__annotations__
+        for attr_name, attr_type in annotations.items():
+            if isinstance(attr_type, str):
+                resolved_module = __import__(self.__module__, fromlist=[attr_type])
+                klass = getattr(resolved_module, attr_type, None)
+            elif inspect.isclass(attr_type):
+                klass = attr_type
+            else:
+                klass = None
+
+            if klass and issubclass(klass, GracyNamespace):
+                setattr(self, attr_name, klass(self))
 
     @property
     def ongoing_requests_count(self) -> int:
