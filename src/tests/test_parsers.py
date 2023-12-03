@@ -4,9 +4,15 @@ import pytest
 import typing as t
 from http import HTTPStatus
 
-from gracy import Gracy, GracyConfig, graceful
+from gracy import Gracy, GracyConfig, graceful, parsed_response
 from gracy.exceptions import GracyParseFailed
-from tests.conftest import MISSING_NAME, PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
+from tests.conftest import (
+    MISSING_NAME,
+    PRESENT_POKEMON_NAME,
+    REPLAY,
+    PokeApiEndpoint,
+    assert_one_request_made,
+)
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
@@ -14,6 +20,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(allowed_status_code=HTTPStatus.NOT_FOUND)
 
+    @parsed_response(t.Dict[str, t.Any])
     @graceful(parser={"default": lambda r: r.json()})
     async def get_pokemon(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})

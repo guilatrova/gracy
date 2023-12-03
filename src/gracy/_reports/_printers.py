@@ -99,7 +99,9 @@ def _print_header(report: GracyReport):
     print(" | |  _| '__/ _` |/ __| | | |")
     print(" | |_| | | | (_| | (__| |_| |")
     print("  \\____|_|  \\__,_|\\___|\\__, |")
-    print(f"                       |___/  Requests Summary Report {_getreplays_warn(report.replay_settings)}")
+    print(
+        f"                       |___/  Requests Summary Report {_getreplays_warn(report.replay_settings)}"
+    )
 
 
 class BasePrinter(ABC):
@@ -114,10 +116,16 @@ class RichPrinter(BasePrinter):
         from rich.console import Console
         from rich.table import Table
 
-        in_replay_mode = report.replay_settings and report.replay_settings.display_report
+        in_replay_mode = (
+            report.replay_settings and report.replay_settings.display_report
+        )
 
         console = Console()
-        title_warn = f"[yellow]{_getreplays_warn(report.replay_settings)}[/yellow]" if in_replay_mode else ""
+        title_warn = (
+            f"[yellow]{_getreplays_warn(report.replay_settings)}[/yellow]"
+            if in_replay_mode
+            else ""
+        )
         table = Table(title=f"Gracy Requests Summary {title_warn}")
 
         table.add_column(Titles.url, overflow="fold")
@@ -144,12 +152,16 @@ class RichPrinter(BasePrinter):
         rows.append(report.total)
 
         for idx, request_row in enumerate(rows):
-            is_last_line_before_footer = idx < len(rows) - 1 and isinstance(rows[idx + 1], GracyAggregatedTotal)
+            is_last_line_before_footer = idx < len(rows) - 1 and isinstance(
+                rows[idx + 1], GracyAggregatedTotal
+            )
 
             row_values: tuple[str, ...] = (
                 _format_int(request_row.total_requests, bold=True),
                 _format_value(request_row.success_rate, "green", suffix="%"),
-                _format_value(request_row.failed_rate, None, "red", bold=True, suffix="%"),
+                _format_value(
+                    request_row.failed_rate, None, "red", bold=True, suffix="%"
+                ),
                 _format_value(request_row.avg_latency),
                 _format_value(request_row.max_latency),
                 _format_int(request_row.resp_2xx),
@@ -170,7 +182,9 @@ class RichPrinter(BasePrinter):
             table.add_row(
                 request_row.uurl,
                 *row_values,
-                _format_value(request_row.req_rate_per_sec, precision=1, suffix=" reqs/s"),
+                _format_value(
+                    request_row.req_rate_per_sec, precision=1, suffix=" reqs/s"
+                ),
                 end_section=is_last_line_before_footer,
             )
 
@@ -183,7 +197,9 @@ class ListPrinter(BasePrinter):
 
         entries = report.requests
         entries.append(report.total)
-        in_replay_mode = report.replay_settings and report.replay_settings.display_report
+        in_replay_mode = (
+            report.replay_settings and report.replay_settings.display_report
+        )
 
         PAD_PREFIX: t.Final = 20
 
@@ -191,23 +207,91 @@ class ListPrinter(BasePrinter):
             title = entry.uurl if idx == len(entries) else f"{idx}. {entry.uurl}"
             print(f"\n\n{title}")
 
-            print(_format_int(entry.total_requests, padprefix=PAD_PREFIX, prefix=f"{Titles.total_requests}: "))
             print(
-                _format_value(entry.success_rate, padprefix=PAD_PREFIX, prefix=f"{Titles.success_rate}: ", suffix="%")
+                _format_int(
+                    entry.total_requests,
+                    padprefix=PAD_PREFIX,
+                    prefix=f"{Titles.total_requests}: ",
+                )
             )
-            print(_format_value(entry.failed_rate, padprefix=PAD_PREFIX, prefix=f"{Titles.failed_rate}: ", suffix="%"))
-            print(_format_value(entry.avg_latency, padprefix=PAD_PREFIX, prefix=f"{Titles.avg_latency}: "))
-            print(_format_value(entry.max_latency, padprefix=PAD_PREFIX, prefix=f"{Titles.max_latency}: "))
-            print(_format_int(entry.resp_2xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_2xx}: "))
-            print(_format_int(entry.resp_3xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_3xx}: "))
-            print(_format_int(entry.resp_4xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_4xx}: "))
-            print(_format_int(entry.resp_5xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_5xx}: "))
-            print(_format_int(entry.reqs_aborted, padprefix=PAD_PREFIX, prefix=f"{Titles.reqs_aborted}: "))
-            print(_format_int(entry.retries, padprefix=PAD_PREFIX, prefix=f"{Titles.retries}: "))
-            print(_format_int(entry.throttles, padprefix=PAD_PREFIX, prefix=f"{Titles.throttles}: "))
+            print(
+                _format_value(
+                    entry.success_rate,
+                    padprefix=PAD_PREFIX,
+                    prefix=f"{Titles.success_rate}: ",
+                    suffix="%",
+                )
+            )
+            print(
+                _format_value(
+                    entry.failed_rate,
+                    padprefix=PAD_PREFIX,
+                    prefix=f"{Titles.failed_rate}: ",
+                    suffix="%",
+                )
+            )
+            print(
+                _format_value(
+                    entry.avg_latency,
+                    padprefix=PAD_PREFIX,
+                    prefix=f"{Titles.avg_latency}: ",
+                )
+            )
+            print(
+                _format_value(
+                    entry.max_latency,
+                    padprefix=PAD_PREFIX,
+                    prefix=f"{Titles.max_latency}: ",
+                )
+            )
+            print(
+                _format_int(
+                    entry.resp_2xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_2xx}: "
+                )
+            )
+            print(
+                _format_int(
+                    entry.resp_3xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_3xx}: "
+                )
+            )
+            print(
+                _format_int(
+                    entry.resp_4xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_4xx}: "
+                )
+            )
+            print(
+                _format_int(
+                    entry.resp_5xx, padprefix=PAD_PREFIX, prefix=f"{Titles.resp_5xx}: "
+                )
+            )
+            print(
+                _format_int(
+                    entry.reqs_aborted,
+                    padprefix=PAD_PREFIX,
+                    prefix=f"{Titles.reqs_aborted}: ",
+                )
+            )
+            print(
+                _format_int(
+                    entry.retries, padprefix=PAD_PREFIX, prefix=f"{Titles.retries}: "
+                )
+            )
+            print(
+                _format_int(
+                    entry.throttles,
+                    padprefix=PAD_PREFIX,
+                    prefix=f"{Titles.throttles}: ",
+                )
+            )
 
             if in_replay_mode:
-                print(_format_int(entry.replays, padprefix=PAD_PREFIX, prefix=f"{Titles.replays}: "))
+                print(
+                    _format_int(
+                        entry.replays,
+                        padprefix=PAD_PREFIX,
+                        prefix=f"{Titles.replays}: ",
+                    )
+                )
 
             print(
                 _format_value(
@@ -248,7 +332,9 @@ class LoggerPrinter(BasePrinter):
             if replay.mode == "record":
                 logger.info("All requests were recorded with GracyReplay")
             else:
-                logger.warning("All requests were REPLAYED (no HTTP interaction) with GracyReplay")
+                logger.warning(
+                    "All requests were REPLAYED (no HTTP interaction) with GracyReplay"
+                )
 
 
 def print_report(report: GracyReport, method: PRINTERS):

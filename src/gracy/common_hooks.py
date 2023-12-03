@@ -51,7 +51,9 @@ class HttpHeaderRetryAfterBackOffHook:
     `RETRY_AFTER_ACTUAL_WAIT` is also available in case you modify the original value.
     """
 
-    DEFAULT_LOG_MESSAGE: t.Final = "[{METHOD}] {URL} requested to wait for {RETRY_AFTER}s"
+    DEFAULT_LOG_MESSAGE: t.Final = (
+        "[{METHOD}] {URL} requested to wait for {RETRY_AFTER}s"
+    )
     ALL_CLIENT_LOCK: t.Final = "CLIENT"
 
     def __init__(
@@ -71,7 +73,11 @@ class HttpHeaderRetryAfterBackOffHook:
         self._dry_run = dry_run
 
     def _process_log(
-        self, request_context: GracyRequestContext, response: httpx.Response, retry_after: float, actual_wait: float
+        self,
+        request_context: GracyRequestContext,
+        response: httpx.Response,
+        retry_after: float,
+        actual_wait: float,
     ) -> None:
         if event := self._log_event:
             format_args: t.Dict[str, str] = dict(
@@ -98,7 +104,9 @@ class HttpHeaderRetryAfterBackOffHook:
             date_as_seconds = (date_time - datetime.now()).total_seconds()
 
         except Exception:
-            logger.exception(f"Unable to parse {retry_after_value} as date within {type(self).__name__}")
+            logger.exception(
+                f"Unable to parse {retry_after_value} as date within {type(self).__name__}"
+            )
             return 0
 
         else:
@@ -112,7 +120,10 @@ class HttpHeaderRetryAfterBackOffHook:
         context: GracyRequestContext,
         response_or_exc: httpx.Response | Exception,
     ) -> HookResult:
-        if isinstance(response_or_exc, httpx.Response) and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+        if (
+            isinstance(response_or_exc, httpx.Response)
+            and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS
+        ):
             if is_replay(response_or_exc):
                 return HookResult(executed=False, dry_run=self._dry_run)
 
@@ -120,10 +131,16 @@ class HttpHeaderRetryAfterBackOffHook:
             actual_wait = self._processor(retry_after_seconds)
 
             if retry_after_seconds > 0:
-                lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
+                lock_name = (
+                    context.unformatted_url
+                    if self._lock_per_endpoint
+                    else self.ALL_CLIENT_LOCK
+                )
 
                 async with self._lock_manager[lock_name]:
-                    self._process_log(context, response_or_exc, retry_after_seconds, actual_wait)
+                    self._process_log(
+                        context, response_or_exc, retry_after_seconds, actual_wait
+                    )
 
                     if self._reporter:
                         self._reporter.throttled(context)
@@ -157,7 +174,9 @@ class RateLimitBackOffHook:
     It provides the response and the context, but also `WAIT_TIME` that contains the wait value.
     """
 
-    DEFAULT_LOG_MESSAGE: t.Final = "[{METHOD}] {UENDPOINT} got rate limited, waiting for {WAIT_TIME}s"
+    DEFAULT_LOG_MESSAGE: t.Final = (
+        "[{METHOD}] {UENDPOINT} got rate limited, waiting for {WAIT_TIME}s"
+    )
     ALL_CLIENT_LOCK: t.Final = "CLIENT"
 
     def __init__(
@@ -176,7 +195,9 @@ class RateLimitBackOffHook:
         self._delay = delay
         self._dry_run = dry_run
 
-    def _process_log(self, request_context: GracyRequestContext, response: httpx.Response) -> None:
+    def _process_log(
+        self, request_context: GracyRequestContext, response: httpx.Response
+    ) -> None:
         if event := self._log_event:
             format_args: t.Dict[str, str] = dict(
                 **extract_base_format_args(request_context),
@@ -194,11 +215,18 @@ class RateLimitBackOffHook:
         context: GracyRequestContext,
         response_or_exc: httpx.Response | Exception,
     ) -> HookResult:
-        if isinstance(response_or_exc, httpx.Response) and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+        if (
+            isinstance(response_or_exc, httpx.Response)
+            and response_or_exc.status_code == HTTPStatus.TOO_MANY_REQUESTS
+        ):
             if is_replay(response_or_exc):
                 return HookResult(executed=False, dry_run=self._dry_run)
 
-            lock_name = context.unformatted_url if self._lock_per_endpoint else self.ALL_CLIENT_LOCK
+            lock_name = (
+                context.unformatted_url
+                if self._lock_per_endpoint
+                else self.ALL_CLIENT_LOCK
+            )
 
             async with self._lock_manager[lock_name]:
                 self._process_log(context, response_or_exc)

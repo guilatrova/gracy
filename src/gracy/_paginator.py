@@ -15,7 +15,9 @@ class GracyPaginator(t.Generic[RESP_T, TOKEN_T]):
         page_size: int = 20,
         get_next_token: t.Optional[t.Callable[[RESP_T, TOKEN_T], TOKEN_T]] = None,
         get_prev_token: t.Optional[t.Callable[[TOKEN_T], TOKEN_T]] = None,
-        prepare_params: t.Optional[t.Callable[[TOKEN_T, int], t.Dict[str, t.Any]]] = None,
+        prepare_params: t.Optional[
+            t.Callable[[TOKEN_T, int], t.Dict[str, t.Any]]
+        ] = None,
         has_prev: t.Optional[t.Callable[[TOKEN_T], bool]] = None,
     ):
         self.has_next = has_next

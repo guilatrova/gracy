@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import pytest
 import typing as t
 from http import HTTPStatus
+
+import pytest
 
 from gracy import GracefulRetry, Gracy, GracyConfig
 from tests.conftest import PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint
@@ -40,4 +41,8 @@ MAKE_POKEAPI_TYPE = t.Callable[[], GracefulPokeAPI]
 async def test_pass_kwargs(make_pokeapi: MAKE_POKEAPI_TYPE):
     pokeapi = make_pokeapi()
 
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME), follow_redirects=True)
+    await pokeapi.get(
+        PokeApiEndpoint.GET_POKEMON,
+        dict(NAME=PRESENT_POKEMON_NAME),
+        follow_redirects=True,
+    )

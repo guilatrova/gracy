@@ -9,7 +9,12 @@ import httpx
 
 from .._models import GracyRequestContext, ThrottleController
 from ..replays.storages._base import GracyReplay, is_replay
-from ._models import GracyAggregatedRequest, GracyReport, GracyRequestCounters, GracyRequestResult
+from ._models import (
+    GracyAggregatedRequest,
+    GracyReport,
+    GracyRequestCounters,
+    GracyRequestResult,
+)
 
 ANY_REGEX: t.Final = r".+"
 
@@ -23,8 +28,14 @@ class ReportBuilder:
         self._results: t.List[GracyRequestResult] = []
         self._counters = t.DefaultDict[str, GracyRequestCounters](GracyRequestCounters)
 
-    def track(self, request_context: GracyRequestContext, response_or_exc: httpx.Response | Exception):
-        self._results.append(GracyRequestResult(request_context.unformatted_url, response_or_exc))
+    def track(
+        self,
+        request_context: GracyRequestContext,
+        response_or_exc: httpx.Response | Exception,
+    ):
+        self._results.append(
+            GracyRequestResult(request_context.unformatted_url, response_or_exc)
+        )
         if isinstance(response_or_exc, httpx.Response) and is_replay(response_or_exc):
             self.replayed(request_context)
 
@@ -37,14 +48,24 @@ class ReportBuilder:
     def replayed(self, request_context: GracyRequestContext):
         self._counters[request_context.unformatted_url].replays += 1
 
-    def _calculate_req_rate_for_url(self, unformatted_url: str, throttle_controller: ThrottleController) -> float:
+    def _calculate_req_rate_for_url(
+        self, unformatted_url: str, throttle_controller: ThrottleController
+    ) -> float:
         pattern = re.compile(re.sub(r"{(\w+)}", ANY_REGEX, unformatted_url))
         rate = throttle_controller.calculate_requests_per_sec(pattern)
         return rate
 
-    def build(self, throttle_controller: ThrottleController, replay_settings: GracyReplay | None) -> GracyReport:
-        requests_by_uurl = t.DefaultDict[str, t.Set[t.Union[httpx.Response, Exception]]](set)
-        requests_sum: REQUEST_SUM_PER_STATUS_TYPE = defaultdict(lambda: defaultdict(int))
+    def build(
+        self,
+        throttle_controller: ThrottleController,
+        replay_settings: GracyReplay | None,
+    ) -> GracyReport:
+        requests_by_uurl = t.DefaultDict[
+            str, t.Set[t.Union[httpx.Response, Exception]]
+        ](set)
+        requests_sum: REQUEST_SUM_PER_STATUS_TYPE = defaultdict(
+            lambda: defaultdict(int)
+        )
 
         for result in self._results:
             requests_by_uurl[result.uurl].add(result.response)
@@ -59,12 +80,18 @@ class ReportBuilder:
             requests_sum[uurl]["retries"] = counters.retries
             requests_sum[uurl]["replays"] = counters.replays
 
-        requests_sum = dict(sorted(requests_sum.items(), key=lambda item: item[1]["total"], reverse=True))
+        requests_sum = dict(
+            sorted(
+                requests_sum.items(), key=lambda item: item[1]["total"], reverse=True
+            )
+        )
 
         report = GracyReport(replay_settings)
 
         for uurl, data in requests_sum.items():
-            all_requests = {req for req in requests_by_uurl[uurl] if isinstance(req, httpx.Response)}
+            all_requests = {
+                req for req in requests_by_uurl[uurl] if isinstance(req, httpx.Response)
+            }
 
             total_requests = data["total"]
             url_latency = [r.elapsed.total_seconds() for r in all_requests]
@@ -73,7 +100,10 @@ class ReportBuilder:
             # Use min to handle scenarios like:
             # 10 reqs in a 2 millisecond window would produce a number >1,000 leading the user to think that we're
             # producing 1,000 requests which isn't true.
-            rate = min(self._calculate_req_rate_for_url(uurl, throttle_controller), total_requests)
+            rate = min(
+                self._calculate_req_rate_for_url(uurl, throttle_controller),
+                total_requests,
+            )
 
             resp_2xx = 0
             resp_3xx = 0

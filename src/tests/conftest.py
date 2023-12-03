@@ -53,7 +53,9 @@ def assert_one_request_made(gracy_api: Gracy[PokeApiEndpoint]):
     assert len(report.requests) == 1
 
 
-def assert_requests_made(gracy_api: Gracy[PokeApiEndpoint], total_requests: int, endpoints_count: int = 1):
+def assert_requests_made(
+    gracy_api: Gracy[PokeApiEndpoint], total_requests: int, endpoints_count: int = 1
+):
     report = gracy_api.get_report()
 
     assert len(report.requests) == endpoints_count

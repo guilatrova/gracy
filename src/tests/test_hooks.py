@@ -1,15 +1,27 @@
 from __future__ import annotations
 
-import pytest
 import typing as t
 from http import HTTPStatus
 from unittest.mock import patch
 
 import httpx
+import pytest
 
-from gracy import GracefulRetry, GracefulRetryState, Gracy, GracyConfig, GracyRequestContext
+from gracy import (
+    GracefulRetry,
+    GracefulRetryState,
+    Gracy,
+    GracyConfig,
+    GracyRequestContext,
+)
 from gracy.exceptions import GracyRequestFailed
-from tests.conftest import MISSING_NAME, PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint, assert_requests_made
+from tests.conftest import (
+    MISSING_NAME,
+    PRESENT_POKEMON_NAME,
+    REPLAY,
+    PokeApiEndpoint,
+    assert_requests_made,
+)
 
 RETRY: t.Final = GracefulRetry(
     delay=0.001,
@@ -103,10 +115,18 @@ async def test_after_hook_counts_statuses(make_pokeapi: MAKE_POKEAPI_TYPE):
     assert pokeapi.after_status_counter[HTTPStatus.OK] == 0
     assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 0
 
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME))  # 200
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME))  # 200
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=MISSING_NAME))  # 404 + retry 2x
-    await pokeapi.get(PokeApiEndpoint.GET_POKEMON, dict(NAME=MISSING_NAME))  # 404 + retry 2x
+    await pokeapi.get(
+        PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME)
+    )  # 200
+    await pokeapi.get(
+        PokeApiEndpoint.GET_POKEMON, dict(NAME=PRESENT_POKEMON_NAME)
+    )  # 200
+    await pokeapi.get(
+        PokeApiEndpoint.GET_POKEMON, dict(NAME=MISSING_NAME)
+    )  # 404 + retry 2x
+    await pokeapi.get(
+        PokeApiEndpoint.GET_POKEMON, dict(NAME=MISSING_NAME)
+    )  # 404 + retry 2x
 
     assert pokeapi.after_status_counter[HTTPStatus.OK] == 2
     assert pokeapi.after_status_counter[HTTPStatus.NOT_FOUND] == 6

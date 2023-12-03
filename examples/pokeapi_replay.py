@@ -35,14 +35,18 @@ record_mode = GracyReplay(
     SQLiteReplayStorage("pokeapi.sqlite3"),
 )
 replay_mode = GracyReplay(
-    "replay", SQLiteReplayStorage("pokeapi.sqlite3"), log_replay=ReplayLogEvent(LogLevel.WARNING, frequency=1)
+    "replay",
+    SQLiteReplayStorage("pokeapi.sqlite3"),
+    log_replay=ReplayLogEvent(LogLevel.WARNING, frequency=1),
 )
 
 
 class PokemonNotFound(GracyUserDefinedException):
     BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
 
-    def _format_message(self, request_context: GracyRequestContext, response: httpx.Response) -> str:
+    def _format_message(
+        self, request_context: GracyRequestContext, response: httpx.Response
+    ) -> str:
         format_args = self._build_default_args()
         name = request_context.endpoint_args.get("NAME", "Unknown")
         return self.BASE_MESSAGE.format(NAME=name, **format_args)
@@ -62,7 +66,8 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         retry=retry,
         log_errors=LogEvent(
             LogLevel.ERROR,
-            lambda r: "Request failed with {STATUS}" f" and it was {'' if r.is_redirect else 'NOT'} redirected"
+            lambda r: "Request failed with {STATUS}"
+            f" and it was {'' if r.is_redirect else 'NOT'} redirected"
             if r
             else "",
         ),
@@ -85,8 +90,13 @@ async def main(replay_mode: GracyReplay):
     poke_names = {"pikachu", "elekid", "charmander", "blaziken", "hitmonchan"}
 
     try:
-        get_pokemons = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in poke_names]
-        get_gens = [asyncio.create_task(pokeapi.get_generation(gen_id)) for gen_id in range(1, 3)]
+        get_pokemons = [
+            asyncio.create_task(pokeapi.get_pokemon(name)) for name in poke_names
+        ]
+        get_gens = [
+            asyncio.create_task(pokeapi.get_generation(gen_id))
+            for gen_id in range(1, 3)
+        ]
 
         await asyncio.gather(*(get_pokemons + get_gens))
 

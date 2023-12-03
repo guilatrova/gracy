@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
-import pytest
 import typing as t
 from http import HTTPStatus
 from unittest.mock import patch
 
 import httpx
+import pytest
 
 from gracy import (
     GracefulRetry,
@@ -30,11 +30,16 @@ from tests.conftest import (
 )
 
 RETRY: t.Final = GracefulRetry(
-    delay=0.001, max_attempts=0, retry_on={HTTPStatus.NOT_FOUND, ValueError}, behavior="pass"
+    delay=0.001,
+    max_attempts=0,
+    retry_on={HTTPStatus.NOT_FOUND, ValueError},
+    behavior="pass",
 )
 """NOTE: Max attempts will be patched later in fixture"""
 
-RETRY_ON_NONE: t.Final = GracefulRetry(delay=0.001, max_attempts=1, retry_on=None, behavior="pass")
+RETRY_ON_NONE: t.Final = GracefulRetry(
+    delay=0.001, max_attempts=1, retry_on=None, behavior="pass"
+)
 
 RETRY_LOG_BEFORE = LogEvent(LogLevel.WARNING, "LOG_BEFORE")
 RETRY_LOG_AFTER = LogEvent(LogLevel.ERROR, "LOG_AFTER")
@@ -121,7 +126,9 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
 @pytest.fixture()
 def make_pokeapi():
-    def factory(max_attempts: int, break_or_pass: str = "pass", replay_enabled: bool = True):
+    def factory(
+        max_attempts: int, break_or_pass: str = "pass", replay_enabled: bool = True
+    ):
         Gracy.dangerously_reset_report()
 
         api = GracefulPokeAPI(REPLAY) if replay_enabled else GracefulPokeAPI()
@@ -135,12 +142,16 @@ def make_pokeapi():
 
 @pytest.fixture()
 def make_flaky_pokeapi():
-    def factory(flaky_requests: int, max_attempts: int | None = None, break_or_pass: str = "break"):
+    def factory(
+        flaky_requests: int,
+        max_attempts: int | None = None,
+        break_or_pass: str = "break",
+    ):
         Gracy.dangerously_reset_report()
 
-        force_urls = (["https://pokeapi.co/api/v2/pokemon/doesnt-exist"] * flaky_requests) + (
-            ["https://pokeapi.co/api/v2/pokemon/charmander"]
-        )
+        force_urls = (
+            ["https://pokeapi.co/api/v2/pokemon/doesnt-exist"] * flaky_requests
+        ) + (["https://pokeapi.co/api/v2/pokemon/charmander"])
         mock_storage = FakeReplayStorage(force_urls)
         fake_replay = GracyReplay("replay", mock_storage)
 
@@ -155,13 +166,21 @@ def make_flaky_pokeapi():
 
 
 class PokeApiFactory(t.Protocol):
-    def __call__(self, max_attempts: int, break_or_pass: str = "pass", replay_enabled: bool = True) -> GracefulPokeAPI:
+    def __call__(
+        self,
+        max_attempts: int,
+        break_or_pass: str = "pass",
+        replay_enabled: bool = True,
+    ) -> GracefulPokeAPI:
         ...
 
 
 class FlakyPokeApiFactory(t.Protocol):
     def __call__(
-        self, flaky_requests: int, max_attempts: int | None = None, break_or_pass: str = "pass"
+        self,
+        flaky_requests: int,
+        max_attempts: int | None = None,
+        break_or_pass: str = "pass",
     ) -> GracefulPokeAPI:
         ...
 
@@ -204,7 +223,9 @@ async def test_pokemon_not_found_without_allowed(
 
 
 @pytest.mark.parametrize("max_retries", [2, 4, 6])
-async def test_pokemon_not_found_with_strict_status(max_retries: int, make_pokeapi: PokeApiFactory):
+async def test_pokemon_not_found_with_strict_status(
+    max_retries: int, make_pokeapi: PokeApiFactory
+):
     EXPECTED_REQS: t.Final = 1 + max_retries  # First request + Retries (2) = 3 requests
 
     pokeapi = make_pokeapi(max_retries)
@@ -287,7 +308,9 @@ async def test_retry_none_for_failing_validator(make_pokeapi: PokeApiFactory):
 
     pokeapi = make_pokeapi(0)  # Won't have effect
 
-    response = await pokeapi.get_pokemon_with_retry_on_none_and_validator(PRESENT_POKEMON_NAME)
+    response = await pokeapi.get_pokemon_with_retry_on_none_and_validator(
+        PRESENT_POKEMON_NAME
+    )
 
     assert response is not None
     assert_requests_made(pokeapi, EXPECTED_REQS)
@@ -307,7 +330,9 @@ async def test_retry_eventually_recovers(make_flaky_pokeapi: FlakyPokeApiFactory
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_eventually_recovers_with_strict(make_flaky_pokeapi: FlakyPokeApiFactory):
+async def test_retry_eventually_recovers_with_strict(
+    make_flaky_pokeapi: FlakyPokeApiFactory,
+):
     RETRY_ATTEMPTS: t.Final = 4
     EXPECTED_REQS: t.Final = 1 + RETRY_ATTEMPTS
 
@@ -321,7 +346,9 @@ async def test_retry_eventually_recovers_with_strict(make_flaky_pokeapi: FlakyPo
     assert_requests_made(pokeapi, EXPECTED_REQS)
 
 
-async def test_retry_logs(make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytest.LogCaptureFixture):
+async def test_retry_logs(
+    make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytest.LogCaptureFixture
+):
     FLAKY_REQUESTS: t.Final = 3
     EXPECTED_REQS: t.Final = FLAKY_REQUESTS + 1
 
@@ -342,13 +369,17 @@ async def test_retry_logs(make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytes
     assert_log(caplog.records[5], RETRY_LOG_AFTER)
 
 
-async def test_retry_logs_fail_reason(make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytest.LogCaptureFixture):
+async def test_retry_logs_fail_reason(
+    make_flaky_pokeapi: FlakyPokeApiFactory, caplog: pytest.LogCaptureFixture
+):
     FLAKY_REQUESTS: t.Final = 2
     EXPECTED_REQS: t.Final = FLAKY_REQUESTS + 1
 
     pokeapi = make_flaky_pokeapi(FLAKY_REQUESTS)
 
-    result = await pokeapi.get_pokemon_with_retry_overriden_log_placeholder(PRESENT_POKEMON_NAME)
+    result = await pokeapi.get_pokemon_with_retry_overriden_log_placeholder(
+        PRESENT_POKEMON_NAME
+    )
 
     # Test
     assert result is not None
@@ -361,7 +392,9 @@ async def test_retry_logs_fail_reason(make_flaky_pokeapi: FlakyPokeApiFactory, c
     assert caplog.records[3].message == "AFTER: SUCCESSFUL"
 
 
-async def test_retry_logs_exhausts(make_pokeapi: PokeApiFactory, caplog: pytest.LogCaptureFixture):
+async def test_retry_logs_exhausts(
+    make_pokeapi: PokeApiFactory, caplog: pytest.LogCaptureFixture
+):
     EXPECTED_REQS: t.Final = 3 + 1  # Retry's value from graceful + 1
 
     pokeapi = make_pokeapi(0)  # Won't take effect due to @graceful
@@ -382,7 +415,9 @@ async def test_retry_logs_exhausts(make_pokeapi: PokeApiFactory, caplog: pytest.
     assert_log(caplog.records[6], RETRY_LOG_EXHAUSTED)
 
 
-async def test_retry_without_replay_request_without_response_generic(make_pokeapi: PokeApiFactory):
+async def test_retry_without_replay_request_without_response_generic(
+    make_pokeapi: PokeApiFactory,
+):
     EXPECTED_REQS: t.Final = 3 + 1
 
     class SomeRequestException(Exception):

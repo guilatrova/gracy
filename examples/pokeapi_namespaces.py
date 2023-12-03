@@ -6,7 +6,15 @@ from http import HTTPStatus
 
 from rich import print
 
-from gracy import BaseEndpoint, Gracy, GracyConfig, GracyNamespace, LogEvent, LogLevel, parsed_response
+from gracy import (
+    BaseEndpoint,
+    Gracy,
+    GracyConfig,
+    GracyNamespace,
+    LogEvent,
+    LogLevel,
+    parsed_response,
+)
 from gracy.replays.storages._base import GracyReplay
 
 RESP_TYPE = t.Union[t.Dict[str, t.Any], None]
@@ -63,7 +71,12 @@ class PokeApi(Gracy[PokeApiEndpoint]):
             log_errors=LogEvent(LogLevel.ERROR),
         )
 
-    def __init__(self, replay: GracyReplay | None = None, DEBUG_ENABLED: bool = False, **kwargs: t.Any) -> None:
+    def __init__(
+        self,
+        replay: GracyReplay | None = None,
+        DEBUG_ENABLED: bool = False,
+        **kwargs: t.Any,
+    ) -> None:
         super().__init__(replay, DEBUG_ENABLED, **kwargs)
 
         self._berry_ns = PokeApiBerryNamespace(self)

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import pytest
 import typing as t
 from http import HTTPStatus
+
+import pytest
 
 from gracy import GracefulRetry, Gracy, GracyConfig, GracyNamespace
 from gracy.replays.storages._base import GracyReplay
@@ -41,7 +42,12 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             parser={HTTPStatus.NOT_FOUND: None},
         )
 
-    def __init__(self, replay: GracyReplay | None = None, DEBUG_ENABLED: bool = False, **kwargs: t.Any) -> None:
+    def __init__(
+        self,
+        replay: GracyReplay | None = None,
+        DEBUG_ENABLED: bool = False,
+        **kwargs: t.Any,
+    ) -> None:
         super().__init__(replay, DEBUG_ENABLED, **kwargs)
         self._berry_ns = BerryNamespace(self)
         self._pokemon_ns = PokemonNamespace(self)
@@ -76,4 +82,6 @@ async def test_get_from_namespaces(make_pokeapi: MAKE_POKEAPI_TYPE):
     EXPECTED_ENDPOINTS = 2
     EXPECTED_REQUESTS = (1, 1)
 
-    assert_muiti_endpoints_requests_made(pokeapi, EXPECTED_ENDPOINTS, *EXPECTED_REQUESTS)
+    assert_muiti_endpoints_requests_made(
+        pokeapi, EXPECTED_ENDPOINTS, *EXPECTED_REQUESTS
+    )
