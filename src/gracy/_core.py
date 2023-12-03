@@ -96,7 +96,9 @@ async def _gracefully_throttle(
             ]
 
             if wait_per_rule:
-                rule, await_time = max(wait_per_rule, key=lambda x: x[1])
+                rule: ThrottleRule
+                await_time: float
+                rule, await_time = max(wait_per_rule, key=lambda x: x[1])  # type: ignore
                 if THROTTLE_LOCKER.is_rule_throttled(rule):
                     report.throttled(request_context)
                     await asyncio.sleep(await_time)
@@ -130,20 +132,20 @@ async def _gracefully_throttle(
 async def _gracefully_retry(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
-    last_response: httpx.Response | None,
-    last_err: Exception | None,
+    last_response: t.Optional[httpx.Response],
+    last_err: t.Optional[Exception],
     before_hook: BEFORE_HOOK_TYPE,
     after_hook: AFTER_HOOK_TYPE,
     request: GracefulRequest,
     request_context: GracyRequestContext,
-    validators: list[GracefulValidator],
+    validators: t.List[GracefulValidator],
 ) -> GracefulRetryState:
     config = request_context.active_config
     retry = t.cast(GracefulRetry, config.retry)
     state = retry.create_state(last_response, last_err)
 
     response = last_response
-    resulting_exc: Exception | None = None
+    resulting_exc: t.Optional[Exception] = None
 
     failing = True
     while failing:
@@ -250,7 +252,7 @@ def _maybe_parse_result(
 async def _gracify(
     report: ReportBuilder,
     throttle_controller: ThrottleController,
-    replay: GracyReplay | None,
+    replay: t.Optional[GracyReplay],
     before_hook: BEFORE_HOOK_TYPE,
     after_hook: AFTER_HOOK_TYPE,
     request: GracefulRequest,
@@ -261,7 +263,7 @@ async def _gracify(
     if isinstance(active_config.log_request, LogEvent):
         process_log_before_request(active_config.log_request, request_context)
 
-    resulting_exc: Exception | None = None
+    resulting_exc: t.Optional[Exception] = None
 
     do_throttle = True
     if replay and replay.disable_throttling:
@@ -322,7 +324,7 @@ async def _gracify(
                 resulting_exc = ex
                 break
 
-    retry_result: GracefulRetryState | None = None
+    retry_result: t.Optional[GracefulRetryState] = None
     if active_config.should_retry(response, resulting_exc):
         retry_result = await _gracefully_retry(
             report,
@@ -476,12 +478,12 @@ class Gracy(t.Generic[Endpoint]):
 
     class Config:
         BASE_URL: str = ""
-        REQUEST_TIMEOUT: float | None = None
+        REQUEST_TIMEOUT: t.Optional[float] = None
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
     def __init__(
         self,
-        replay: GracyReplay | None = None,
+        replay: t.Optional[GracyReplay] = None,
         DEBUG_ENABLED: bool = False,
         **kwargs: t.Any,
     ) -> None:
@@ -529,8 +531,8 @@ class Gracy(t.Generic[Endpoint]):
     async def _request(
         self,
         method: str,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -608,16 +610,16 @@ class Gracy(t.Generic[Endpoint]):
     async def after(
         self,
         context: GracyRequestContext,
-        response_or_exc: httpx.Response | Exception,
-        retry_state: GracefulRetryState | None,
+        response_or_exc: t.Union[httpx.Response, Exception],
+        retry_state: t.Optional[GracefulRetryState],
     ):
         ...
 
     async def _after(
         self,
         context: GracyRequestContext,
-        response_or_exc: httpx.Response | Exception,
-        retry_state: GracefulRetryState | None,
+        response_or_exc: t.Union[httpx.Response, Exception],
+        retry_state: t.Optional[GracefulRetryState],
     ):
         if within_hook_context.get():
             return
@@ -630,8 +632,8 @@ class Gracy(t.Generic[Endpoint]):
 
     async def get(
         self,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -639,8 +641,8 @@ class Gracy(t.Generic[Endpoint]):
 
     async def post(
         self,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -648,8 +650,8 @@ class Gracy(t.Generic[Endpoint]):
 
     async def put(
         self,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -657,8 +659,8 @@ class Gracy(t.Generic[Endpoint]):
 
     async def patch(
         self,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -666,8 +668,8 @@ class Gracy(t.Generic[Endpoint]):
 
     async def delete(
         self,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -675,8 +677,8 @@ class Gracy(t.Generic[Endpoint]):
 
     async def head(
         self,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -684,8 +686,8 @@ class Gracy(t.Generic[Endpoint]):
 
     async def options(
         self,
-        endpoint: Endpoint | str,
-        endpoint_args: dict[str, str] | None = None,
+        endpoint: t.Union[Endpoint, str],
+        endpoint_args: t.Optional[t.Dict[str, str]] = None,
         *args: t.Any,
         **kwargs: t.Any,
     ):
@@ -764,19 +766,16 @@ class GracyNamespace(t.Generic[Endpoint], Gracy[Endpoint]):
 
 
 def graceful(
-    strict_status_code: t.Iterable[HTTPStatus]
-    | HTTPStatus
-    | None
-    | Unset = UNSET_VALUE,
-    allowed_status_code: t.Iterable[HTTPStatus]
-    | HTTPStatus
-    | None
-    | Unset = UNSET_VALUE,
-    validators: t.Iterable[GracefulValidator]
-    | GracefulValidator
-    | None
-    | Unset = UNSET_VALUE,
-    retry: GracefulRetry | Unset | None = UNSET_VALUE,
+    strict_status_code: t.Union[
+        t.Iterable[HTTPStatus], HTTPStatus, None, Unset
+    ] = UNSET_VALUE,
+    allowed_status_code: t.Union[
+        t.Iterable[HTTPStatus], HTTPStatus, None, Unset
+    ] = UNSET_VALUE,
+    validators: t.Union[
+        t.Iterable[GracefulValidator], GracefulValidator, None, Unset
+    ] = UNSET_VALUE,
+    retry: t.Union[GracefulRetry, Unset, None] = UNSET_VALUE,
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
     log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
@@ -815,19 +814,16 @@ def graceful(
 
 
 def graceful_generator(
-    strict_status_code: t.Iterable[HTTPStatus]
-    | HTTPStatus
-    | None
-    | Unset = UNSET_VALUE,
-    allowed_status_code: t.Iterable[HTTPStatus]
-    | HTTPStatus
-    | None
-    | Unset = UNSET_VALUE,
-    validators: t.Iterable[GracefulValidator]
-    | GracefulValidator
-    | None
-    | Unset = UNSET_VALUE,
-    retry: GracefulRetry | Unset | None = UNSET_VALUE,
+    strict_status_code: t.Union[
+        t.Iterable[HTTPStatus], HTTPStatus, None, Unset
+    ] = UNSET_VALUE,
+    allowed_status_code: t.Union[
+        t.Iterable[HTTPStatus], HTTPStatus, None, Unset
+    ] = UNSET_VALUE,
+    validators: t.Union[
+        t.Iterable[GracefulValidator], GracefulValidator, None, Unset
+    ] = UNSET_VALUE,
+    retry: t.Union[GracefulRetry, Unset, None] = UNSET_VALUE,
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
     log_errors: LOG_EVENT_TYPE = UNSET_VALUE,
