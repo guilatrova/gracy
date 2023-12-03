@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import typing as t
-
 import httpx
+import typing as t
 
 from gracy import Gracy
 
 
 class GracefulHttpbin(Gracy[str]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://httpbin.org/"
 
     async def post_json_example(self):

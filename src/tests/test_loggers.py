@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import logging
-import typing as t
-
 import httpx
+import logging
 import pytest
+import typing as t
 
 from gracy import GracefulValidator, Gracy, GracyConfig, LogEvent, LogLevel
 from gracy.exceptions import NonOkResponse
@@ -29,7 +28,7 @@ ON_ERROR: t.Final = LogEvent(LogLevel.CRITICAL, "LOG_ERROR")
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             log_request=ON_REQUEST,

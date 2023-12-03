@@ -11,7 +11,7 @@ class PokeApiEndpoint(BaseEndpoint):
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
     @parsed_response(str)
@@ -28,7 +28,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
 
 
 class StarWarsAPI(Gracy[str]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://swapi.dev/api/"
 
     @parsed_response(str)

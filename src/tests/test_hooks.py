@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import httpx
+import pytest
 import typing as t
 from http import HTTPStatus
 from unittest.mock import patch
-
-import httpx
-import pytest
 
 from gracy import (
     GracefulRetry,
@@ -41,7 +40,7 @@ def make_pokeapi():
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             retry=RETRY,

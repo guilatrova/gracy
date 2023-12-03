@@ -97,7 +97,7 @@ class PokeApiEndpoint(BaseEndpoint):
 
 # 2. Define your Graceful API
 class GracefulPokeAPI(Gracy[str]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/" # 👈 Optional BASE_URL
         # 👇 Define settings to apply for every request
         SETTINGS = GracyConfig(
@@ -779,7 +779,7 @@ from gracy import Gracy, GracyConfig, GracefulRetry, graceful, graceful_generato
 retry = GracefulRetry(...)
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             retry=retry,
@@ -826,7 +826,7 @@ You might want to modify the HTTPx client settings, do so by:
 
 ```py
 class YourAPIClient(Gracy[str]):
-    class Config:  # type: ignore
+    class Config:
         ...
 
     def __init__(self, token: token) -> None:
@@ -889,7 +889,7 @@ You can set up hooks simply by defining `async def before` and `async def after`
 
 ```py
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             retry=RETRY,

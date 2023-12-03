@@ -23,7 +23,7 @@ class CustomValidator(GracefulValidator):
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
     async def get_pokemon(self, name: str):

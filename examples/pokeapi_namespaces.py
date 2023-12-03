@@ -4,8 +4,6 @@ import asyncio
 import typing as t
 from http import HTTPStatus
 
-from rich import print
-
 from gracy import (
     BaseEndpoint,
     Gracy,
@@ -16,6 +14,7 @@ from gracy import (
     parsed_response,
 )
 from gracy.replays.storages._base import GracyReplay
+from rich import print
 
 RESP_TYPE = t.Union[t.Dict[str, t.Any], None]
 
@@ -59,7 +58,7 @@ class PokeApiPokemonNamespace(GracyNamespace[PokeApiEndpoint]):
 
 
 class PokeApi(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         REQUEST_TIMEOUT = 5.0
         SETTINGS = GracyConfig(

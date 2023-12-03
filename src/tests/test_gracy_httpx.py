@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import pytest
 import typing as t
 from http import HTTPStatus
-
-import pytest
 
 from gracy import GracefulRetry, Gracy, GracyConfig
 from tests.conftest import PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint
@@ -26,7 +25,7 @@ def make_pokeapi():
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(
             retry=RETRY,

@@ -14,7 +14,7 @@ class PokeApiEndpoint(BaseEndpoint):
 
 
 class GracefulPokeAPIRecorder(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
     def __init__(self) -> None:

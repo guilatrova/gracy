@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from http import HTTPStatus
-
 import httpx
+from http import HTTPStatus
 
 from gracy import (
     BaseEndpoint,
@@ -58,7 +57,7 @@ class PokeApiEndpoint(BaseEndpoint):
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
     @graceful(

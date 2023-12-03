@@ -49,7 +49,7 @@ class PokeApiEndpoint(BaseEndpoint):
 
 
 class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:  # type: ignore
+    class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
     @parsed_response(str)
