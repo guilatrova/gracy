@@ -12,7 +12,12 @@ import httpx
 
 from gracy.replays._wrappers import record_mode, replay_mode, smart_replay_mode
 
-from ._configs import custom_config_context, custom_gracy_config, within_hook, within_hook_context
+from ._configs import (
+    custom_config_context,
+    custom_gracy_config,
+    within_hook,
+    within_hook_context,
+)
 from ._general import extract_request_kwargs
 from ._loggers import (
     DefaultLogMessage,
@@ -65,12 +70,19 @@ GRACEFUL_T = t.TypeVar("GRACEFUL_T", bound=ANY_COROUTINE)
 GRACEFUL_GEN_T = t.TypeVar("GRACEFUL_GEN_T", bound=t.AsyncGenerator[t.Any, t.Any])
 BEFORE_HOOK_TYPE = t.Callable[[GracyRequestContext], t.Awaitable[None]]
 AFTER_HOOK_TYPE = t.Callable[
-    [GracyRequestContext, t.Union[httpx.Response, Exception], t.Optional[GracefulRetryState]], t.Awaitable[None]
+    [
+        GracyRequestContext,
+        t.Union[httpx.Response, Exception],
+        t.Optional[GracefulRetryState],
+    ],
+    t.Awaitable[None],
 ]
 
 
 async def _gracefully_throttle(
-    report: ReportBuilder, controller: ThrottleController, request_context: GracyRequestContext
+    report: ReportBuilder,
+    controller: ThrottleController,
+    request_context: GracyRequestContext,
 ):
     if isinstance(request_context.active_config.throttling, Unset):
         return
@@ -142,7 +154,9 @@ async def _gracefully_retry(
             break
 
         if retry.log_before:
-            process_log_retry(retry.log_before, DefaultLogMessage.RETRY_BEFORE, request_context, state)
+            process_log_retry(
+                retry.log_before, DefaultLogMessage.RETRY_BEFORE, request_context, state
+            )
 
         await sleep(state.delay)
         await _gracefully_throttle(report, throttle_controller, request_context)
@@ -186,15 +200,35 @@ async def _gracefully_retry(
             failing = False
 
         if retry.log_after:
-            process_log_retry(retry.log_after, DefaultLogMessage.RETRY_AFTER, request_context, state, response)
+            process_log_retry(
+                retry.log_after,
+                DefaultLogMessage.RETRY_AFTER,
+                request_context,
+                state,
+                response,
+            )
 
-    if state.cant_retry and config.should_retry(state.last_response, resulting_exc) and retry.log_exhausted:
-        process_log_retry(retry.log_exhausted, DefaultLogMessage.RETRY_EXHAUSTED, request_context, state, response)
+    if (
+        state.cant_retry
+        and config.should_retry(state.last_response, resulting_exc)
+        and retry.log_exhausted
+    ):
+        process_log_retry(
+            retry.log_exhausted,
+            DefaultLogMessage.RETRY_EXHAUSTED,
+            request_context,
+            state,
+            response,
+        )
 
     return state
 
 
-def _maybe_parse_result(active_config: GracyConfig, request_context: GracyRequestContext, result: httpx.Response):
+def _maybe_parse_result(
+    active_config: GracyConfig,
+    request_context: GracyRequestContext,
+    result: httpx.Response,
+):
     if active_config.parser and not isinstance(active_config.parser, Unset):
         default_fallback = active_config.parser.get("default", UNSET_VALUE)
         parse_result = active_config.parser.get(result.status_code, default_fallback)
@@ -258,12 +292,21 @@ async def _gracify(
         await after_hook(request_context, response, None)
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
-        process_log_after_request(active_config.log_response, DefaultLogMessage.AFTER, request_context, response)
+        process_log_after_request(
+            active_config.log_response,
+            DefaultLogMessage.AFTER,
+            request_context,
+            response,
+        )
 
     validators: list[GracefulValidator] = []
-    if active_config.strict_status_code and not isinstance(active_config.strict_status_code, Unset):
+    if active_config.strict_status_code and not isinstance(
+        active_config.strict_status_code, Unset
+    ):
         validators.append(StrictStatusValidator(active_config.strict_status_code))
-    elif active_config.allowed_status_code and not isinstance(active_config.allowed_status_code, Unset):
+    elif active_config.allowed_status_code and not isinstance(
+        active_config.allowed_status_code, Unset
+    ):
         validators.append(AllowedStatusValidator(active_config.allowed_status_code))
     else:
         validators.append(DefaultValidator())
@@ -301,16 +344,28 @@ async def _gracify(
     did_request_fail = bool(resulting_exc)
     if did_request_fail:
         if active_config.log_errors and isinstance(active_config.log_errors, LogEvent):
-            process_log_after_request(active_config.log_errors, DefaultLogMessage.ERRORS, request_context, response)
+            process_log_after_request(
+                active_config.log_errors,
+                DefaultLogMessage.ERRORS,
+                request_context,
+                response,
+            )
 
     must_break = True
-    if isinstance(active_config.retry, GracefulRetry) and active_config.retry.behavior == "pass":
+    if (
+        isinstance(active_config.retry, GracefulRetry)
+        and active_config.retry.behavior == "pass"
+    ):
         must_break = False
 
     if resulting_exc and must_break:
         raise resulting_exc
 
-    final_result = _maybe_parse_result(active_config, request_context, response) if response else None
+    final_result = (
+        _maybe_parse_result(active_config, request_context, response)
+        if response
+        else None
+    )
 
     return final_result
 
@@ -327,7 +382,9 @@ class OngoingRequestsTracker:
 
     def __init__(self) -> None:
         self._count = 0
-        self._control = t.DefaultDict[t.Tuple[str, ...], t.List[t.Coroutine[t.Any, t.Any, t.Any]]](list)
+        self._control = t.DefaultDict[
+            t.Tuple[str, ...], t.List[t.Coroutine[t.Any, t.Any, t.Any]]
+        ](list)
         self._uurl_lock = t.DefaultDict[str, Lock](Lock)
 
     @property
@@ -362,7 +419,9 @@ class OngoingRequestsTracker:
 
                 if isinstance(concurrent_request.log_limit_reached, LogEvent):
                     process_log_concurrency_limit(
-                        concurrent_request.log_limit_reached, concurrent_request.limit, context
+                        concurrent_request.log_limit_reached,
+                        concurrent_request.limit,
+                        context,
                     )
 
                 async with self._uurl_lock[context.unformatted_url]:
@@ -374,12 +433,18 @@ class OngoingRequestsTracker:
                         if len(pending_coros) == 0:
                             break
 
-                        done_coros = len([True for coro in pending_coros if _is_coro_done(coro)])
+                        done_coros = len(
+                            [True for coro in pending_coros if _is_coro_done(coro)]
+                        )
                         done_coros += len(pending_coros) - concurrent_request.limit
 
                 if isinstance(concurrent_request.log_limit_freed, LogEvent):
-                    cur_capacity = (len(self._control[limit_key]) / concurrent_request.limit) * 100
-                    process_log_concurrency_freed(concurrent_request.log_limit_freed, context, cur_capacity)
+                    cur_capacity = (
+                        len(self._control[limit_key]) / concurrent_request.limit
+                    ) * 100
+                    process_log_concurrency_freed(
+                        concurrent_request.log_limit_freed, context, cur_capacity
+                    )
 
             self._control[limit_key].append(coro)
 
@@ -416,9 +481,16 @@ class Gracy(t.Generic[Endpoint]):
         REQUEST_TIMEOUT: float | None = None
         SETTINGS: GracyConfig = DEFAULT_CONFIG
 
-    def __init__(self, replay: GracyReplay | None = None, DEBUG_ENABLED: bool = False, **kwargs: t.Any) -> None:
+    def __init__(
+        self,
+        replay: GracyReplay | None = None,
+        DEBUG_ENABLED: bool = False,
+        **kwargs: t.Any,
+    ) -> None:
         self.DEBUG_ENABLED = DEBUG_ENABLED
-        self._base_config = t.cast(GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG))
+        self._base_config = t.cast(
+            GracyConfig, getattr(self.Config, "SETTINGS", DEFAULT_CONFIG)
+        )
         self._client = self._create_client(**kwargs)
         self.replays = replay
         self._ongoing_tracker = OngoingRequestsTracker()
@@ -460,12 +532,18 @@ class Gracy(t.Generic[Endpoint]):
             if replays.mode == "record":
                 httpx_request_func = record_mode(replays, httpx_request_func)
             elif replays.mode == "replay":
-                httpx_request_func = replay_mode(replays, self._client, httpx_request_func)
+                httpx_request_func = replay_mode(
+                    replays, self._client, httpx_request_func
+                )
             else:
-                httpx_request_func = smart_replay_mode(replays, self._client, httpx_request_func)
+                httpx_request_func = smart_replay_mode(
+                    replays, self._client, httpx_request_func
+                )
 
         request_kwargs = extract_request_kwargs(kwargs)
-        request = self._client.build_request(request_context.method, request_context.endpoint, **request_kwargs)
+        request = self._client.build_request(
+            request_context.method, request_context.endpoint, **request_kwargs
+        )
 
         graceful_request = _gracify(
             Gracy._reporter,
@@ -624,7 +702,9 @@ class GracyNamespace(t.Generic[Endpoint], Gracy[Endpoint]):
         self._client = self._get_namespace_client(parent, **kwargs)
         self._setup_namespace_config(parent)
 
-    def _get_namespace_client(self, parent: Gracy[Endpoint], **kwargs: t.Any) -> httpx.AsyncClient:
+    def _get_namespace_client(
+        self, parent: Gracy[Endpoint], **kwargs: t.Any
+    ) -> httpx.AsyncClient:
         return parent._client
 
     def _setup_namespace_config(self, parent: Gracy[Endpoint]):
@@ -642,7 +722,9 @@ class GracyNamespace(t.Generic[Endpoint], Gracy[Endpoint]):
                 self.Config.REQUEST_TIMEOUT = parent_config.REQUEST_TIMEOUT
 
             if hasattr(self.Config, "SETTINGS"):
-                settings_config = GracyConfig.merge_config(self.Config.SETTINGS, parent_config.SETTINGS)
+                settings_config = GracyConfig.merge_config(
+                    self.Config.SETTINGS, parent_config.SETTINGS
+                )
             else:
                 settings_config = parent_config.SETTINGS
 
@@ -655,15 +737,26 @@ class GracyNamespace(t.Generic[Endpoint], Gracy[Endpoint]):
         namespace_config.BASE_URL = parent_config.BASE_URL
 
         if hasattr(self.Config, "SETTINGS"):
-            self._base_config = GracyConfig.merge_config(parent_settings, self.Config.SETTINGS)
+            self._base_config = GracyConfig.merge_config(
+                parent_settings, self.Config.SETTINGS
+            )
         else:
             self._base_config = parent_settings
 
 
 def graceful(
-    strict_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
-    allowed_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
-    validators: t.Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE,
+    strict_status_code: t.Iterable[HTTPStatus]
+    | HTTPStatus
+    | None
+    | Unset = UNSET_VALUE,
+    allowed_status_code: t.Iterable[HTTPStatus]
+    | HTTPStatus
+    | None
+    | Unset = UNSET_VALUE,
+    validators: t.Iterable[GracefulValidator]
+    | GracefulValidator
+    | None
+    | Unset = UNSET_VALUE,
     retry: GracefulRetry | Unset | None = UNSET_VALUE,
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
@@ -689,7 +782,9 @@ def graceful(
         concurrent_requests=concurrent_requests_config,
     )
 
-    def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_T]) -> t.Callable[P, GRACEFUL_T]:
+    def _wrapper(
+        wrapped_function: t.Callable[P, GRACEFUL_T]
+    ) -> t.Callable[P, GRACEFUL_T]:
         async def _inner_wrapper(*args: P.args, **kwargs: P.kwargs):
             with custom_gracy_config(config):
                 res = await wrapped_function(*args, **kwargs)
@@ -701,9 +796,18 @@ def graceful(
 
 
 def graceful_generator(
-    strict_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
-    allowed_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE,
-    validators: t.Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE,
+    strict_status_code: t.Iterable[HTTPStatus]
+    | HTTPStatus
+    | None
+    | Unset = UNSET_VALUE,
+    allowed_status_code: t.Iterable[HTTPStatus]
+    | HTTPStatus
+    | None
+    | Unset = UNSET_VALUE,
+    validators: t.Iterable[GracefulValidator]
+    | GracefulValidator
+    | None
+    | Unset = UNSET_VALUE,
     retry: GracefulRetry | Unset | None = UNSET_VALUE,
     log_request: LOG_EVENT_TYPE = UNSET_VALUE,
     log_response: LOG_EVENT_TYPE = UNSET_VALUE,
@@ -729,7 +833,9 @@ def graceful_generator(
         concurrent_requests=concurrent_requests_config,
     )
 
-    def _wrapper(wrapped_function: t.Callable[P, GRACEFUL_GEN_T]) -> t.Callable[P, GRACEFUL_GEN_T]:
+    def _wrapper(
+        wrapped_function: t.Callable[P, GRACEFUL_GEN_T]
+    ) -> t.Callable[P, GRACEFUL_GEN_T]:
         async def _inner_wrapper(*args: P.args, **kwargs: P.kwargs):
             with custom_gracy_config(config):
                 async for res in wrapped_function(*args, **kwargs):

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-import pytest
 import typing as t
 
 import httpx
+import pytest
 
 from gracy import GracefulValidator, Gracy, GracyConfig, LogEvent, LogLevel
 from gracy.exceptions import NonOkResponse
@@ -47,7 +47,9 @@ def pokeapi():
     return GracefulPokeAPI(REPLAY)
 
 
-async def test_pokemon_log_request_response(pokeapi: GracefulPokeAPI, caplog: pytest.LogCaptureFixture):
+async def test_pokemon_log_request_response(
+    pokeapi: GracefulPokeAPI, caplog: pytest.LogCaptureFixture
+):
     await pokeapi.get_pokemon(PRESENT_POKEMON_NAME)
 
     assert len(caplog.records) == 2
@@ -55,7 +57,9 @@ async def test_pokemon_log_request_response(pokeapi: GracefulPokeAPI, caplog: py
     assert_log(caplog.records[1], ON_RESPONSE)
 
 
-async def test_pokemon_log_request_response_error(pokeapi: GracefulPokeAPI, caplog: pytest.LogCaptureFixture):
+async def test_pokemon_log_request_response_error(
+    pokeapi: GracefulPokeAPI, caplog: pytest.LogCaptureFixture
+):
     with pytest.raises(NonOkResponse):
         await pokeapi.get_pokemon(MISSING_NAME)
 

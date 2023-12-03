@@ -40,8 +40,13 @@ async def main():
     poke_names = {"pikachu", "elekid", "charmander", "blaziken", "hitmonchan"}
 
     try:
-        get_pokemons = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in poke_names]
-        get_gens = [asyncio.create_task(pokeapi.get_generation(gen_id)) for gen_id in range(1, 3)]
+        get_pokemons = [
+            asyncio.create_task(pokeapi.get_pokemon(name)) for name in poke_names
+        ]
+        get_gens = [
+            asyncio.create_task(pokeapi.get_generation(gen_id))
+            for gen_id in range(1, 3)
+        ]
         get_berries = [asyncio.create_task(pokeapi.get_berry("cheri"))]
 
         await asyncio.gather(*(get_pokemons + get_gens + get_berries))

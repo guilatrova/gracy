@@ -90,7 +90,10 @@ class BadResponse(GracyException):
         else:
             expectedstr = ", ".join([str(s) for s in expected])
 
-        curmsg = message or f"{url} raised {response.status_code}, but it was expecting {expectedstr}"
+        curmsg = (
+            message
+            or f"{url} raised {response.status_code}, but it was expecting {expectedstr}"
+        )
 
         super().__init__(curmsg)
 
@@ -99,7 +102,9 @@ class BadResponse(GracyException):
 
 
 class UnexpectedResponse(BadResponse):
-    def __init__(self, url: str, response: httpx.Response, expected: str | int | t.Iterable[int]) -> None:
+    def __init__(
+        self, url: str, response: httpx.Response, expected: str | int | t.Iterable[int]
+    ) -> None:
         super().__init__(None, url, response, expected)
 
         self.url = url
@@ -124,7 +129,9 @@ class NonOkResponse(BadResponse):
 class GracyUserDefinedException(GracyException):
     BASE_MESSAGE: str = "[{METHOD}] {URL} returned {}"
 
-    def __init__(self, request_context: GracyRequestContext, response: httpx.Response) -> None:
+    def __init__(
+        self, request_context: GracyRequestContext, response: httpx.Response
+    ) -> None:
         self._request_context = request_context
         self._response = response
         super().__init__(self._format_message(request_context, response))
@@ -144,7 +151,9 @@ class GracyUserDefinedException(GracyException):
             ELAPSED=self.response.elapsed,
         )
 
-    def _format_message(self, request_context: GracyRequestContext, response: httpx.Response) -> str:
+    def _format_message(
+        self, request_context: GracyRequestContext, response: httpx.Response
+    ) -> str:
         format_args = self._build_default_args()
         return self.BASE_MESSAGE.format(**format_args)
 

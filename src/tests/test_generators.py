@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import pytest
 import typing as t
+
+import pytest
 
 from gracy import Gracy, graceful_generator
 from tests.conftest import REPLAY, PokeApiEndpoint

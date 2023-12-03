@@ -34,16 +34,23 @@ class GracyReplayStorage(ABC):
         pass
 
     @abstractmethod
-    async def find_replay(self, request: httpx.Request, discard_before: datetime | None) -> t.Any | None:
+    async def find_replay(
+        self, request: httpx.Request, discard_before: datetime | None
+    ) -> t.Any | None:
         pass
 
     @abstractmethod
-    async def _load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    async def _load(
+        self, request: httpx.Request, discard_before: datetime | None
+    ) -> httpx.Response:
         """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
         pass
 
     async def load(
-        self, request: httpx.Request, discard_before: datetime | None, discard_bad_responses: bool = False
+        self,
+        request: httpx.Request,
+        discard_before: datetime | None,
+        discard_bad_responses: bool = False,
     ) -> httpx.Response:
         """Logic to load a response object based on the request. Raises `GracyReplayRequestNotFound` if missing"""
         resp = await self._load(request, discard_before)
@@ -99,7 +106,9 @@ class GracyReplay:
     replays_made: int = 0
 
     async def has_replay(self, request: httpx.Request) -> bool:
-        replay = await self.storage.find_replay(request, self.discard_replays_older_than)
+        replay = await self.storage.find_replay(
+            request, self.discard_replays_older_than
+        )
         return bool(replay)
 
     def inc_record(self):

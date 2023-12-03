@@ -32,17 +32,28 @@ class DefaultLogMessage(str, Enum):
         "GracefulRetry: {URL} will wait {RETRY_DELAY}s before next attempt due to "
         "{RETRY_CAUSE} ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
     )
-    RETRY_AFTER = "GracefulRetry: {URL} replied {STATUS} ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
+    RETRY_AFTER = (
+        "GracefulRetry: {URL} replied {STATUS} ({CUR_ATTEMPT} out of {MAX_ATTEMPT})"
+    )
     RETRY_EXHAUSTED = "GracefulRetry: {URL} exhausted the maximum attempts of {MAX_ATTEMPT} due to {RETRY_CAUSE}"
 
     REPLAY_RECORDED = "Gracy Replay: Recorded {RECORDED_COUNT} requests"
     REPLAY_REPLAYED = "Gracy Replay: Replayed {REPLAYED_COUNT} requests"
 
-    CONCURRENT_REQUEST_LIMIT_HIT = "{UURL} hit {CONCURRENT_REQUESTS} ongoing concurrent requests"
-    CONCURRENT_REQUEST_LIMIT_FREED = "{UURL} concurrency has been freed at {CONCURRENCY_CAP}"
+    CONCURRENT_REQUEST_LIMIT_HIT = (
+        "{UURL} hit {CONCURRENT_REQUESTS} ongoing concurrent requests"
+    )
+    CONCURRENT_REQUEST_LIMIT_FREED = (
+        "{UURL} concurrency has been freed at {CONCURRENCY_CAP}"
+    )
 
 
-def do_log(logevent: LogEvent, defaultmsg: str, format_args: dict[str, t.Any], response: httpx.Response | None = None):
+def do_log(
+    logevent: LogEvent,
+    defaultmsg: str,
+    format_args: dict[str, t.Any],
+    response: httpx.Response | None = None,
+):
     # Let's protect ourselves against potential customizations with undefined {key}
     safe_format_args = SafeDict(**format_args)
 
@@ -86,7 +97,9 @@ def extract_response_format_args(response: httpx.Response | None) -> dict[str, s
     )
 
 
-def process_log_before_request(logevent: LogEvent, request_context: GracyRequestContext) -> None:
+def process_log_before_request(
+    logevent: LogEvent, request_context: GracyRequestContext
+) -> None:
     format_args = extract_base_format_args(request_context)
     do_log(logevent, DefaultLogMessage.BEFORE, format_args)
 
@@ -145,7 +158,9 @@ def process_log_after_request(
     do_log(logevent, defaultmsg, format_args, response)
 
 
-def process_log_concurrency_limit(logevent: LogEvent, count: int, request_context: GracyRequestContext):
+def process_log_concurrency_limit(
+    logevent: LogEvent, count: int, request_context: GracyRequestContext
+):
     format_args: t.Dict[str, str] = dict(
         CONCURRENT_REQUESTS=f"{count:,}",
         **extract_base_format_args(request_context),
@@ -154,7 +169,9 @@ def process_log_concurrency_limit(logevent: LogEvent, count: int, request_contex
     do_log(logevent, DefaultLogMessage.CONCURRENT_REQUEST_LIMIT_HIT, format_args)
 
 
-def process_log_concurrency_freed(logevent: LogEvent, request_context: GracyRequestContext, cur_cap: float):
+def process_log_concurrency_freed(
+    logevent: LogEvent, request_context: GracyRequestContext, cur_cap: float
+):
     format_args: t.Dict[str, str] = dict(
         CONCURRENCY_CAP=f"{cur_cap:.2f}%",
         **extract_base_format_args(request_context),

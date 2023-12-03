@@ -3,7 +3,17 @@ from __future__ import annotations
 import asyncio
 from http import HTTPStatus
 
-from gracy import BaseEndpoint, GracefulRetry, Gracy, GracyReplay, LogEvent, LogLevel, SQLiteReplayStorage, graceful
+from gracy import (
+    BaseEndpoint,
+    GracefulRetry,
+    Gracy,
+    GracyReplay,
+    LogEvent,
+    LogLevel,
+    graceful,
+    parsed_response,
+)
+from gracy.replays.storages.sqlite import SQLiteReplayStorage
 
 retry = GracefulRetry(
     delay=1,
@@ -29,6 +39,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     class Config:  # type: ignore
         BASE_URL = "https://pokeapi.co/api/v2/"
 
+    @parsed_response(str)
     @graceful(
         strict_status_code={HTTPStatus.OK},
         retry=retry,

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import httpx
 import json
 import pickle
 import typing as t
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from threading import Lock
-
-import httpx
 
 from gracy.exceptions import GracyReplayRequestNotFound
 
@@ -38,12 +37,24 @@ class MongoReplayDocument(t.TypedDict):
     updated_at: datetime
 
 
-def get_unique_keys_from_doc(replay_doc: MongoReplayDocument) -> t.Dict[str, bytes | None | str]:
-    return {"url": replay_doc["url"], "method": replay_doc["method"], "request_body": replay_doc["request_body"]}
+def get_unique_keys_from_doc(
+    replay_doc: MongoReplayDocument,
+) -> t.Dict[str, bytes | None | str]:
+    return {
+        "url": replay_doc["url"],
+        "method": replay_doc["method"],
+        "request_body": replay_doc["request_body"],
+    }
 
 
-def get_unique_keys_from_request(request: httpx.Request) -> t.Dict[str, bytes | None | str]:
-    return {"url": str(request.url), "method": request.method, "request_body": request.content or None}
+def get_unique_keys_from_request(
+    request: httpx.Request,
+) -> t.Dict[str, bytes | None | str]:
+    return {
+        "url": str(request.url),
+        "method": request.method,
+        "request_body": request.content or None,
+    }
 
 
 batch_lock = Lock()
@@ -107,7 +118,7 @@ class MongoReplayStorage(GracyReplayStorage):
 
         doc = MongoReplayDocument(
             url=str(response.url),
-            method=response.request.method,
+            method=str(response.request.method),
             request_body=response.request.content or None,
             response=response_serialized,
             response_content=response_content,
@@ -116,7 +127,9 @@ class MongoReplayStorage(GracyReplayStorage):
 
         self._create_or_batch(doc)
 
-    async def find_replay(self, request: httpx.Request, discard_before: datetime | None) -> MongoReplayDocument | None:
+    async def find_replay(
+        self, request: httpx.Request, discard_before: datetime | None
+    ) -> MongoReplayDocument | None:
         filter = get_unique_keys_from_request(request)
         doc = self._collection.find_one(filter)
 
@@ -128,7 +141,9 @@ class MongoReplayStorage(GracyReplayStorage):
 
         return doc
 
-    async def _load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    async def _load(
+        self, request: httpx.Request, discard_before: datetime | None
+    ) -> httpx.Response:
         doc = await self.find_replay(request, discard_before)
 
         if doc is None:

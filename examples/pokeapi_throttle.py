@@ -6,8 +6,6 @@ import typing as t
 from datetime import timedelta
 from http import HTTPStatus
 
-from rich import print
-
 from gracy import (
     BaseEndpoint,
     GracefulRetry,
@@ -19,6 +17,7 @@ from gracy import (
     ThrottleRule,
     graceful,
 )
+from rich import print
 
 RETRY = GracefulRetry(
     delay=0,  # Force throttling to work
@@ -54,9 +53,13 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
             ),
         )
 
-    @graceful(parser={"default": lambda r: r.json()["order"], HTTPStatus.NOT_FOUND: None})
+    @graceful(
+        parser={"default": lambda r: r.json()["order"], HTTPStatus.NOT_FOUND: None}
+    )
     async def get_pokemon(self, name: str):
-        val = t.cast(str | None, await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name}))
+        val = t.cast(
+            t.Optional[str], await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        )
 
         if val:
             print(f"{name} is #{val} in the pokedex")
@@ -124,13 +127,19 @@ async def main():
         "incineroar",
     ]
     # pokemon_names = pokemon_names[:10]
-    print(f"Will query {len(pokemon_names)} pokemons concurrently - {str(THROTTLE_RULE)}")
+    print(
+        f"Will query {len(pokemon_names)} pokemons concurrently - {str(THROTTLE_RULE)}"
+    )
 
     try:
         start = time.time()
 
-        pokemon_reqs = [asyncio.create_task(pokeapi.get_pokemon(name)) for name in pokemon_names]
-        gen_reqs = [asyncio.create_task(pokeapi.get_generation(gen)) for gen in range(1, 4)]
+        pokemon_reqs = [
+            asyncio.create_task(pokeapi.get_pokemon(name)) for name in pokemon_names
+        ]
+        gen_reqs = [
+            asyncio.create_task(pokeapi.get_generation(gen)) for gen in range(1, 4)
+        ]
 
         await asyncio.gather(*pokemon_reqs, *gen_reqs)
         elapsed = time.time() - start

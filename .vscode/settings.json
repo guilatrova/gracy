@@ -1,15 +1,16 @@
 {
-  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.typeCheckingMode": "basic",
   "editor.formatOnSave": true,
   "[python]": {
     "editor.rulers": [
       120
     ],
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.codeActionsOnSave": {
-      "source.organizeImports": true
-    }
+      "source.fixAll.ruff": true,
+      "source.organizeImports.ruff": true
+    },
   },
   "python.testing.pytestArgs": [
     "src/tests"

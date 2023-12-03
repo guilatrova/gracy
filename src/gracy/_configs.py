@@ -5,7 +5,9 @@ from contextvars import ContextVar
 
 from ._models import GracyConfig
 
-custom_config_context: ContextVar[GracyConfig | None] = ContextVar("gracy_context", default=None)
+custom_config_context: ContextVar[GracyConfig | None] = ContextVar(
+    "gracy_context", default=None
+)
 within_hook_context: ContextVar[bool] = ContextVar("within_hook_context", default=False)
 
 

@@ -25,7 +25,9 @@ def record_mode(replay: GracyReplay, httpx_request_func: httpx_func_type):
     return _wrapper
 
 
-def replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_func: httpx_func_type):
+def replay_mode(
+    replay: GracyReplay, client: httpx.AsyncClient, httpx_request_func: httpx_func_type
+):
     @wraps(httpx_request_func)
     async def _wrapper(*args: t.Any, **kwargs: t.Any):
         request_kwargs = extract_request_kwargs(kwargs)
@@ -43,7 +45,9 @@ def replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_fu
     return _wrapper
 
 
-def smart_replay_mode(replay: GracyReplay, client: httpx.AsyncClient, httpx_request_func: httpx_func_type):
+def smart_replay_mode(
+    replay: GracyReplay, client: httpx.AsyncClient, httpx_request_func: httpx_func_type
+):
     @wraps(httpx_request_func)
     async def _wrapper(*args: t.Any, **kwargs: t.Any):
         request_kwargs = extract_request_kwargs(kwargs)

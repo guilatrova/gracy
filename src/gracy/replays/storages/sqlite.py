@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 import logging
 import pickle
 import sqlite3
@@ -7,8 +8,6 @@ import typing as t
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-
-import httpx
 
 from gracy.exceptions import GracyReplayRequestNotFound
 
@@ -30,7 +29,9 @@ class GracyRecording:
 
 
 class SQLiteReplayStorage(GracyReplayStorage):
-    def __init__(self, db_name: str = "gracy-records.sqlite3", dir: str = ".gracy") -> None:
+    def __init__(
+        self, db_name: str = "gracy-records.sqlite3", dir: str = ".gracy"
+    ) -> None:
         self.db_dir = Path(dir)
         self.db_file = self.db_dir / db_name
         self._con: sqlite3.Connection = None  # type: ignore
@@ -69,7 +70,7 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         recording = GracyRecording(
             str(response.url),
-            response.request.method,
+            str(response.request.method),
             response.request.content or None,
             response_serialized,
             datetime.now(),
@@ -91,7 +92,9 @@ class SQLiteReplayStorage(GracyReplayStorage):
         fetch_res = cur.fetchone()
         return fetch_res
 
-    async def find_replay(self, request: httpx.Request, discard_before: datetime | None) -> t.Any | None:
+    async def find_replay(
+        self, request: httpx.Request, discard_before: datetime | None
+    ) -> t.Any | None:
         fetch_res = self._find_record(request)
         if fetch_res is None:
             return None
@@ -102,7 +105,9 @@ class SQLiteReplayStorage(GracyReplayStorage):
 
         return fetch_res
 
-    async def _load(self, request: httpx.Request, discard_before: datetime | None) -> httpx.Response:
+    async def _load(
+        self, request: httpx.Request, discard_before: datetime | None
+    ) -> httpx.Response:
         fetch_res = await self.find_replay(request, discard_before)
 
         if fetch_res is None:

@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import httpx
 from http import HTTPStatus
 
-import httpx
-
-from gracy import BaseEndpoint, GracefulRetry, Gracy, GracyRequestContext, LogEvent, LogLevel, graceful
+from gracy import (
+    BaseEndpoint,
+    GracefulRetry,
+    Gracy,
+    GracyRequestContext,
+    LogEvent,
+    LogLevel,
+    graceful,
+    parsed_response,
+)
 from gracy.exceptions import GracyUserDefinedException
 
 retry = GracefulRetry(
@@ -23,7 +31,9 @@ retry = GracefulRetry(
 class PokemonNotFound(GracyUserDefinedException):
     BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
 
-    def _format_message(self, request_context: GracyRequestContext, response: httpx.Response) -> str:
+    def _format_message(
+        self, request_context: GracyRequestContext, response: httpx.Response
+    ) -> str:
         format_args = self._build_default_args()
         name = request_context.endpoint_args.get("NAME", "Unknown")
         return self.BASE_MESSAGE.format(NAME=name, **format_args)
@@ -42,13 +52,15 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     class Config:  # type: ignore
         BASE_URL = "https://pokeapi.co/api/v2/"
 
+    @parsed_response(str)
     @graceful(
         strict_status_code={HTTPStatus.OK},
         retry=retry,
         log_request=LogEvent(LogLevel.WARNING),
         log_errors=LogEvent(
             LogLevel.ERROR,
-            lambda r: "Request failed with {STATUS}" f" and it was {'' if r.is_redirect else 'NOT'} redirected"
+            lambda r: "Request failed with {STATUS}"
+            f" and it was {'' if r.is_redirect else 'NOT'} redirected"
             if r
             else "",
         ),

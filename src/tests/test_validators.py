@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import httpx
 import pytest
 import typing as t
 from http import HTTPStatus
 
-import httpx
-
-from gracy import GracefulValidator, Gracy, graceful
+from gracy import GracefulValidator, Gracy, graceful, parsed_response
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
-from tests.conftest import MISSING_NAME, PRESENT_POKEMON_NAME, REPLAY, PokeApiEndpoint, assert_one_request_made
+from tests.conftest import (
+    MISSING_NAME,
+    PRESENT_POKEMON_NAME,
+    REPLAY,
+    PokeApiEndpoint,
+    assert_one_request_made,
+)
 
 
 class CustomValidator(GracefulValidator):
@@ -28,10 +33,12 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     async def get_pokemon_with_wrong_strict_status(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
+    @parsed_response(httpx.Response)
     @graceful(strict_status_code=HTTPStatus.OK)
     async def get_pokemon_with_correct_strict_status(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
+    @parsed_response(httpx.Response)
     @graceful(allowed_status_code=HTTPStatus.NOT_FOUND)
     async def get_pokemon_allow_404(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
@@ -71,7 +78,9 @@ async def test_pokemon_not_found_default(make_pokeapi: t.Callable[[], GracefulPo
     assert_one_request_made(pokeapi)
 
 
-async def test_pokemon_strict_status_fail(make_pokeapi: t.Callable[[], GracefulPokeAPI]):
+async def test_pokemon_strict_status_fail(
+    make_pokeapi: t.Callable[[], GracefulPokeAPI]
+):
     pokeapi = make_pokeapi()
 
     try:
@@ -86,7 +95,9 @@ async def test_pokemon_strict_status_fail(make_pokeapi: t.Callable[[], GracefulP
     assert_one_request_made(pokeapi)
 
 
-async def test_pokemon_strict_status_success(make_pokeapi: t.Callable[[], GracefulPokeAPI]):
+async def test_pokemon_strict_status_success(
+    make_pokeapi: t.Callable[[], GracefulPokeAPI]
+):
     pokeapi = make_pokeapi()
 
     result = await pokeapi.get_pokemon_with_correct_strict_status(PRESENT_POKEMON_NAME)

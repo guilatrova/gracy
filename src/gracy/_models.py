@@ -87,7 +87,12 @@ class GracefulRetryState:
         """Describes why the Retry was triggered"""
 
         # Importing here to avoid cyclic imports
-        from gracy.exceptions import GracyRequestFailed, GracyUserDefinedException, NonOkResponse, UnexpectedResponse
+        from gracy.exceptions import (
+            GracyRequestFailed,
+            GracyUserDefinedException,
+            NonOkResponse,
+            UnexpectedResponse,
+        )
 
         if self.success:
             return "SUCCESSFUL"
@@ -118,8 +123,14 @@ class GracefulRetryState:
             self._delay *= self._retry_config.delay_modifier
 
         self._override_delay = None
-        if response and self._retry_config.overrides and self._retry_config.overrides.get(response.status_code):
-            self._override_delay = self._retry_config.overrides[response.status_code].delay
+        if (
+            response
+            and self._retry_config.overrides
+            and self._retry_config.overrides.get(response.status_code)
+        ):
+            self._override_delay = self._retry_config.overrides[
+                response.status_code
+            ].delay
 
 
 STATUS_OR_EXCEPTION = t.Union[int, t.Type[Exception]]
@@ -153,7 +164,9 @@ class GracefulRetry:
 
         return response_result in retry_on_status
 
-    def create_state(self, result: httpx.Response | None, exc: Exception | None) -> GracefulRetryState:
+    def create_state(
+        self, result: httpx.Response | None, exc: Exception | None
+    ) -> GracefulRetryState:
         state = GracefulRetryState(self)
         state.last_response = result
         state.last_exc = exc
@@ -183,7 +196,12 @@ class ThrottleRule:
     Used in combination with `max_requests` to measure throttle
     """
 
-    def __init__(self, url_pattern: str, max_requests: int, per_time_range: timedelta = timedelta(seconds=1)) -> None:
+    def __init__(
+        self,
+        url_pattern: str,
+        max_requests: int,
+        per_time_range: timedelta = timedelta(seconds=1),
+    ) -> None:
         self.url_pattern = re.compile(url_pattern)
         self.max_requests = max_requests
         self.per_time_range = per_time_range
@@ -226,7 +244,9 @@ class ThrottleRule:
         Returns whether limit was hit or not.
         """
         rate_limit = self.max_requests
-        cur_rate = controller.calculate_requests_per_rule(self.url_pattern, self.per_time_range)
+        cur_rate = controller.calculate_requests_per_rule(
+            self.url_pattern, self.per_time_range
+        )
 
         if cur_rate >= rate_limit:
             time_diff = (rate_limit - cur_rate) or 1
@@ -276,20 +296,30 @@ class GracefulThrottle:
 
 class ThrottleController:
     def __init__(self) -> None:
-        self._control: dict[str, list[datetime]] = t.DefaultDict[str, t.List[datetime]](list)
+        self._control: dict[str, list[datetime]] = t.DefaultDict[str, t.List[datetime]](
+            list
+        )
 
     def init_request(self, request_context: GracyRequestContext):
         with THROTTLE_LOCKER.lock_check():
-            self._control[request_context.url].append(datetime.now())  # This should always keep it sorted asc
+            self._control[request_context.url].append(
+                datetime.now()
+            )  # This should always keep it sorted asc
 
-    def calculate_requests_per_rule(self, url_pattern: t.Pattern[str], range: timedelta) -> float:
+    def calculate_requests_per_rule(
+        self, url_pattern: t.Pattern[str], range: timedelta
+    ) -> float:
         with THROTTLE_LOCKER.lock_check():
             past_time_window = datetime.now() - range
             request_rate = 0.0
 
             request_times = sorted(
                 itertools.chain(
-                    *[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)],
+                    *[
+                        started_ats
+                        for url, started_ats in self._control.items()
+                        if url_pattern.match(url)
+                    ],
                 ),
                 reverse=True,
             )
@@ -313,12 +343,22 @@ class ThrottleController:
         with THROTTLE_LOCKER.lock_check():
             requests_per_second = 0.0
             coalesced_started_ats = sorted(
-                itertools.chain(*[started_ats for url, started_ats in self._control.items() if url_pattern.match(url)])
+                itertools.chain(
+                    *[
+                        started_ats
+                        for url, started_ats in self._control.items()
+                        if url_pattern.match(url)
+                    ]
+                )
             )
 
             if coalesced_started_ats:
                 # Best effort to measure rate if we just performed 1 request
-                last = coalesced_started_ats[-1] if len(coalesced_started_ats) > 1 else datetime.now()
+                last = (
+                    coalesced_started_ats[-1]
+                    if len(coalesced_started_ats) > 1
+                    else datetime.now()
+                )
                 start = coalesced_started_ats[0]
                 elapsed = last - start
 
@@ -377,9 +417,13 @@ class ConcurrentRequestLimit:
     log_limit_reached: LOG_EVENT_TYPE = None
     log_limit_freed: LOG_EVENT_TYPE = None
 
-    def get_blocking_key(self, request_context: GracyRequestContext) -> t.Tuple[str, ...]:
+    def get_blocking_key(
+        self, request_context: GracyRequestContext
+    ) -> t.Tuple[str, ...]:
         if self.blocking_args:
-            args = [request_context.endpoint_args.get(arg, "") for arg in self.blocking_args]
+            args = [
+                request_context.endpoint_args.get(arg, "") for arg in self.blocking_args
+            ]
             return (request_context.unformatted_url, *args)
 
         return (request_context.unformatted_url,)
@@ -392,7 +436,9 @@ class ConcurrentRequestLimit:
         return cur_cap >= self.free_on_capacitity
 
 
-CONCURRENT_REQUEST_TYPE = t.Union[t.Iterable[ConcurrentRequestLimit], ConcurrentRequestLimit, None, Unset]
+CONCURRENT_REQUEST_TYPE = t.Union[
+    t.Iterable[ConcurrentRequestLimit], ConcurrentRequestLimit, None, Unset
+]
 
 
 @dataclass
@@ -408,7 +454,9 @@ class GracyConfig:
 
     e.g. Setting it to 201 would raise exceptions for both 204 or 200"""
 
-    allowed_status_code: t.Iterable[HTTPStatus] | HTTPStatus | None | Unset = UNSET_VALUE
+    allowed_status_code: t.Iterable[
+        HTTPStatus
+    ] | HTTPStatus | None | Unset = UNSET_VALUE
     """Adds one or many HTTP Status code that would normally be considered an error
 
     e.g. 404 would consider any 200-299 and 404 as successful.
@@ -416,7 +464,9 @@ class GracyConfig:
     NOTE: `strict_status_code` takes precedence.
     """
 
-    validators: t.Iterable[GracefulValidator] | GracefulValidator | None | Unset = UNSET_VALUE
+    validators: t.Iterable[
+        GracefulValidator
+    ] | GracefulValidator | None | Unset = UNSET_VALUE
     """Adds one or many validators to be run for the response to decide whether it was successful or not.
 
     NOTE: `strict_status_code` or `allowed_status_code` are executed before.
@@ -438,14 +488,19 @@ class GracyConfig:
 
     concurrent_requests: CONCURRENT_REQUEST_TYPE = UNSET_VALUE
 
-    def should_retry(self, response: httpx.Response | None, req_or_validation_exc: Exception | None) -> bool:
+    def should_retry(
+        self, response: httpx.Response | None, req_or_validation_exc: Exception | None
+    ) -> bool:
         """Only checks if given status requires retry. Does not consider attempts."""
 
         if self.has_retry:
             retry = t.cast(GracefulRetry, self.retry)
 
             retry_on: t.Iterable[STATUS_OR_EXCEPTION]
-            if not isinstance(retry.retry_on, t.Iterable) and retry.retry_on is not None:
+            if (
+                not isinstance(retry.retry_on, t.Iterable)
+                and retry.retry_on is not None
+            ):
                 retry_on = [retry.retry_on]
             elif retry.retry_on is None:
                 retry_on = []
@@ -457,7 +512,9 @@ class GracyConfig:
                     return True
 
                 for maybe_exc in retry_on:
-                    if inspect.isclass(maybe_exc) and isinstance(req_or_validation_exc, maybe_exc):
+                    if inspect.isclass(maybe_exc) and isinstance(
+                        req_or_validation_exc, maybe_exc
+                    ):
                         return True
 
                 return False
@@ -473,7 +530,9 @@ class GracyConfig:
                     return True
 
                 for maybe_exc in retry.retry_on:
-                    if inspect.isclass(maybe_exc) and isinstance(req_or_validation_exc, maybe_exc):
+                    if inspect.isclass(maybe_exc) and isinstance(
+                        req_or_validation_exc, maybe_exc
+                    ):
                         return True
 
             elif inspect.isclass(retry.retry_on):
@@ -500,8 +559,13 @@ class GracyConfig:
 
         return new_obj
 
-    def get_concurrent_limit(self, context: GracyRequestContext) -> t.Optional[ConcurrentRequestLimit]:
-        if isinstance(self.concurrent_requests, Unset) or self.concurrent_requests is None:
+    def get_concurrent_limit(
+        self, context: GracyRequestContext
+    ) -> t.Optional[ConcurrentRequestLimit]:
+        if (
+            isinstance(self.concurrent_requests, Unset)
+            or self.concurrent_requests is None
+        ):
             return None
 
         if isinstance(self.concurrent_requests, ConcurrentRequestLimit):

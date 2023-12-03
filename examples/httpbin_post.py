@@ -13,7 +13,9 @@ class GracefulHttpbin(Gracy[str]):
         BASE_URL = "https://httpbin.org/"
 
     async def post_json_example(self):
-        res = await self.post("post", None, json={"test": "json"}, headers={"header1": "1"})
+        res = await self.post(
+            "post", None, json={"test": "json"}, headers={"header1": "1"}
+        )
         return res
 
     async def post_data_example(self):
