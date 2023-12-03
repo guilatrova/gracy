@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.31.0 (2023-12-03)
+### Feature
+
+* Auto instantiate namespaces ([`3d26863`](https://github.com/guilatrova/gracy/commit/3d26863444a2a959a0ca6b4665c4791547acfbec))
+
 ## v1.30.0 (2023-12-02)
 ### Feature
 
