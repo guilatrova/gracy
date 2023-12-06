@@ -4,7 +4,7 @@ import inspect
 import logging
 import sys
 import typing as t
-from asyncio import Lock, sleep
+from asyncio import sleep
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 
@@ -370,11 +370,6 @@ async def _gracify(
     return final_result
 
 
-def _is_coro_done(coro: t.Coroutine[t.Any, t.Any, t.Any]) -> bool:
-    """This simple check guarantess two things: The coroutine has been started, and it has been completed."""
-    return coro.cr_frame is None  # type: ignore
-
-
 class OngoingRequestsTracker:
     ARBITRARY_WAIT_SECS = 0.2
     """We need to force a wait to ensure the coroutines will be completed,
@@ -382,10 +377,6 @@ class OngoingRequestsTracker:
 
     def __init__(self) -> None:
         self._count = 0
-        self._control = t.DefaultDict[
-            t.Tuple[str, ...], t.List[t.Coroutine[t.Any, t.Any, t.Any]]
-        ](list)
-        self._uurl_lock = t.DefaultDict[str, Lock](Lock)
 
     @property
     def count(self) -> int:
@@ -396,27 +387,28 @@ class OngoingRequestsTracker:
         self,
         context: GracyRequestContext,
         concurrent_request: t.Optional[ConcurrentRequestLimit],
-        coro: t.Coroutine[t.Any, t.Any, t.Any],
     ):
-        limit_key = None
         has_been_limited = False
+        semaphore = None
 
         try:
-            self._count += 1
-            done_coros = 0
-
             if concurrent_request is None:
+                self._count += 1
                 yield
                 return
 
-            limit_key = concurrent_request.get_blocking_key(context)
-            cur_count = len(self._control[limit_key])
-            has_been_limited = cur_count >= concurrent_request.limit
+            semaphore = concurrent_request.get_semaphore(context)
+            has_been_limited = semaphore.locked()
 
             if has_been_limited:
-                while self._uurl_lock[context.unformatted_url].locked():
+                while semaphore.locked():
                     await asyncio.sleep(self.ARBITRARY_WAIT_SECS)
 
+            await semaphore.acquire()
+
+            self._count += 1
+
+            if has_been_limited:
                 if isinstance(concurrent_request.log_limit_reached, LogEvent):
                     process_log_concurrency_limit(
                         concurrent_request.log_limit_reached,
@@ -424,36 +416,17 @@ class OngoingRequestsTracker:
                         context,
                     )
 
-                async with self._uurl_lock[context.unformatted_url]:
-                    # We don't want to await!
-                    while concurrent_request.should_free(done_coros) is False:
-                        await asyncio.sleep(self.ARBITRARY_WAIT_SECS)
-
-                        pending_coros = self._control[limit_key]
-                        if len(pending_coros) == 0:
-                            break
-
-                        done_coros = len(
-                            [True for coro in pending_coros if _is_coro_done(coro)]
-                        )
-                        done_coros += len(pending_coros) - concurrent_request.limit
-
                 if isinstance(concurrent_request.log_limit_freed, LogEvent):
-                    cur_capacity = (
-                        len(self._control[limit_key]) / concurrent_request.limit
-                    ) * 100
                     process_log_concurrency_freed(
-                        concurrent_request.log_limit_freed, context, cur_capacity
+                        concurrent_request.log_limit_freed, context
                     )
-
-            self._control[limit_key].append(coro)
 
             yield
 
         finally:
+            if semaphore:
+                semaphore.release()
             self._count -= 1
-            if limit_key and coro in self._control[limit_key]:
-                self._control[limit_key].remove(coro)
 
 
 DISABLED_GRACY_CONFIG: t.Final = GracyConfig(
@@ -583,16 +556,10 @@ class Gracy(t.Generic[Endpoint]):
             request_context,
         )
 
-        result_coro = graceful_request
-
         concurrent = active_config.get_concurrent_limit(request_context)
 
-        async with self._ongoing_tracker.request(
-            request_context,
-            concurrent,
-            result_coro,
-        ):
-            return await result_coro
+        async with self._ongoing_tracker.request(request_context, concurrent):
+            return await graceful_request
 
     async def before(self, context: GracyRequestContext):
         ...

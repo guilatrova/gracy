@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
-import typing as t
 from datetime import timedelta
 from http import HTTPStatus
 
-from gracy import (
+from rich import print
+from rich.logging import RichHandler
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler()],
+)
+
+from gracy import (  # noqa: E402
     BaseEndpoint,
     ConcurrentRequestLimit,
     GracefulRetry,
@@ -16,14 +26,13 @@ from gracy import (
     LogLevel,
     graceful,
 )
-from rich import print
 
 RETRY = GracefulRetry(
     delay=0,  # Force throttling to work
     max_attempts=3,
     retry_on=None,
-    log_after=LogEvent(LogLevel.WARNING),
-    log_exhausted=LogEvent(LogLevel.CRITICAL),
+    log_after=LogEvent(LogLevel.INFO),
+    log_exhausted=LogEvent(LogLevel.ERROR),
     behavior="pass",
 )
 
@@ -44,9 +53,13 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
                 HTTPStatus.NOT_FOUND: None,
             },
             concurrent_requests=ConcurrentRequestLimit(
-                1,
-                log_limit_reached=LogEvent(LogLevel.WARNING),
-                log_limit_freed=LogEvent(LogLevel.INFO),
+                2,
+                limit_per_uurl=False,
+                log_limit_reached=LogEvent(
+                    LogLevel.ERROR,
+                    custom_message="{URL} hit {CONCURRENT_REQUESTS} ongoing concurrent request",
+                ),
+                log_limit_freed=LogEvent(LogLevel.INFO, "{URL} is free to request"),
             ),
         )
 
@@ -54,17 +67,20 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         parser={"default": lambda r: r.json()["order"], HTTPStatus.NOT_FOUND: None}
     )
     async def get_pokemon(self, name: str):
-        val = t.cast(
-            t.Optional[str], await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-        )
+        if name == "slow":
+            await self.slow_req()
+            print("\n\n")
+            return
 
-        if val:
-            print(f"{name} is #{val} in the pokedex")
-        else:
-            print(f"{name} was not found")
+        await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        print("\n\n")
 
     async def get_generation(self, gen: int):
         return await self.get(PokeApiEndpoint.GET_GENERATION, {"ID": str(gen)})
+
+    @graceful(parser={"default": lambda r: r})
+    async def slow_req(self):
+        await self.get("https://httpbin.org/delay/3")
 
 
 pokeapi = GracefulPokeAPI()
@@ -79,6 +95,7 @@ async def main():
         "jigglypuff",
         "mewtwo",
         "gyarados",
+        "slow",
         "dragonite",
         "mew",
         "chikorita",
@@ -103,6 +120,7 @@ async def main():
         "rayquaza",
         "latias",
         "latios",
+        "slow",
         "lucario",
         "garchomp",
         "darkrai",

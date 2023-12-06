@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import copy
+import httpx
 import inspect
 import itertools
 import logging
@@ -13,8 +15,6 @@ from datetime import datetime, timedelta
 from enum import Enum, IntEnum
 from http import HTTPStatus
 from threading import Lock
-
-import httpx
 
 from ._types import PARSER_TYPE, UNSET_VALUE, Unset
 
@@ -412,28 +412,56 @@ class ConcurrentRequestLimit:
     Optional, leaving it blank means that any request to the endpoint will be blocked
     """
 
-    free_on_capacitity: float = 0
+    limit_per_uurl: bool = True
+    """
+    Whether Gracy should limit requests per UURL or the whole api.
+
+    If True, UURLs will be grouped, so:
+
+       Limit = 1
+       #1. GET /test/{VALUE} (0/1) - RUNNING
+       #3. GET /another/{VALUE} (0/1) - RUNNING
+       #2. GET /test/{VALUE} (1/1) - WAITING [Grouped with #1]
+
+    If False, every UURL will be matched, so:
+
+       Limit = 1
+       #1. GET /test/{VALUE} (0/1) - RUNNING
+       #3. GET /another/{VALUE} (0/1) - WAITING [Grouped with ALL]
+       #2. GET /test/{VALUE} (1/1) - WAITING [Grouped with ALL]
+
+    """
 
     log_limit_reached: LOG_EVENT_TYPE = None
     log_limit_freed: LOG_EVENT_TYPE = None
 
-    def get_blocking_key(
+    def __post_init__(self):
+        self._arg_semaphore_map: t.Dict[
+            t.Tuple[str, ...], asyncio.BoundedSemaphore
+        ] = {}
+
+    def _get_blocking_key(
         self, request_context: GracyRequestContext
     ) -> t.Tuple[str, ...]:
+        uurl_arg = request_context.unformatted_url if self.limit_per_uurl else "global"
+        args: t.List[str] = []
+
         if self.blocking_args:
             args = [
                 request_context.endpoint_args.get(arg, "") for arg in self.blocking_args
             ]
-            return (request_context.unformatted_url, *args)
 
-        return (request_context.unformatted_url,)
+        return (uurl_arg, *args)
 
-    def should_free(self, done: int) -> bool:
-        if self.free_on_capacitity == 0:
-            return done == self.limit
+    def get_semaphore(
+        self, request_context: GracyRequestContext
+    ) -> asyncio.BoundedSemaphore:
+        key = self._get_blocking_key(request_context)
 
-        cur_cap = (done / self.limit) * 100
-        return cur_cap >= self.free_on_capacitity
+        if key not in self._arg_semaphore_map:
+            self._arg_semaphore_map[key] = asyncio.BoundedSemaphore(self.limit)
+
+        return self._arg_semaphore_map[key]
 
 
 CONCURRENT_REQUEST_TYPE = t.Union[
