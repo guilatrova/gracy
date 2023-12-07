@@ -296,9 +296,7 @@ class GracefulThrottle:
 
 class ThrottleController:
     def __init__(self) -> None:
-        self._control: dict[str, list[datetime]] = t.DefaultDict[str, t.List[datetime]](
-            list
-        )
+        self._control = t.DefaultDict[str, t.List[datetime]](list)
 
     def init_request(self, request_context: GracyRequestContext):
         with THROTTLE_LOCKER.lock_check():

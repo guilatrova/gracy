@@ -499,7 +499,7 @@ class Gracy(t.Generic[Endpoint]):
     def _create_client(self, **kwargs: t.Any) -> httpx.AsyncClient:
         base_url = getattr(self.Config, "BASE_URL", "")
         request_timeout = getattr(self.Config, "REQUEST_TIMEOUT", None)
-        return httpx.AsyncClient(base_url=base_url, timeout=request_timeout)
+        return httpx.AsyncClient(base_url=str(base_url), timeout=request_timeout)
 
     async def _request(
         self,
