@@ -286,8 +286,6 @@ async def _gracify(
         await after_hook(request_context, resulting_exc, None)
 
     else:
-        # mypy didn't detect it properly
-        response = t.cast(httpx.Response, response)  # type: ignore
         report.track(request_context, response)
         await after_hook(request_context, response, None)
 
