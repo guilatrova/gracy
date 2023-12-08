@@ -395,6 +395,23 @@ class GracefulValidator(ABC):
 
 
 @dataclass
+class RequestTimeline:
+    url: str
+    start: float
+    end: float
+
+    @classmethod
+    def build(cls, start: float, resp: httpx.Response):
+        end = start + resp.elapsed.total_seconds()
+
+        return cls(
+            url=str(resp.url),
+            start=start,
+            end=end,
+        )
+
+
+@dataclass
 class ConcurrentRequestLimit:
     """
     Limits how many concurrent calls for a specific endpoint can be active.

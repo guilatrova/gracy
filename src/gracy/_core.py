@@ -7,6 +7,7 @@ import typing as t
 from asyncio import sleep
 from contextlib import asynccontextmanager
 from http import HTTPStatus
+from time import time
 
 from gracy.replays._wrappers import record_mode, replay_mode, smart_replay_mode
 
@@ -162,17 +163,19 @@ async def _gracefully_retry(
         await _gracefully_throttle(report, throttle_controller, request_context)
         throttle_controller.init_request(request_context)
 
+        start = 0
         try:
             await before_hook(request_context)
+            start = time()
             response = await request()
 
         except Exception as request_err:
             resulting_exc = GracyRequestFailed(request_context, request_err)
-            report.track(request_context, request_err)
+            report.track(request_context, request_err, start)
             await after_hook(request_context, request_err, state)
 
         else:
-            report.track(request_context, response)
+            report.track(request_context, response, start)
             await after_hook(request_context, response, state)
 
         finally:
@@ -275,18 +278,20 @@ async def _gracify(
         await _gracefully_throttle(report, throttle_controller, request_context)
         throttle_controller.init_request(request_context)
 
+    start = 0
     try:
         await before_hook(request_context)
+        start = time()
         response = await request()
 
     except Exception as request_err:
         resulting_exc = GracyRequestFailed(request_context, request_err)
         response = None
-        report.track(request_context, resulting_exc)
+        report.track(request_context, resulting_exc, start)
         await after_hook(request_context, resulting_exc, None)
 
     else:
-        report.track(request_context, response)
+        report.track(request_context, response, start)
         await after_hook(request_context, response, None)
 
     if active_config.log_response and isinstance(active_config.log_response, LogEvent):
@@ -369,7 +374,7 @@ async def _gracify(
 
 
 class OngoingRequestsTracker:
-    ARBITRARY_WAIT_SECS = 0.2
+    ARBITRARY_WAIT_SECS = 0.001
     """We need to force a wait to ensure the coroutines will be completed,
     we can't tell how long it will take, so let's aim for a small time range."""
 
@@ -663,7 +668,7 @@ class Gracy(t.Generic[Endpoint]):
 
     def report_status(self, printer: PRINTERS):
         report = self.get_report()
-        print_report(report, printer)
+        return print_report(report, printer)
 
     @classmethod
     def dangerously_reset_report(cls):
