@@ -149,14 +149,14 @@ async def main():
 
         slow_reqs = [asyncio.create_task(pokeapi.slow_req(s)) for s in range(3)]
 
-        pokemon_reqs = [
+        pokemon_reqs += [
             asyncio.create_task(pokeapi.get_pokemon(name))
             for name in pokemon_names[10:20]
         ]
 
         slow_reqs += [asyncio.create_task(pokeapi.slow_req(s)) for s in range(3)]
 
-        pokemon_reqs = [
+        pokemon_reqs += [
             asyncio.create_task(pokeapi.get_pokemon(name))
             for name in pokemon_names[20:]
         ]
