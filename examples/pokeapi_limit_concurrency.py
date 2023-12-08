@@ -166,6 +166,9 @@ async def main():
         ]
 
         await asyncio.gather(*pokemon_reqs, *gen_reqs, *slow_reqs)
+
+        await pokeapi.get_pokemon("hitmonchan")
+
         elapsed = time.time() - start
         print(f"All requests took {timedelta(seconds=elapsed)}s to finish")
 

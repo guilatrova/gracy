@@ -374,12 +374,9 @@ async def _gracify(
 
 
 class OngoingRequestsTracker:
-    ARBITRARY_WAIT_SECS = 0.001
-    """We need to force a wait to ensure the coroutines will be completed,
-    we can't tell how long it will take, so let's aim for a small time range."""
-
     def __init__(self) -> None:
         self._count = 0
+        self._previously_limited = False
 
     @property
     def count(self) -> int:
@@ -403,15 +400,10 @@ class OngoingRequestsTracker:
             semaphore = concurrent_request.get_semaphore(context)
             has_been_limited = semaphore.locked()
 
-            if has_been_limited:
-                while semaphore.locked():
-                    await asyncio.sleep(self.ARBITRARY_WAIT_SECS)
-
             await semaphore.acquire()
-
             self._count += 1
 
-            if has_been_limited:
+            if has_been_limited and self._previously_limited is False:
                 if isinstance(concurrent_request.log_limit_reached, LogEvent):
                     process_log_concurrency_limit(
                         concurrent_request.log_limit_reached,
@@ -419,6 +411,7 @@ class OngoingRequestsTracker:
                         context,
                     )
 
+            if self._previously_limited and has_been_limited is False:
                 if isinstance(concurrent_request.log_limit_freed, LogEvent):
                     process_log_concurrency_freed(
                         concurrent_request.log_limit_freed, context
@@ -429,6 +422,8 @@ class OngoingRequestsTracker:
         finally:
             if semaphore:
                 semaphore.release()
+
+            self._previously_limited = has_been_limited
             self._count -= 1
 
 
