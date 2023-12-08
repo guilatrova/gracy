@@ -27,6 +27,18 @@ from gracy import (  # noqa: E402
     graceful,
 )
 
+CONCURRENCY = (
+    ConcurrentRequestLimit(
+        2,
+        limit_per_uurl=False,
+        log_limit_reached=LogEvent(
+            LogLevel.ERROR,
+            custom_message="{URL} hit {CONCURRENT_REQUESTS} ongoing concurrent request",
+        ),
+        log_limit_freed=LogEvent(LogLevel.INFO, "{URL} is free to request"),
+    ),
+)
+
 RETRY = GracefulRetry(
     delay=0,  # Force throttling to work
     max_attempts=3,
@@ -48,39 +60,25 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         SETTINGS = GracyConfig(
             strict_status_code={HTTPStatus.OK},
             retry=RETRY,
+            concurrent_requests=CONCURRENCY,
             parser={
                 "default": lambda r: r.json(),
                 HTTPStatus.NOT_FOUND: None,
             },
-            concurrent_requests=ConcurrentRequestLimit(
-                2,
-                limit_per_uurl=False,
-                log_limit_reached=LogEvent(
-                    LogLevel.ERROR,
-                    custom_message="{URL} hit {CONCURRENT_REQUESTS} ongoing concurrent request",
-                ),
-                log_limit_freed=LogEvent(LogLevel.INFO, "{URL} is free to request"),
-            ),
         )
 
     @graceful(
         parser={"default": lambda r: r.json()["order"], HTTPStatus.NOT_FOUND: None}
     )
     async def get_pokemon(self, name: str):
-        if name == "slow":
-            await self.slow_req()
-            print("\n\n")
-            return
-
         await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-        print("\n\n")
 
     async def get_generation(self, gen: int):
         return await self.get(PokeApiEndpoint.GET_GENERATION, {"ID": str(gen)})
 
     @graceful(parser={"default": lambda r: r})
-    async def slow_req(self):
-        await self.get("https://httpbin.org/delay/3")
+    async def slow_req(self, s: int):
+        await self.get("https://httpbin.org/delay/{DELAY}", dict(DELAY=str(s)))
 
 
 pokeapi = GracefulPokeAPI()
@@ -95,7 +93,6 @@ async def main():
         "jigglypuff",
         "mewtwo",
         "gyarados",
-        "slow",
         "dragonite",
         "mew",
         "chikorita",
@@ -120,7 +117,6 @@ async def main():
         "rayquaza",
         "latias",
         "latios",
-        "slow",
         "lucario",
         "garchomp",
         "darkrai",
@@ -147,20 +143,35 @@ async def main():
         start = time.time()
 
         pokemon_reqs = [
-            asyncio.create_task(pokeapi.get_pokemon(name)) for name in pokemon_names
+            asyncio.create_task(pokeapi.get_pokemon(name))
+            for name in pokemon_names[:10]
         ]
+
+        slow_reqs = [asyncio.create_task(pokeapi.slow_req(s)) for s in range(3)]
+
+        pokemon_reqs = [
+            asyncio.create_task(pokeapi.get_pokemon(name))
+            for name in pokemon_names[10:20]
+        ]
+
+        slow_reqs += [asyncio.create_task(pokeapi.slow_req(s)) for s in range(3)]
+
+        pokemon_reqs = [
+            asyncio.create_task(pokeapi.get_pokemon(name))
+            for name in pokemon_names[20:]
+        ]
+
         gen_reqs = [
             asyncio.create_task(pokeapi.get_generation(gen)) for gen in range(1, 4)
         ]
 
-        await asyncio.gather(*pokemon_reqs, *gen_reqs)
+        await asyncio.gather(*pokemon_reqs, *gen_reqs, *slow_reqs)
         elapsed = time.time() - start
         print(f"All requests took {timedelta(seconds=elapsed)}s to finish")
 
     finally:
-        pokeapi.report_status("rich")
-        pokeapi.report_status("list")
-        pokeapi._throttle_controller.debug_print()  # type: ignore
+        plotly = pokeapi.report_status("plotly")
+        plotly.show()
 
 
 asyncio.run(main())

@@ -58,6 +58,7 @@ pyright = "^1.1.338"
 [tool.poetry.extras]
 rich = ["rich"]
 pymongo = ["pymongo"]
+plotly = ["plotly", "pandas"]
 
 [tool.ruff.lint.isort]
 extra-standard-library = ["pytest", "httpx"]
