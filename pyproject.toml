@@ -69,6 +69,7 @@ required-imports = ["from __future__ import annotations"]
 include = ["src"]
 pythonVersion = "3.8"
 pythonPlatform = "All"
+reportMissingImports = "warning"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
