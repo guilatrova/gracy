@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import httpx
 import logging
 import typing as t
 from enum import Enum
-
-import httpx
 
 from ._models import GracefulRetryState, GracyRequestContext, LogEvent, ThrottleRule
 
@@ -43,9 +42,7 @@ class DefaultLogMessage(str, Enum):
     CONCURRENT_REQUEST_LIMIT_HIT = (
         "{UURL} hit {CONCURRENT_REQUESTS} ongoing concurrent requests"
     )
-    CONCURRENT_REQUEST_LIMIT_FREED = (
-        "{UURL} concurrency has been freed at {CONCURRENCY_CAP}"
-    )
+    CONCURRENT_REQUEST_LIMIT_FREED = "{UURL} concurrency has been freed"
 
 
 def do_log(
@@ -170,10 +167,9 @@ def process_log_concurrency_limit(
 
 
 def process_log_concurrency_freed(
-    logevent: LogEvent, request_context: GracyRequestContext, cur_cap: float
+    logevent: LogEvent, request_context: GracyRequestContext
 ):
     format_args: t.Dict[str, str] = dict(
-        CONCURRENCY_CAP=f"{cur_cap:.2f}%",
         **extract_base_format_args(request_context),
     )
     do_log(logevent, DefaultLogMessage.CONCURRENT_REQUEST_LIMIT_FREED, format_args)

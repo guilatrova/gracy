@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 import typing as t
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from ..replays.storages._base import GracyReplay
 from ._models import GracyAggregatedTotal, GracyReport
 
 logger = logging.getLogger("gracy")
 
-PRINTERS = t.Literal["rich", "list", "logger"]
+PRINTERS = t.Literal["rich", "list", "logger", "plotly"]
 
 
 class Titles:
@@ -106,7 +107,7 @@ def _print_header(report: GracyReport):
 
 class BasePrinter(ABC):
     @abstractmethod
-    def print_report(self, report: GracyReport) -> None:
+    def print_report(self, report: GracyReport) -> t.Any:
         pass
 
 
@@ -189,6 +190,40 @@ class RichPrinter(BasePrinter):
             )
 
         console.print(table)
+
+
+class PlotlyPrinter(BasePrinter):
+    def print_report(self, report: GracyReport):
+        # Dynamic import so we don't have to require it as dependency
+        import pandas as pd
+        import plotly.express as px
+
+        df = pd.DataFrame(
+            [
+                dict(
+                    Uurl=uurl,
+                    Url=entry.url,
+                    Start=datetime.utcfromtimestamp(entry.start),
+                    Finish=datetime.utcfromtimestamp(entry.end),
+                )
+                for uurl, requests in report.requests_timeline.items()
+                for entry in requests
+            ]
+        )
+
+        fig = px.timeline(
+            df,
+            x_start="Start",
+            x_end="Finish",
+            y="Uurl",
+            color="Url",
+        )
+
+        fig.update_yaxes(autorange="reversed")
+        fig.update_xaxes(tickformat="%H:%M:%S.%f")
+        fig.update_layout(barmode="group")
+
+        return fig
 
 
 class ListPrinter(BasePrinter):
@@ -337,14 +372,16 @@ class LoggerPrinter(BasePrinter):
                 )
 
 
-def print_report(report: GracyReport, method: PRINTERS):
-    printer: BasePrinter | None = None
+def print_report(report: GracyReport, method: PRINTERS) -> t.Any:
+    printer: t.Optional[BasePrinter] = None
     if method == "rich":
         printer = RichPrinter()
     elif method == "list":
         printer = ListPrinter()
     elif method == "logger":
         printer = LoggerPrinter()
+    elif method == "plotly":
+        printer = PlotlyPrinter()
 
     if printer:
-        printer.print_report(report)
+        return printer.print_report(report)

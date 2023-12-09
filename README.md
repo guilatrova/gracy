@@ -18,7 +18,7 @@
   <!-- Sponsor --><a href="https://github.com/sponsors/guilatrova"><img alt="Sponsor guilatrova" src="https://img.shields.io/github/sponsors/guilatrova?logo=GitHub%20Sponsors&style=social"/></a>
 </p>
 
-Gracy handles failures, logging, retries, throttling, parsing, and tracking for all your HTTP interactions. Gracy uses [httpx](https://github.com/encode/httpx) under the hood.
+Gracy handles failures, logging, retries, throttling, parsing, and reporting for all your HTTP interactions. Gracy uses [httpx](https://github.com/encode/httpx) under the hood.
 
 > "Let Gracy do the boring stuff while you focus on your application"
 
@@ -45,6 +45,7 @@ Gracy handles failures, logging, retries, throttling, parsing, and tracking for 
   - [Logger](#logger)
   - [List](#list)
   - [Table](#table)
+  - [Plotly](#plotly)
 - [Replay requests](#replay-requests)
   - [Recording](#recording)
   - [Replay](#replay)
@@ -630,8 +631,23 @@ pokeapi.report_status("rich")
 
 Here's an example of how it looks:
 
-![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-example.png)
+![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-rich-example.png)
 
+
+### Plotly
+
+It requires you to install [plotly 📊](https://github.com/plotly/plotly.py) and [pandas 🐼](https://github.com/pandas-dev/pandas).
+
+```py
+pokeapi = GracefulPokeAPI()
+# do stuff with your API
+plotly_fig = pokeapi.report_status("plotly")
+plotly_fig.show()
+```
+
+Here's an example of how it looks:
+
+![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-plotly-example.png)
 
 ## Replay requests
 

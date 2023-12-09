@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import httpx
+import typing as t
 from dataclasses import dataclass, field
 from statistics import mean
 
-import httpx
-
+from .._models import RequestTimeline
 from ..replays.storages._base import GracyReplay
 
 
@@ -95,7 +96,11 @@ class GracyAggregatedTotal(ReportGenericAggregatedRequest):
 
 
 class GracyReport:
-    def __init__(self, replay_settings: GracyReplay | None) -> None:
+    def __init__(
+        self,
+        replay_settings: t.Optional[GracyReplay],
+        requests_timeline: t.Dict[str, t.List[RequestTimeline]],
+    ) -> None:
         self.requests: list[GracyAggregatedRequest | GracyAggregatedTotal] = []
         self.total = GracyAggregatedTotal(
             "TOTAL",  # serves as title
@@ -111,6 +116,7 @@ class GracyReport:
             max_latency=0,
         )
         self.replay_settings = replay_settings
+        self.requests_timeline = requests_timeline
 
     def add_request(self, request: GracyAggregatedRequest) -> None:
         self.requests.append(request)

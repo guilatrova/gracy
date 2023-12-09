@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import httpx
 import re
 import typing as t
 from collections import defaultdict
 from statistics import mean
 
-import httpx
-
-from .._models import GracyRequestContext, ThrottleController
+from .._models import GracyRequestContext, RequestTimeline, ThrottleController
 from ..replays.storages._base import GracyReplay, is_replay
 from ._models import (
     GracyAggregatedRequest,
@@ -27,17 +26,23 @@ class ReportBuilder:
     def __init__(self) -> None:
         self._results: t.List[GracyRequestResult] = []
         self._counters = t.DefaultDict[str, GracyRequestCounters](GracyRequestCounters)
+        self._request_history = t.DefaultDict[str, t.List[RequestTimeline]](list)
 
     def track(
         self,
         request_context: GracyRequestContext,
-        response_or_exc: httpx.Response | Exception,
+        response_or_exc: t.Union[httpx.Response, Exception],
+        request_start: float,
     ):
         self._results.append(
             GracyRequestResult(request_context.unformatted_url, response_or_exc)
         )
-        if isinstance(response_or_exc, httpx.Response) and is_replay(response_or_exc):
-            self.replayed(request_context)
+        if isinstance(response_or_exc, httpx.Response):
+            if is_replay(response_or_exc):
+                self._replayed(request_context)
+
+            request_entry = RequestTimeline.build(request_start, response_or_exc)
+            self._request_history[request_context.unformatted_url].append(request_entry)
 
     def retried(self, request_context: GracyRequestContext):
         self._counters[request_context.unformatted_url].retries += 1
@@ -45,7 +50,7 @@ class ReportBuilder:
     def throttled(self, request_context: GracyRequestContext):
         self._counters[request_context.unformatted_url].throttles += 1
 
-    def replayed(self, request_context: GracyRequestContext):
+    def _replayed(self, request_context: GracyRequestContext):
         self._counters[request_context.unformatted_url].replays += 1
 
     def _calculate_req_rate_for_url(
@@ -86,7 +91,7 @@ class ReportBuilder:
             )
         )
 
-        report = GracyReport(replay_settings)
+        report = GracyReport(replay_settings, self._request_history)
 
         for uurl, data in requests_sum.items():
             all_requests = {
