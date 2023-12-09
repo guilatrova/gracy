@@ -448,6 +448,11 @@ class ConcurrentRequestLimit:
     """
 
     log_limit_reached: LOG_EVENT_TYPE = None
+    """
+    Log event for the first time the limit is reached.
+    It's only triggered again if the limit slows down.
+    """
+
     log_limit_freed: LOG_EVENT_TYPE = None
 
     def __post_init__(self):
