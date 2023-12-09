@@ -2,6 +2,20 @@
 
 <!--next-version-placeholder-->
 
+## v1.32.0 (2023-12-09)
+### Feature
+
+* Improve concurrency logging ([`5292faf`](https://github.com/guilatrova/gracy/commit/5292faf9eff54e9290ab2db836677f44c15b4673))
+* Add plotly printer ([`5b8a460`](https://github.com/guilatrova/gracy/commit/5b8a460ffeb8a363b2dfcbef95b3b6134c1f205a))
+* Track requests timeline ([`9c30ba2`](https://github.com/guilatrova/gracy/commit/9c30ba2d84a9485d44530df9b82a7bcaf04cd01e))
+* Replace manual impl with semaphore ([`57df089`](https://github.com/guilatrova/gracy/commit/57df08936d9f4a808cddd3857058f0f23ba3350b))
+
+### Documentation
+
+* Add explanation ([`b1ea801`](https://github.com/guilatrova/gracy/commit/b1ea80122d6915a207e95780928918c3253d532a))
+* Explain concurrent request limit ([`63efb40`](https://github.com/guilatrova/gracy/commit/63efb4039a77c697510a6eb9c47c0fd3319e0017))
+* Update badges/description ([`157daaf`](https://github.com/guilatrova/gracy/commit/157daafc3f12b4fa6641a5287688cd632a2ea851))
+
 ## v1.31.0 (2023-12-03)
 ### Feature
 
