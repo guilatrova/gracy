@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import httpx
 import typing as t
 from abc import ABC, abstractmethod
-
-import httpx
 
 from ._models import GracyRequestContext
 
@@ -36,14 +35,31 @@ class GracyRequestFailed(GracyException):
         self.original_exc = original_exc
         self.request_context = context
 
+        original_exc_name = self._get_exc_name(original_exc)
+
         super().__init__(
-            f"The request for [{context.method}] {context.url} never got a response due to {str(original_exc)} "
+            f"The request for [{context.method}] {context.url} never got a response due to {original_exc_name} "
         )
 
         # Inspired by https://stackoverflow.com/a/54716092/2811539
         # We include the original exception as part of the stack trace by doing that.
         self.__cause__ = original_exc
         self.__context__ = original_exc
+
+    @staticmethod
+    def _get_exc_name(exc: Exception) -> str:
+        """
+        Formats the exception as "module.ClassType"
+
+        e.g. httpx.ReadTimeout
+        """
+        exc_type = type(exc)
+
+        module = exc_type.__module__
+        if module is not None and module != "__main__":
+            return module + "." + exc_type.__qualname__
+
+        return exc_type.__qualname__
 
     def __reduce__(self) -> REDUCE_PICKABLE_RETURN:
         return (GracyRequestFailed, (self.request_context, self.original_exc))
