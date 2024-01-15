@@ -560,10 +560,17 @@ class GracyConfig:
                     return True
 
                 for maybe_exc in retry_on:
-                    if inspect.isclass(maybe_exc) and isinstance(
-                        req_or_validation_exc, maybe_exc
-                    ):
-                        return True
+                    if inspect.isclass(maybe_exc):
+                        if isinstance(req_or_validation_exc, maybe_exc):
+                            return True
+
+                        # Importing here to avoid cyclic imports
+                        from .exceptions import GracyRequestFailed
+
+                        if isinstance(
+                            req_or_validation_exc, GracyRequestFailed
+                        ) and isinstance(req_or_validation_exc.original_exc, maybe_exc):
+                            return True
 
                 return False
 
