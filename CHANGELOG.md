@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.32.1 (2024-01-15)
+### Fix
+
+* **retry:** Verify original exc for failed requests ([`31e79d7`](https://github.com/guilatrova/gracy/commit/31e79d75e6bbeedfdbbc7f69f2c254017c21e22c))
+* Format original exception name properly ([`56254b6`](https://github.com/guilatrova/gracy/commit/56254b6e99325b550d3a33512918ab6bb0a56b9a))
+
 ## v1.32.0 (2023-12-09)
 ### Feature
 
