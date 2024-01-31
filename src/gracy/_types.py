@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import httpx
 import sys
 import typing as t
 from http import HTTPStatus
-
-import httpx
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
@@ -49,10 +48,10 @@ def parsed_response(return_type: t.Type[T]):  # type: ignore
 def generated_parsed_response(return_type: t.Type[T]):  # type: ignore
     def _decorated(
         func: t.Callable[P, t.AsyncGenerator[t.Any, t.Any]]
-    ) -> t.Callable[P, t.AsyncGenerator[t.Any, T]]:
+    ) -> t.Callable[P, t.AsyncGenerator[T, t.Any]]:
         async def _gracy_method(
             *args: P.args, **kwargs: P.kwargs
-        ) -> t.AsyncGenerator[t.Any, T]:
+        ) -> t.AsyncGenerator[T, t.Any]:
             async for i in func(*args, **kwargs):
                 yield i
 
