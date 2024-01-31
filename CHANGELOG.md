@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.32.2 (2024-01-31)
+### Fix
+
+* Define correct typing ([`7c889fe`](https://github.com/guilatrova/gracy/commit/7c889fe782e7705843d84ec6dc1b3f0098e779e0))
+
 ## v1.32.1 (2024-01-15)
 ### Fix
 

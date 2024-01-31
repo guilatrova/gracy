@@ -27,7 +27,7 @@ from .replays.storages._base import GracyReplay, GracyReplayStorage, ReplayLogEv
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-__version__ = "1.32.1"
+__version__ = "1.32.2"
 
 __all__ = [
     "exceptions",
