@@ -280,21 +280,20 @@ async def get_pokemon(self, name: str) -> Awaitable[dict]:
 
 Because parsers allow you to dynamically parse a payload based on the status code your IDE will not identify the return type by itself.
 
-To avoid boring `typing.cast` for every method, Gracy provides `parsed_response` and `generated_parsed_response`, so you can define a specific return type:
+To avoid boring `typing.cast` for every method, Gracy provides typed http methods, so you can define a specific return type:
 
 ```py
-@parsed_response(ResourceList)  # Specifies this method return a `ResourceList`
 async def list(self, offset: int = 0, limit: int = 20):
   params = dict(offset=offset, limit=limit)
-  return await self.get(PokeApiEndpoint.BERRY_LIST, params=params)
+  return await self.get[ResourceList]( # Specifies this method return a `ResourceList`
+    PokeApiEndpoint.BERRY_LIST, params=params
+  )
 
-
-@parsed_response(models.Berry, None])
-async def get_one(self, name_or_id: t.Union[str, int]):
-  return await self.get(PokeApiEndpoint.BERRY_GET, dict(KEY=str(name_or_id)))
+async def get_one(self, name_or_id: str | int):
+  return await self.get[models.Berry | None](
+    PokeApiEndpoint.BERRY_GET, params=dict(KEY=str(name_or_id))
+  )
 ```
-
-You should use `generated_parsed_response` for generators.
 
 ### Retry
 
