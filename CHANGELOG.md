@@ -2,6 +2,20 @@
 
 <!--next-version-placeholder-->
 
+## v1.33.0 (2024-02-20)
+
+### Feature
+
+* Enhance response typing ([`95f8c16`](https://github.com/guilatrova/gracy/commit/95f8c162de7ab64a925bf008e81e11b138426320))
+
+### Fix
+
+* Add typing_extensions to support deprecated ([`f6b2b7b`](https://github.com/guilatrova/gracy/commit/f6b2b7b1baf7a39c5f6f21cced7aeeeac23cbfe7))
+
+### Documentation
+
+* Update on dynamic type hinting ([`6d7975d`](https://github.com/guilatrova/gracy/commit/6d7975d1b383d040f2c960d1dc13482530b81571))
+
 ## v1.32.2 (2024-01-31)
 ### Fix
 
