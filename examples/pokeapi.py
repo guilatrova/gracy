@@ -85,7 +85,12 @@ pokeapi_two = GracefulPokeAPI()
 async def main():
     try:
         p1 = await pokeapi.get_pokemon("pikachu")
-        p2: str | None = await pokeapi_two.get_pokemon("doesnt-exist")
+
+        try:
+            p2 = await pokeapi_two.get_pokemon("doesnt-exist")
+        except PokemonNotFound as ex:
+            p2 = str(ex)
+
         await pokeapi.get_generation(1)
 
         print("P1: result of get_pokemon:", p1)
