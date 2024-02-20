@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import httpx
 import pytest
 import typing as t
 from http import HTTPStatus
 
-from gracy import Gracy, GracyConfig, graceful, parsed_response
+from gracy import Gracy, GracyConfig, graceful
 from gracy.exceptions import GracyParseFailed
 from tests.conftest import (
     MISSING_NAME,
@@ -20,14 +21,17 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         BASE_URL = "https://pokeapi.co/api/v2/"
         SETTINGS = GracyConfig(allowed_status_code=HTTPStatus.NOT_FOUND)
 
-    @parsed_response(t.Dict[str, t.Any])
     @graceful(parser={"default": lambda r: r.json()})
     async def get_pokemon(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return await self.get[t.Dict[str, t.Any]](
+            PokeApiEndpoint.GET_POKEMON, {"NAME": name}
+        )
 
     @graceful(parser={HTTPStatus.NOT_FOUND: lambda r: None})
     async def get_pokemon_not_found_as_none(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return await self.get[t.Optional[httpx.Response]](
+            PokeApiEndpoint.GET_POKEMON, {"NAME": name}
+        )
 
 
 @pytest.fixture()

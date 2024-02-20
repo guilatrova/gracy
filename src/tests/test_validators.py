@@ -5,7 +5,7 @@ import pytest
 import typing as t
 from http import HTTPStatus
 
-from gracy import GracefulValidator, Gracy, graceful, parsed_response
+from gracy import GracefulValidator, Gracy, graceful
 from gracy.exceptions import NonOkResponse, UnexpectedResponse
 from tests.conftest import (
     MISSING_NAME,
@@ -33,15 +33,17 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     async def get_pokemon_with_wrong_strict_status(self, name: str):
         return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
-    @parsed_response(httpx.Response)
     @graceful(strict_status_code=HTTPStatus.OK)
     async def get_pokemon_with_correct_strict_status(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return await self.get[httpx.Response](
+            PokeApiEndpoint.GET_POKEMON, {"NAME": name}
+        )
 
-    @parsed_response(httpx.Response)
     @graceful(allowed_status_code=HTTPStatus.NOT_FOUND)
     async def get_pokemon_allow_404(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return await self.get[httpx.Response](
+            PokeApiEndpoint.GET_POKEMON, {"NAME": name}
+        )
 
 
 @pytest.fixture()

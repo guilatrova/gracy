@@ -195,7 +195,7 @@ class RichPrinter(BasePrinter):
 class PlotlyPrinter(BasePrinter):
     def print_report(self, report: GracyReport):
         # Dynamic import so we don't have to require it as dependency
-        import pandas as pd
+        import pandas as pd  # pyright: ignore[reportMissingImports]
         import plotly.express as px
 
         df = pd.DataFrame(

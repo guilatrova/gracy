@@ -43,7 +43,8 @@ python = ">=3.8.1,<4.0"
 httpx = ">=0.23.0"
 rich = { version = "*", optional = true }
 pymongo = { version = "*", optional = true }
-typing-extensions = { version = "^4.5.0", python = "<3.10" }
+typing-extensions = "^4.9.0"
+# It should be python = "<3.10" if we didn't use the 'deprecated' import from PEP 702
 
 [tool.poetry.group.dev.dependencies]
 python-semantic-release = "^7.33.0"
@@ -53,7 +54,7 @@ pymongo = "^4.3.3"
 pytest = "^7.2.1"
 pytest-asyncio = "^0.20.3"
 ruff = "^0.1.6"
-pyright = "^1.1.338"
+pyright = "^1.1.351"
 
 [tool.poetry.extras]
 rich = ["rich"]
@@ -70,6 +71,7 @@ include = ["src"]
 pythonVersion = "3.8"
 pythonPlatform = "All"
 reportMissingImports = "warning"
+reportIncompatibleVariableOverride = "none"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
