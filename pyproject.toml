@@ -71,6 +71,7 @@ include = ["src"]
 pythonVersion = "3.8"
 pythonPlatform = "All"
 reportMissingImports = "warning"
+reportIncompatibleVariableOverride = "none"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

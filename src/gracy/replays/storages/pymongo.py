@@ -70,7 +70,7 @@ class MongoReplayStorage(GracyReplayStorage):
     ) -> None:
         creds_kwargs = asdict(creds)
 
-        client = pymongo.MongoClient(**creds_kwargs, document_class=MongoReplayDocument)
+        client = pymongo.MongoClient(**creds_kwargs, document_class=MongoReplayDocument)  # pyright: ignore[reportPossiblyUnboundVariable]
         mongo_db = client[database_name]
         self._collection = mongo_db[collection_name]
         self._batch = batch_size
@@ -86,7 +86,7 @@ class MongoReplayStorage(GracyReplayStorage):
         filter = get_unique_keys_from_doc(doc)
         if self._batch and self._batch > 1:
             with batch_lock:
-                self._batch_ops.append(pymongo.ReplaceOne(filter, doc, upsert=True))
+                self._batch_ops.append(pymongo.ReplaceOne(filter, doc, upsert=True))  # pyright: ignore[reportPossiblyUnboundVariable]
 
             if len(self._batch_ops) >= self._batch:
                 self._flush_batch()
