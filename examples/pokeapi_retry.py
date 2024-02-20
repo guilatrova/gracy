@@ -11,7 +11,6 @@ from gracy import (
     LogEvent,
     LogLevel,
     graceful,
-    parsed_response,
 )
 from gracy.replays.storages.sqlite import SQLiteReplayStorage
 
@@ -39,7 +38,6 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
-    @parsed_response(str)
     @graceful(
         strict_status_code={HTTPStatus.OK},
         retry=retry,
@@ -51,7 +49,7 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         },
     )
     async def get_pokemon(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return await self.get[str](PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
 
 record = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))

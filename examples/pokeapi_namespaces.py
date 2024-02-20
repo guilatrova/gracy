@@ -11,9 +11,7 @@ from gracy import (
     GracyNamespace,
     LogEvent,
     LogLevel,
-    parsed_response,
 )
-from gracy.replays.storages._base import GracyReplay
 from rich import print
 
 RESP_TYPE = t.Union[t.Dict[str, t.Any], None]
@@ -30,31 +28,37 @@ class PokeApiEndpoint(BaseEndpoint):
 
 
 class PokeApiBerryNamespace(GracyNamespace[PokeApiEndpoint]):
-    @parsed_response(RESP_TYPE)
     async def get_this(self, name_or_id: t.Union[str, int]):
-        return await self.get(PokeApiEndpoint.BERRY, dict(KEY=str(name_or_id)))
+        return await self.get[RESP_TYPE](
+            PokeApiEndpoint.BERRY, dict(KEY=str(name_or_id))
+        )
 
-    @parsed_response(RESP_TYPE)
     async def get_flavor(self, name_or_id: t.Union[str, int]):
-        return await self.get(PokeApiEndpoint.BERRY_FLAVOR, dict(KEY=str(name_or_id)))
+        return await self.get[RESP_TYPE](
+            PokeApiEndpoint.BERRY_FLAVOR, dict(KEY=str(name_or_id))
+        )
 
-    @parsed_response(RESP_TYPE)
     async def get_firmness(self, name_or_id: t.Union[str, int]):
-        return await self.get(PokeApiEndpoint.BERRY_FIRMNESS, dict(KEY=str(name_or_id)))
+        return await self.get[RESP_TYPE](
+            PokeApiEndpoint.BERRY_FIRMNESS, dict(KEY=str(name_or_id))
+        )
 
 
 class PokeApiPokemonNamespace(GracyNamespace[PokeApiEndpoint]):
-    @parsed_response(RESP_TYPE)
     async def get_this(self, name_or_id: t.Union[str, int]):
-        return await self.get(PokeApiEndpoint.POKEMON, dict(KEY=str(name_or_id)))
+        return await self.get[RESP_TYPE](
+            PokeApiEndpoint.POKEMON, dict(KEY=str(name_or_id))
+        )
 
-    @parsed_response(RESP_TYPE)
     async def get_color(self, name_or_id: t.Union[str, int]):
-        return await self.get(PokeApiEndpoint.POKEMON_COLOR, dict(KEY=str(name_or_id)))
+        return await self.get[RESP_TYPE](
+            PokeApiEndpoint.POKEMON_COLOR, dict(KEY=str(name_or_id))
+        )
 
-    @parsed_response(RESP_TYPE)
     async def get_form(self, name_or_id: t.Union[str, int]):
-        return await self.get(PokeApiEndpoint.POKEMON_FORM, dict(KEY=str(name_or_id)))
+        return await self.get[RESP_TYPE](
+            PokeApiEndpoint.POKEMON_FORM, dict(KEY=str(name_or_id))
+        )
 
 
 class PokeApi(Gracy[PokeApiEndpoint]):
@@ -70,24 +74,8 @@ class PokeApi(Gracy[PokeApiEndpoint]):
             log_errors=LogEvent(LogLevel.ERROR),
         )
 
-    def __init__(
-        self,
-        replay: GracyReplay | None = None,
-        DEBUG_ENABLED: bool = False,
-        **kwargs: t.Any,
-    ) -> None:
-        super().__init__(replay, DEBUG_ENABLED, **kwargs)
-
-        self._berry_ns = PokeApiBerryNamespace(self)
-        self._pokemon_ns = PokeApiPokemonNamespace(self)
-
-    @property
-    def berry(self):
-        return self._berry_ns
-
-    @property
-    def pokemon(self):
-        return self._pokemon_ns
+    berry: PokeApiBerryNamespace
+    pokemon: PokeApiPokemonNamespace
 
 
 async def main():

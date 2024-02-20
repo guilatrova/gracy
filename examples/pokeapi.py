@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import httpx
+import typing as t
 from http import HTTPStatus
 
 from gracy import (
@@ -12,7 +13,6 @@ from gracy import (
     LogEvent,
     LogLevel,
     graceful,
-    parsed_response,
 )
 from gracy.exceptions import GracyUserDefinedException
 
@@ -52,7 +52,6 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
-    @parsed_response(str)
     @graceful(
         strict_status_code={HTTPStatus.OK},
         retry=retry,
@@ -71,7 +70,9 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         },
     )
     async def get_pokemon(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return await self.get[t.Optional[str]](
+            PokeApiEndpoint.GET_POKEMON, {"NAME": name}
+        )
 
     async def get_generation(self, gen: int):
         return await self.get(PokeApiEndpoint.GET_GENERATION, {"ID": str(gen)})
@@ -83,7 +84,7 @@ pokeapi_two = GracefulPokeAPI()
 
 async def main():
     try:
-        p1: str | None = await pokeapi.get_pokemon("pikachu")
+        p1 = await pokeapi.get_pokemon("pikachu")
         p2: str | None = await pokeapi_two.get_pokemon("doesnt-exist")
         await pokeapi.get_generation(1)
 

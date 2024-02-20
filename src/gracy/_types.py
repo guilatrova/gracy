@@ -5,6 +5,8 @@ import sys
 import typing as t
 from http import HTTPStatus
 
+import typing_extensions as te
+
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
 else:
@@ -33,6 +35,7 @@ P = ParamSpec("P")
 T = t.TypeVar("T")
 
 
+@te.deprecated("Use typed http methods instead e.g. `self.get[DesiredType]()`")
 def parsed_response(return_type: t.Type[T]):  # type: ignore
     def _decorated(
         func: t.Callable[P, t.Any]
@@ -45,6 +48,7 @@ def parsed_response(return_type: t.Type[T]):  # type: ignore
     return _decorated
 
 
+@te.deprecated("Use typed http methods instead e.g. `self.get[DesiredType]()`")
 def generated_parsed_response(return_type: t.Type[T]):  # type: ignore
     def _decorated(
         func: t.Callable[P, t.AsyncGenerator[t.Any, t.Any]]

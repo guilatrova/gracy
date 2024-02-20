@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from http import HTTPStatus
 
-from gracy import BaseEndpoint, Gracy, LogEvent, LogLevel, graceful, parsed_response
+from gracy import BaseEndpoint, Gracy, LogEvent, LogLevel, graceful
 
 
 class PokeApiEndpoint(BaseEndpoint):
@@ -14,7 +14,6 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
     class Config:
         BASE_URL = "https://pokeapi.co/api/v2/"
 
-    @parsed_response(str)
     @graceful(
         strict_status_code={HTTPStatus.OK},
         log_request=LogEvent(LogLevel.INFO),
@@ -24,21 +23,20 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         },
     )
     async def get_pokemon(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+        return await self.get[str](PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
 
 class StarWarsAPI(Gracy[str]):
     class Config:
         BASE_URL = "https://swapi.dev/api/"
 
-    @parsed_response(str)
     @graceful(
         strict_status_code=HTTPStatus.OK,
         log_request=LogEvent(LogLevel.INFO),
         parser={"default": lambda r: r.json()["name"]},
     )
     async def get_person(self, person_id: int):
-        return await self.get("people/{PERSON_ID}", {"PERSON_ID": str(person_id)})
+        return await self.get[str]("people/{PERSON_ID}", {"PERSON_ID": str(person_id)})
 
 
 pokeapi = GracefulPokeAPI()

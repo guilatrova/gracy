@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import httpx
 import inspect
@@ -65,6 +67,7 @@ logger = logging.getLogger("gracy")
 ANY_COROUTINE = t.Coroutine[t.Any, t.Any, t.Any]
 
 P = ParamSpec("P")
+HTTP_T = t.TypeVar("HTTP_T")
 GRACEFUL_T = t.TypeVar("GRACEFUL_T", bound=ANY_COROUTINE)
 GRACEFUL_GEN_T = t.TypeVar("GRACEFUL_GEN_T", bound=t.AsyncGenerator[t.Any, t.Any])
 BEFORE_HOOK_TYPE = t.Callable[[GracyRequestContext], t.Awaitable[None]]
@@ -467,6 +470,65 @@ class Gracy(t.Generic[Endpoint]):
         self._ongoing_tracker = OngoingRequestsTracker()
 
         self._post_init()
+        self._init_typed_http_methods()
+
+    def _init_typed_http_methods(self):
+        gracy_instance = self
+
+        class HTTPMethod(t.Generic[HTTP_T]):
+            def __new__(
+                cls,
+                endpoint: t.Union[Endpoint, str],
+                endpoint_args: t.Optional[t.Dict[str, str]] = None,
+                *args: t.Any,
+                **kwargs: t.Any,
+            ):
+                myself_instance = super().__new__(cls)
+                return myself_instance.execute(endpoint, endpoint_args, *args, **kwargs)
+
+            async def execute(
+                self,
+                endpoint: t.Union[Endpoint, str],
+                endpoint_args: t.Optional[t.Dict[str, str]] = None,
+                *args: t.Any,
+                **kwargs: t.Any,
+            ):
+                method_name = type(self).__name__.upper()
+
+                coro = await gracy_instance._request(
+                    method_name, endpoint, endpoint_args, *args, **kwargs
+                )
+
+                return t.cast(HTTP_T, coro)
+
+        class Get(t.Generic[HTTP_T], HTTPMethod[HTTP_T]):
+            pass
+
+        class Post(t.Generic[HTTP_T], HTTPMethod[HTTP_T]):
+            pass
+
+        class Put(t.Generic[HTTP_T], HTTPMethod[HTTP_T]):
+            pass
+
+        class Patch(t.Generic[HTTP_T], HTTPMethod[HTTP_T]):
+            pass
+
+        class Delete(t.Generic[HTTP_T], HTTPMethod[HTTP_T]):
+            pass
+
+        class Head(t.Generic[HTTP_T], HTTPMethod[HTTP_T]):
+            pass
+
+        class Options(t.Generic[HTTP_T], HTTPMethod[HTTP_T]):
+            pass
+
+        self.get = Get
+        self.post = Post
+        self.put = Put
+        self.patch = Patch
+        self.delete = Delete
+        self.head = Head
+        self.options = Options
 
     def _post_init(self):
         """Initializes namespaces and replays after init"""
@@ -595,69 +657,6 @@ class Gracy(t.Generic[Endpoint]):
             except Exception:
                 logger.exception("Gracy after hook raised an unexpected exception")
 
-    async def get(
-        self,
-        endpoint: t.Union[Endpoint, str],
-        endpoint_args: t.Optional[t.Dict[str, str]] = None,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        return await self._request("GET", endpoint, endpoint_args, *args, **kwargs)
-
-    async def post(
-        self,
-        endpoint: t.Union[Endpoint, str],
-        endpoint_args: t.Optional[t.Dict[str, str]] = None,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        return await self._request("POST", endpoint, endpoint_args, *args, **kwargs)
-
-    async def put(
-        self,
-        endpoint: t.Union[Endpoint, str],
-        endpoint_args: t.Optional[t.Dict[str, str]] = None,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        return await self._request("PUT", endpoint, endpoint_args, *args, **kwargs)
-
-    async def patch(
-        self,
-        endpoint: t.Union[Endpoint, str],
-        endpoint_args: t.Optional[t.Dict[str, str]] = None,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        return await self._request("PATCH", endpoint, endpoint_args, *args, **kwargs)
-
-    async def delete(
-        self,
-        endpoint: t.Union[Endpoint, str],
-        endpoint_args: t.Optional[t.Dict[str, str]] = None,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        return await self._request("DELETE", endpoint, endpoint_args, *args, **kwargs)
-
-    async def head(
-        self,
-        endpoint: t.Union[Endpoint, str],
-        endpoint_args: t.Optional[t.Dict[str, str]] = None,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        return await self._request("HEAD", endpoint, endpoint_args, *args, **kwargs)
-
-    async def options(
-        self,
-        endpoint: t.Union[Endpoint, str],
-        endpoint_args: t.Optional[t.Dict[str, str]] = None,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        return await self._request("OPTIONS", endpoint, endpoint_args, *args, **kwargs)
-
     def get_report(self):
         return self._reporter.build(self._throttle_controller, self.replays)
 
@@ -685,6 +684,7 @@ class GracyNamespace(t.Generic[Endpoint], Gracy[Endpoint]):
         self._parent = parent
         self._ongoing_tracker = parent._ongoing_tracker
 
+        self._init_typed_http_methods()
         self._client = self._get_namespace_client(parent, **kwargs)
         self._setup_namespace_config(parent)
 
