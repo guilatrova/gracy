@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.33.1 (2024-10-07)
+
+### Fix
+
+* Don't stop if ctx token reset fails ([`4ddad79`](https://github.com/guilatrova/gracy/commit/4ddad79627a5fd528a199d8bf6e58906d75cbec1))
+
 ## v1.33.0 (2024-02-20)
 
 ### Feature
