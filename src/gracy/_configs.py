@@ -18,7 +18,10 @@ def custom_gracy_config(config: GracyConfig):
     try:
         yield
     finally:
-        custom_config_context.reset(token)
+        try:
+            custom_config_context.reset(token)
+        except Exception:
+            pass  # Best effort
 
 
 @contextmanager
