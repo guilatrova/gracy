@@ -6,6 +6,7 @@ import inspect
 import logging
 import sys
 import typing as t
+import weakref
 from asyncio import sleep
 from contextlib import asynccontextmanager
 from http import HTTPStatus
@@ -473,7 +474,7 @@ class Gracy(t.Generic[Endpoint]):
         self._init_typed_http_methods()
 
     def _init_typed_http_methods(self):
-        gracy_instance = self
+        gracy_ref = weakref.ref(self)
 
         class HTTPMethod(t.Generic[HTTP_T]):
             def __new__(
@@ -486,6 +487,14 @@ class Gracy(t.Generic[Endpoint]):
                 myself_instance = super().__new__(cls)
                 return myself_instance.execute(endpoint, endpoint_args, *args, **kwargs)
 
+            def _get_gracy_instance(self):
+                gracy_instance = gracy_ref()
+                if gracy_instance is None:
+                    raise ReferenceError(
+                        "Gracy instance has been garbage collected - Should never happen"
+                    )
+                return gracy_instance
+
             async def execute(
                 self,
                 endpoint: t.Union[Endpoint, str],
@@ -495,7 +504,7 @@ class Gracy(t.Generic[Endpoint]):
             ):
                 method_name = type(self).__name__.upper()
 
-                coro = await gracy_instance._request(
+                coro = await self._get_gracy_instance()._request(
                     method_name, endpoint, endpoint_args, *args, **kwargs
                 )
 
@@ -766,7 +775,7 @@ def graceful(
     )
 
     def _wrapper(
-        wrapped_function: t.Callable[P, GRACEFUL_T]
+        wrapped_function: t.Callable[P, GRACEFUL_T],
     ) -> t.Callable[P, GRACEFUL_T]:
         async def _inner_wrapper(*args: P.args, **kwargs: P.kwargs):
             with custom_gracy_config(config):
@@ -814,7 +823,7 @@ def graceful_generator(
     )
 
     def _wrapper(
-        wrapped_function: t.Callable[P, GRACEFUL_GEN_T]
+        wrapped_function: t.Callable[P, GRACEFUL_GEN_T],
     ) -> t.Callable[P, GRACEFUL_GEN_T]:
         async def _inner_wrapper(*args: P.args, **kwargs: P.kwargs):
             with custom_gracy_config(config):

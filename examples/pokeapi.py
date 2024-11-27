@@ -70,6 +70,8 @@ class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
         },
     )
     async def get_pokemon(self, name: str):
+        self.get
+
         return await self.get[t.Optional[str]](
             PokeApiEndpoint.GET_POKEMON, {"NAME": name}
         )
