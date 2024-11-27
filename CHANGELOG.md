@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.34.0 (2024-11-27)
+
+### Feature
+
+* Garbage collector improvements ([`36e537e`](https://github.com/guilatrova/gracy/commit/36e537ec85fd12c273a74945cf7962cbdd7494bd))
+
 ## v1.33.1 (2024-10-07)
 
 ### Fix
