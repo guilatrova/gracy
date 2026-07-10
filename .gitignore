@@ -5,3 +5,5 @@
 dist/
 .mongo
 .venv/
+target/
+*.so
