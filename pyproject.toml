@@ -66,4 +66,5 @@ src = ["python"]
 
 [tool.pyright]
 include = ["python"]
+extraPaths = ["python"]
 pythonVersion = "3.10"

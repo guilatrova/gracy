@@ -7,3 +7,4 @@ dist/
 .venv/
 target/
 *.so
+__pycache__/

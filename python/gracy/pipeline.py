@@ -120,7 +120,14 @@ class Pipeline:
                 exc = GracyReplayRequestNotFound(f"No recording for {spec.method} {spec.url}")
 
         if response is None and exc is None:
-            no_throttle = bool(self.replay is not None and self.replay.disable_throttling and replayed)
+            # Lazy import: gracy.testing imports this module (in_hook_context).
+            # throttle_off() must also work for clients built OUTSIDE the with
+            # block, so the runtime switch ORs into the replay-driven bypass.
+            from gracy.testing import throttle_is_disabled
+
+            no_throttle = throttle_is_disabled() or bool(
+                self.replay is not None and self.replay.disable_throttling and replayed
+            )
             start = time.monotonic()
             permit = await self.scheduler.submit(
                 spec.uurl,
