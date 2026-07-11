@@ -695,10 +695,19 @@ class ExploreSession:
         return ep
 
     def _last_endpoint(self) -> str:
-        for step in reversed(self._data["steps"]):
-            if step.get("endpoint"):
-                return t.cast(str, step["endpoint"])
-        raise ValueError("No named endpoint yet - run name_endpoint() first")
+        """The endpoint implicit commands (on/model/param) target: the endpoint
+        of the MOST RECENT request. We do NOT skip back to an older named
+        endpoint - that silently edits something you're not looking at."""
+        steps = self._data["steps"]
+        if not steps:
+            raise ValueError("no request yet - run one first")
+        last = steps[-1]
+        if last.get("endpoint"):
+            return t.cast(str, last["endpoint"])
+        raise ValueError(
+            f"the last request {last['method']} {last['path']} isn't a named endpoint yet - "
+            f"name it with `endpoint <name>` first"
+        )
 
     # ------------------------------------------------------------------ endpoint metadata
 

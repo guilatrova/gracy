@@ -438,11 +438,13 @@ FormattedText = t.List[t.Tuple[str, str]]
 
 def active_endpoint(session: ExploreSession) -> str | None:
     """The endpoint that implicit commands (model/on/param) will affect: the
-    endpoint of the most recent request. None until one is named."""
-    for step in reversed(session.history()):
-        if step.get("matched_endpoint"):
-            return str(step["matched_endpoint"])
-    return None
+    endpoint of the MOST RECENT request (not skipping back to older named ones,
+    which would silently edit something off-screen). None when the last request
+    is unnamed or there are no requests yet."""
+    steps = session.history()
+    if not steps:
+        return None
+    return t.cast("str | None", steps[-1].get("matched_endpoint"))
 
 
 def _last_request(session: ExploreSession) -> dict[str, t.Any] | None:
@@ -451,16 +453,23 @@ def _last_request(session: ExploreSession) -> dict[str, t.Any] | None:
 
 
 def rprompt_text(session: ExploreSession) -> FormattedText:
-    """Right-aligned context on the input line: which endpoint is active."""
-    ep = active_endpoint(session)
-    if ep is None:
+    """Right-aligned context on the input line: what implicit commands act on."""
+    last = _last_request(session)
+    if last is None:
         base = session.base_url
         return [("class:rprompt", f"[{base}]" if base else "[no base_url]")]
-    steps = sum(1 for s in session.history() if s.get("matched_endpoint") == ep)
+    ep = last.get("matched_endpoint")
+    if ep:
+        steps = sum(1 for s in session.history() if s.get("matched_endpoint") == ep)
+        return [
+            ("class:rprompt", "active "),
+            ("class:rprompt.ep", ep),
+            ("class:rprompt", f" · {steps} step{'s' if steps != 1 else ''}"),
+        ]
+    # last request is unnamed: implicit commands have no target — show it plainly
     return [
-        ("class:rprompt", "active "),
-        ("class:rprompt.ep", ep),
-        ("class:rprompt", f" · {steps} step{'s' if steps != 1 else ''}"),
+        ("class:rprompt", f"{last.get('method')} {last.get('path')} · "),
+        ("class:rprompt.warn", "unnamed"),
     ]
 
 
@@ -492,6 +501,15 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
     ep = active_endpoint(session)
     arrow = _seg("tb.muted", " → ")
 
+    def _no_target() -> FormattedText:
+        last = _last_request(session)
+        if last is None:
+            return [_seg("tb.warn", "no request yet: run one first")]
+        return [
+            _seg("tb.warn", f"{last.get('method')} {last.get('path')} isn't an endpoint yet: "),
+            _seg("tb.verb", "run "), _seg("tb.value", "endpoint <name>"), _seg("tb.verb", " first"),
+        ]
+
     if cmd.kind == "request":
         segs = [_seg("tb.verb", "send "), _seg("tb.value", f"{cmd.method} {cmd.path}")]
         match = session._match_endpoint(cmd.method or "", cmd.path or "")  # noqa: SLF001
@@ -510,7 +528,7 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         ]
     if cmd.kind == "model":
         if ep is None:
-            return [_seg("tb.warn", "no active endpoint: run a request first")]
+            return _no_target()
         which = "request-body" if (cmd.name or "").endswith("!request") else "response"
         plain = (cmd.name or "").removesuffix("!request")
         return [
@@ -519,14 +537,14 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         ]
     if cmd.kind == "on":
         if ep is None:
-            return [_seg("tb.warn", "no active endpoint: run a request first")]
+            return _no_target()
         return [
             _seg("tb.target", ep), _seg("tb.verb", f": status {cmd.status} "),
             arrow, _seg("tb.value", _action_desc(cmd.action or "")),
         ]
     if cmd.kind == "param":
         if ep is None:
-            return [_seg("tb.warn", "no active endpoint: run a request first")]
+            return _no_target()
         return [
             _seg("tb.target", ep), _seg("tb.verb", f": rename param {cmd.index} "),
             arrow, _seg("tb.value", "{" + (cmd.name or "") + "}"),
@@ -587,6 +605,7 @@ def _build_pt_session(session: ExploreSession) -> t.Any:
         "prompt": "bold",
         "rprompt": "fg:ansibrightblack",
         "rprompt.ep": "fg:ansicyan bold",
+        "rprompt.warn": "fg:ansiyellow",
         "bottom-toolbar": "noreverse fg:ansibrightblack",  # a calm status line, not a reversed bar
         "tb.muted": "fg:ansibrightblack italic",
         "tb.verb": "fg:ansidefault",

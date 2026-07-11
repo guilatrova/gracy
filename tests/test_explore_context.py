@@ -78,12 +78,26 @@ def test_impact_on_and_param(session: ExploreSession) -> None:
     assert _plain(describe_impact(session, "param 1 as name")) == "berries: rename param 1  → {name}"
 
 
-def test_impact_warns_when_no_active_endpoint(tmp_path: Path) -> None:
+def test_impact_warns_when_last_request_is_unnamed(tmp_path: Path) -> None:
+    # THE footgun the user caught: the last request is unnamed, so `on`/`model`
+    # must NOT silently jump to an older named endpoint — they name the last one.
     s = ExploreSession(tmp_path / "e.json", base_url="https://x")
-    s._data["steps"] = [{"id": 1, "method": "GET", "path": "/x", "endpoint": None, "status": 200}]
-    got = describe_impact(s, "model Thing")
-    assert _plain(got) == "no active endpoint: run a request first"
-    assert _classes(got) == ["class:tb.warn"]
+    s._data["steps"] = [
+        {"id": 1, "method": "GET", "path": "/berry", "endpoint": "berries", "status": 200},
+        {"id": 2, "method": "GET", "path": "/pokemon/a", "endpoint": None, "status": 404},  # unnamed, last
+    ]
+    s._data["endpoints"] = {"berries": {"method": "GET", "template": "/berry", "params": [],
+                                        "on": {}, "response_model": None, "request_model": None}}
+    assert active_endpoint(s) is None  # NOT "berries"
+    got = describe_impact(s, "on 404 none")
+    assert _plain(got) == "GET /pokemon/a isn't an endpoint yet: run endpoint <name> first"
+    # rprompt shows the unnamed request, not a misleading "active berries"
+    assert _plain(rprompt_text(s)) == "GET /pokemon/a · unnamed"
+
+
+def test_impact_no_request_yet(tmp_path: Path) -> None:
+    s = ExploreSession(tmp_path / "e.json", base_url="https://x")
+    assert _plain(describe_impact(s, "model Thing")) == "no request yet: run one first"
 
 
 def test_impact_endpoint_create_vs_fold(session: ExploreSession) -> None:
@@ -115,3 +129,21 @@ def test_impact_empty_and_partial(session: ExploreSession) -> None:
 def test_impact_never_has_em_dash(session: ExploreSession) -> None:
     for line in ["model X", "on 404 none", "no such", "save a.py", "endpoint E", "rename endpoint a b"]:
         assert "—" not in _plain(describe_impact(session, line))
+
+
+async def test_last_endpoint_does_not_skip_back(tmp_path: Path) -> None:
+    """The actual behavior fix (not just the preview): on/model target the last
+    request, and error clearly when it's unnamed instead of editing an older one."""
+    from gracy.explore._session import ExploreSession as ES
+
+    s = ES(tmp_path / "b.json", base_url="https://x")
+    s._data["steps"] = [
+        {"id": 1, "method": "GET", "path": "/berry", "endpoint": "berries", "status": 200},
+        {"id": 2, "method": "GET", "path": "/pokemon/a", "endpoint": None, "status": 404},
+    ]
+    s._data["endpoints"] = {"berries": {"method": "GET", "template": "/berry", "params": [],
+                                        "on": {}, "response_model": None, "request_model": None}}
+    with pytest.raises(ValueError, match="last request GET /pokemon/a isn't a named endpoint"):
+        s._last_endpoint()
+    # berries must be untouched (no silent edit)
+    assert s._data["endpoints"]["berries"]["on"] == {}
