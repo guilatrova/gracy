@@ -7,18 +7,19 @@
 <p align="center">
   <!-- CI --><a href="https://github.com/guilatrova/gracy/actions"><img alt="Actions Status" src="https://github.com/guilatrova/gracy/workflows/CI/badge.svg"></a>
   <!-- PyPI --><a href="https://pypi.org/project/gracy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/gracy"/></a>
-  <!-- Supported Python versions --><img src="https://badgen.net/pypi/python/gracy" />
-  <!-- Alternative Python versioning: <img alt="python version" src="https://img.shields.io/badge/python-3.9%20%7C%203.10-blue"> -->
+  <!-- Supported Python versions --><img alt="python version" src="https://img.shields.io/badge/python-3.10%2B-blue">
+  <!-- Rust core --><img alt="core: rust" src="https://img.shields.io/badge/core-rust%20%F0%9F%A6%80-orange">
   <!-- PyPI downloads --><a href="https://pepy.tech/project/gracy/"><img alt="Downloads" src="https://static.pepy.tech/badge/gracy/week"/></a>
-  <!-- LICENSE --><a href="https://github.com/guilatrova/gracy/blob/main/LICENSE"><img alt="GitHub" src="https://img.shields.io/github/license/guilatrova/gracy"/></a>
-  <!-- Formatting --><a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"/></a>
+  <!-- LICENSE --><a href="https://github.com/guilatrova/gracy/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/guilatrova/gracy"/></a>
   <!-- Tryceratops --><a href="https://github.com/guilatrova/tryceratops"><img alt="try/except style: tryceratops" src="https://img.shields.io/badge/try%2Fexcept%20style-tryceratops%20%F0%9F%A6%96%E2%9C%A8-black" /></a>
   <!-- Typing --><a href="https://github.com/microsoft/pyright"><img alt="Types: pyright" src="https://img.shields.io/badge/types-pyright-blue.svg"/></a>
   <!-- Follow handle --><a href="https://twitter.com/intent/user?screen_name=guilatrova"><img alt="Follow guilatrova" src="https://img.shields.io/twitter/follow/guilatrova?style=social"/></a>
   <!-- Sponsor --><a href="https://github.com/sponsors/guilatrova"><img alt="Sponsor guilatrova" src="https://img.shields.io/github/sponsors/guilatrova?logo=GitHub%20Sponsors&style=social"/></a>
 </p>
 
-Gracy handles failures, logging, retries, throttling, parsing, and reporting for all your HTTP interactions. Gracy uses [httpx](https://github.com/encode/httpx) under the hood.
+Gracy handles failures, retries, throttling, parsing, replaying, and reporting for all your HTTP interactions.
+
+**Gracy 2.0 is a Rust-powered rewrite.** 🦀 The hot path — a priority request **queue** with exact sliding-window throttling, the HTTP transport (tokio + reqwest), metrics, and replay storage — now lives in a compiled Rust core. Everything you touch stays plain Python: typed `@get`/`@post` endpoint decorators, hooks, validators, parsers, and config. The queue IS the throttle: no request reaches the wire without a permit, so rate limits, concurrency caps, priorities, and 429-pauses are all one mechanism instead of scattered sleeps.
 
 > "Let Gracy do the boring stuff while you focus on your application"
 
@@ -28,1018 +29,493 @@ Gracy handles failures, logging, retries, throttling, parsing, and reporting for
 
 - [🧑‍💻 Get started](#-get-started)
   - [Installation](#installation)
-  - [Usage](#usage)
-    - [Simple example](#simple-example)
-    - [More examples](#more-examples)
-- [Settings](#settings)
-  - [Strict/Allowed status code](#strictallowed-status-code)
-  - [Custom Validators](#custom-validators)
-  - [Parsing](#parsing)
-  - [Parsing Typing](#parsing-typing)
-  - [Retry](#retry)
+  - [Quickstart](#quickstart)
+  - [Sync? Also one line](#sync-also-one-line)
+- [🔁 One-line drop-in](#-one-line-drop-in)
+  - [Coming from requests](#coming-from-requests)
+  - [Coming from httpx](#coming-from-httpx)
+- [⚙️ Feature tour](#️-feature-tour)
+  - [Status policies](#status-policies)
+  - [Per-status actions: on= and raises()](#per-status-actions-on-and-raises)
+  - [Retry + Backoff](#retry--backoff)
   - [Throttling](#throttling)
-  - [Concurrent Requests](#concurrent-requests)
-  - [Logging](#logging)
-  - [Custom Exceptions](#custom-exceptions)
-- [Reports](#reports)
-  - [Logger](#logger)
-  - [List](#list)
-  - [Table](#table)
-  - [Plotly](#plotly)
-- [Replay requests](#replay-requests)
-  - [Recording](#recording)
-  - [Replay](#replay)
-- [Resource Namespacing](#resource-namespacing)
-- [Pagination](#pagination)
-- [Advanced Usage](#advanced-usage)
-  - [Customizing/Overriding configs per method](#customizingoverriding-configs-per-method)
-  - [Customizing HTTPx client](#customizing-httpx-client)
-  - [Overriding default request timeout](#overriding-default-request-timeout)
-  - [Creating a custom Replay data source](#creating-a-custom-replay-data-source)
-  - [Hooks before/after request](#hooks-beforeafter-request)
-    - [Common Hooks](#common-hooks)
-      - [`HttpHeaderRetryAfterBackOffHook`](#httpheaderretryafterbackoffhook)
-      - [`RateLimitBackOffHook`](#ratelimitbackoffhook)
-- [📚 Extra Resources](#-extra-resources)
+  - [Concurrency](#concurrency)
+  - [The queue](#the-queue)
+  - [Priorities & scoped overrides](#priorities--scoped-overrides)
+  - [Hooks](#hooks)
+  - [Validators](#validators)
+  - [Decoders](#decoders)
+  - [Replay requests](#replay-requests)
+  - [Reports](#reports)
+  - [Pagination](#pagination)
+  - [Namespaces](#namespaces)
+  - [Testing helpers](#testing-helpers)
+  - [Engine selection](#engine-selection)
+- [🏗️ Architecture](#️-architecture)
+- [🚚 Migrating](#-migrating)
+- [🛠️ Development](#️-development)
 - [Change log](#change-log)
 - [License](#license)
 - [Credits](#credits)
-
 
 ## 🧑‍💻 Get started
 
 ### Installation
 
-```
-pip install gracy
-```
-
-OR
+Gracy 2.0 is a pre-release:
 
 ```
-poetry add gracy
+pip install --pre gracy
 ```
 
-### Usage
+Wheels ship with the compiled Rust core for all major platforms — no toolchain needed. Zero required Python dependencies.
 
-Examples will be shown using the [PokeAPI](https://pokeapi.co).
+### Quickstart
 
-#### Simple example
+Examples use the [PokeAPI](https://pokeapi.co). Declare endpoints with decorators, and let return annotations drive decoding — your IDE sees real types, zero casts:
 
 ```py
-# 0. Import
 import asyncio
-import typing as t
-from gracy import BaseEndpoint, Gracy, GracyConfig, LogEvent, LogLevel
+from http import HTTPStatus
+from typing import Annotated
 
-# 1. Define your endpoints
-class PokeApiEndpoint(BaseEndpoint):
-    GET_POKEMON = "/pokemon/{NAME}" # 👈 Put placeholders as needed
+from pydantic import BaseModel
 
-# 2. Define your Graceful API
-class GracefulPokeAPI(Gracy[str]):
-    class Config:
-        BASE_URL = "https://pokeapi.co/api/v2/" # 👈 Optional BASE_URL
-        # 👇 Define settings to apply for every request
-        SETTINGS = GracyConfig(
-          log_request=LogEvent(LogLevel.DEBUG),
-          log_response=LogEvent(LogLevel.INFO, "{URL} took {ELAPSED}"),
-          parser={
-            "default": lambda r: r.json()
-          }
-        )
+from gracy import Backoff, Gracy, GracyConfig, Path, PydanticDecoder, Retry, get, status
 
-    async def get_pokemon(self, name: str) -> t.Awaitable[dict]:
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
 
-pokeapi = GracefulPokeAPI()
+class Pokemon(BaseModel):
+    name: str
+    order: int
 
-async def main():
-    try:
-      pokemon = await pokeapi.get_pokemon("pikachu")
-      print(pokemon)
 
-    finally:
-        pokeapi.report_status("rich")
+class PokeAPI(Gracy):
+    base_url = "https://pokeapi.co/api/v2"
+
+    config = GracyConfig(
+        decoder=PydanticDecoder(),  # 👈 decodes bytes into your return annotations
+        retry=Retry(
+            on=(status(429, 502, 503), TimeoutError),
+            attempts=3,
+            wait=Backoff(initial=1.0, multiplier=1.5, max=10.0),
+        ),
+    )
+
+    # 👇 404 becomes None instead of raising — and the type says so
+    @get("/pokemon/{name}", on={HTTPStatus.NOT_FOUND: None})
+    async def get_pokemon(self, name: Annotated[str, Path]) -> Pokemon | None: ...
+
+
+async def main() -> None:
+    async with PokeAPI() as api:            # build → compile plan → start scheduler
+        mew = await api.get_pokemon("mew")          # -> Pokemon | None
+        print(mew)                                  # name='mew' order=248
+
+        missing = await api.get_pokemon("agumon")   # -> None (it's a Digimon 🙊)
+        print(missing)
+
+        api.report().print("list")           # or "rich" / "logger"
 
 
 asyncio.run(main())
 ```
 
-#### More examples
+That's retries, typed parsing, 404-to-None, metrics, and an explicit lifecycle — with no `try/except` boilerplate in sight.
 
-- [PokeAPI with retries, parsers, logs](./examples/pokeapi.py)
-- [PokeAPI with throttling](./examples/pokeapi_throttle.py)
-- [PokeAPI with SQLite replay](./examples/pokeapi_replay.py)
-- [PokeAPI with Mongo replay](./examples/pokeapi_replay_mongo.py)
+### Sync? Also one line
 
-## Settings
-
-### Strict/Allowed status code
-
-By default Gracy considers any successful status code (200-299) as successful.
-
-**Strict**
-
-You can modify this behavior by defining a strict status code or increase the range of allowed status codes:
+The sync facade runs the **real** async client on a private background loop — hooks, retries, and throttling all included:
 
 ```py
-from http import HTTPStatus
+with PokeAPI.sync() as api:
+    mew = api.get_pokemon("mew")
+```
 
-GracyConfig(
-  strict_status_code=HTTPStatus.CREATED
+## 🔁 One-line drop-in
+
+Not ready to declare endpoints? Swap one import and your existing code runs through the full Gracy pipeline (queue, throttle, retry, replay, reports).
+
+### Coming from requests
+
+```diff
+- import requests
++ from gracy.compat import requests
+
+  resp = requests.get("https://pokeapi.co/api/v2/pokemon/mew", timeout=5)
+  resp.raise_for_status()
+  data = resp.json()
+```
+
+`Session()`, `params=`, `json=`, `data=`, `headers=`, `auth=`, and friends keep working. Then, when you want superpowers **without touching a single call site**:
+
+```py
+from gracy import Backoff, GracyConfig, Rate, Retry, Throttle, status
+from gracy.compat import requests
+
+requests.configure(GracyConfig(
+    retry=Retry(on=status(429, 502, 503), attempts=3, wait=Backoff(initial=1, multiplier=2)),
+    throttle=Throttle(rules=[Rate(10, per="1s")]),
+))
+
+requests.get("https://pokeapi.co/api/v2/berry/cheri")  # now retried + throttled 🎉
+```
+
+### Coming from httpx
+
+```diff
+- import httpx
++ from gracy.compat import httpx
+
+  async with httpx.AsyncClient(base_url="https://pokeapi.co/api/v2") as client:
+      resp = await client.get("/pokemon/mew")
+      resp.raise_for_status()
+```
+
+Pass `config=GracyConfig(...)` to the client constructor to enable policies (a sync `Client` twin ships too). Semantics follow httpx: non-2xx responses are returned, not raised.
+
+## ⚙️ Feature tour
+
+### Status policies
+
+By default any 2xx passes validation. Tighten or widen that per endpoint (or client-wide):
+
+```py
+from gracy import allow, strict
+
+class PokeAPI(Gracy):
+    base_url = "https://pokeapi.co/api/v2"
+
+    # ONLY 200 passes — even 201 would fail validation
+    @get("/pokemon/{name}", status_policy=strict(HTTPStatus.OK))
+    async def only_200(self, name: Annotated[str, Path]) -> dict: ...
+
+    # 2xx OR 404 pass; the on= map decides what a 404 becomes
+    @get("/pokemon/{name}", status_policy=allow(HTTPStatus.NOT_FOUND), on={404: None})
+    async def maybe(self, name: Annotated[str, Path]) -> dict | None: ...
+```
+
+Combining strict + allow is a build-time error (v1 silently picked one 🫠).
+
+### Per-status actions: on= and raises()
+
+`on={status: action}` maps statuses to outcomes: a literal (returned as-is), a callable over the response, or `raises()` for [readable custom exceptions](https://guicommits.com/how-to-structure-exception-in-python-like-a-pro/):
+
+```py
+import gracy
+from gracy import raises
+
+class PokemonNotFound(gracy.GracyUserDefinedException):
+    # placeholders: {URL} {STATUS} {METHOD} ... + your endpoint args UPPERCASED
+    BASE_MESSAGE = "Unable to find [{NAME}] at {URL} due to {STATUS}"
+
+class PokeAPI(Gracy):
+    base_url = "https://pokeapi.co/api/v2"
+
+    @get("/pokemon/{name}", on={HTTPStatus.NOT_FOUND: None})
+    async def get_pokemon(self, name: Annotated[str, Path]) -> Pokemon | None: ...
+
+    @get("/pokemon/{name}", on={HTTPStatus.NOT_FOUND: raises(PokemonNotFound)})
+    async def get_pokemon_strict(self, name: Annotated[str, Path]) -> Pokemon: ...
+```
+
+### Retry + Backoff
+
+Who doesn't hate flaky APIs? 🙋 Declare the policy once; every attempt re-enters the queue (so retries are throttled and respect pauses too):
+
+```py
+from gracy import Backoff, Retry, status
+
+Retry(
+    on=(status(429, 502, 503), TimeoutError),  # statuses and/or exception types
+    attempts=3,
+    wait=Backoff(initial=1.0, multiplier=1.5, max=10.0, jitter=True),
+    respect_retry_after=True,     # honor the server's Retry-After header
+    on_exhausted="raise",         # or "return" the last response
 )
 ```
-
-or a list of values:
-
-```py
-from http import HTTPStatus
-
-GracyConfig(
-  strict_status_code={HTTPStatus.OK, HTTPStatus.CREATED}
-)
-```
-
-Using `strict_status_code` means that any other code not specified will raise an error regardless of being successful or not.
-
-**Allowed**
-
-You can also keep the behavior, but extend the range of allowed codes.
-
-```py
-from http import HTTPStatus
-
-GracyConfig(
-  allowed_status_code=HTTPStatus.NOT_FOUND
-)
-```
-
-or a list of values
-
-
-```py
-from http import HTTPStatus
-
-GracyConfig(
-  allowed_status_code={HTTPStatus.NOT_FOUND, HTTPStatus.FORBIDDEN}
-)
-```
-
-Using `allowed_status_code` means that all successful codes plus your defined codes will be considered successful.
-
-This is quite useful for parsing as you'll see soon.
-
-⚠️ Note that `strict_status_code` takes precedence over `allowed_status_code`, probably you don't want to combine those. Prefer one or the other.
-
-### Custom Validators
-
-You can implement your own custom validator to do further checks on the response and decide whether to consider the request failed (and as consequence trigger retries if they're set).
-
-```py
-from gracy import GracefulValidator
-
-class MyException(Exception):
-  pass
-
-class MyCustomValidator(GracefulValidator):
-    def check(self, response: httpx.Response) -> None:
-        jsonified = response.json()
-        if jsonified.get('error', None):
-          raise MyException("Error is not expected")
-
-        return None
-
-...
-
-class Config:
-  SETTINGS = GracyConfig(
-    ...,
-    retry=GracefulRetry(retry_on=MyException, ...),  # Set up retry to work whenever our validator fails
-    validators=MyCustomValidator(),  # Set up validator
-  )
-
-```
-
-### Parsing
-
-Parsing allows you to handle the request based on the status code returned.
-
-The basic example is parsing `json`:
-
-```py
-GracyConfig(
-  parser={
-    "default": lambda r: r.json()
-  }
-)
-```
-
-In this example all successful requests will automatically return the `json()` result.
-
-You can also narrow it down to handle specific status codes.
-
-```py
-class Config:
-  SETTINGS = GracyConfig(
-    ...,
-    allowed_status_code=HTTPStatusCode.NOT_FOUND,
-    parser={
-      "default": lambda r: r.json()
-      HTTPStatusCode.NOT_FOUND: None
-    }
-  )
-
-async def get_pokemon(self, name: str) -> dict| None:
-  # 👇 Returns either dict or None
-  return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-```
-
-Or even customize [exceptions to improve your code readability](https://guicommits.com/handling-exceptions-in-python-like-a-pro/):
-
-```py
-class PokemonNotFound(GracyUserDefinedException):
-  ... # More on exceptions below
-
-class Config:
-  GracyConfig(
-    ...,
-    allowed_status_code=HTTPStatusCode.NOT_FOUND,
-    parser={
-      "default": lambda r: r.json()
-      HTTPStatusCode.NOT_FOUND: PokemonNotFound
-    }
-  )
-
-async def get_pokemon(self, name: str) -> Awaitable[dict]:
-  # 👇 Returns either dict or raises PokemonNotFound
-  return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-```
-
-### Parsing Typing
-
-Because parsers allow you to dynamically parse a payload based on the status code your IDE will not identify the return type by itself.
-
-To avoid boring `typing.cast` for every method, Gracy provides typed http methods, so you can define a specific return type:
-
-```py
-async def list(self, offset: int = 0, limit: int = 20):
-  params = dict(offset=offset, limit=limit)
-  return await self.get[ResourceList]( # Specifies this method return a `ResourceList`
-    PokeApiEndpoint.BERRY_LIST, params=params
-  )
-
-async def get_one(self, name_or_id: str | int):
-  return await self.get[models.Berry | None](
-    PokeApiEndpoint.BERRY_GET, params=dict(KEY=str(name_or_id))
-  )
-```
-
-### Retry
-
-Who doesn't hate flaky APIs? 🙋
-
-Yet there're many of them.
-
-Using tenacity, backoff, retry, aiohttp_retry, and any other retry libs is **NOT easy enough**. 🙅
-
-You still would need to code the implementation for each request which is annoying.
-
-Here's how Gracy allows you to implement your retry logic:
-
-```py
-class Config:
-  GracyConfig(
-    retry=GracefulRetry(
-      delay=1,
-      max_attempts=3,
-      delay_modifier=1.5,
-      retry_on=None,
-      log_before=None,
-      log_after=LogEvent(LogLevel.WARNING),
-      log_exhausted=LogEvent(LogLevel.CRITICAL),
-      behavior="break",
-    )
-  )
-```
-
-| Parameter        | Description                                                                                                     | Example                                                                                                                              |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `delay`          | How many seconds to wait between retries                                                                        | `2` would wait 2 seconds, `1.5` would wait 1.5 seconds, and so on                                                                    |
-| `max_attempts`   | How many times should Gracy retry the request?                                                                  | `10` means 1 regular request with additional 10 retries in case they keep failing. `1` should be the minimum                         |
-| `delay_modifier` | Allows you to specify increasing delay times by multiplying this value to `delay`                               | Setting `1` means no delay change. Setting `2` means delay will be doubled every retry                                               |
-| `retry_on`       | Should we retry for which status codes/exceptions? `None` means for any non successful status code or exception | `HTTPStatus.BAD_REQUEST`, or `{HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN}`, or `Exception` or `{Exception, HTTPStatus.NOT_FOUND}` |
-| `log_before`     | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
-| `log_after`      | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
-| `log_exhausted`  | Specify log level. `None` means don't log                                                                       | More on logging later                                                                                                                |
-| `behavior`       | Allows you to define how to deal if the retry fails. `pass` will accept any retry failure                       | `pass` or `break` (default)                                                                                                          |
-| `overrides`      | Allows to override `delay` based on last response status code                                                   | `{HTTPStatus.BAD_REQUEST: OverrideRetryOn(delay=0), HTTPStatus.INTERNAL_SERVER_ERROR: OverrideRetryOn(delay=10)}`                    |
-
 
 ### Throttling
 
-Rate limiting issues? No more.
-
-Gracy helps you proactively deal with it before any API throws 429 in your face.
-
-**Creating rules**
-
-You can define rules per endpoint using regex:
+Rate limiting issues? No more. Rules are **exact sliding windows** enforced by the Rust queue — never N+1 requests in any trailing window, and never over-waiting either:
 
 ```py
-SIMPLE_RULE = ThrottleRule(
-  url_pattern=r".*",
-  max_requests=2
-)
-print(SIMPLE_RULE)
-# Output: "2 requests per second for URLs matching re.compile('.*')"
+from gracy import Rate, Throttle
 
-COMPLEX_RULE = ThrottleRule(
-  url_pattern=r".*\/pokemon\/.*",
-  max_requests=10,
-  per_time=timedelta(minutes=1, seconds=30),
-)
-print(COMPLEX_RULE)
-# Output: 10 requests per 90 seconds for URLs matching re.compile('.*\\/pokemon\\/.*')
+Throttle(rules=[
+    Rate(10, per="1s", match=r".*/pokemon/.*"),  # regex vs the formatted URL
+    Rate(600, per="1m"),                         # burst + sustained compose
+])
 ```
 
-**Setting throttling**
+Prefer evenly-spaced requests over bursts? `Throttle(rules=[...], mode="smooth")` switches to GCRA pacing.
 
-You can set up logging and assign rules as:
+### Concurrency
+
+Cap in-flight requests globally, per endpoint, or partitioned by an argument:
 
 ```py
-class Config:
-  GracyConfig(
-    throttling=GracefulThrottle(
-        rules=ThrottleRule(r".*", 2), # 2 reqs/s for any endpoint
-        log_limit_reached=LogEvent(LogLevel.ERROR),
-        log_wait_over=LogEvent(LogLevel.WARNING),
-    ),
-  )
+from gracy import Concurrency
+
+@get("/pokemon", concurrency=Concurrency(limit=2))
+async def list_pokemon(self, offset: Annotated[int, Query] = 0,
+                       limit: Annotated[int, Query] = 20) -> dict: ...
+
+# per-tenant partitioning: one semaphore per distinct `org` value
+Concurrency(limit=5, key_by=("org",))
 ```
 
-### Concurrent Requests
+### The queue
 
-Maybe the API you're hitting have some slow endpoints and you want to ensure that no more than a custom number of requests are being made concurrently.
-
-You can define a `ConcurrentRequestLimit` config.
-
-The simplest usage is:
+Every request is admitted through one scheduler — throttles, semaphores, priorities, backpressure, and pauses are all admission control:
 
 ```py
-from gracy import ConcurrentRequestLimit
+from gracy import Queue
 
-
-class Config:
-  GracyConfig(
-    concurrent_requests=ConcurrentRequestLimit(
-      limit=1, # How many concurrent requests
-      log_limit_reached=LogEvent(LogLevel.WARNING),
-      log_limit_freed=LogEvent(LogLevel.INFO),
-    ),
-  )
-```
-
-But you can also define it easily per method as:
-
-```py
-class MyApiClient(Gracy[Endpoint]):
-
-  @graceful(concurrent_requests=5)
-  async def get_concurrently_five(self, name: str):
-      ...
-```
-
-### Logging
-
-You can **define and customize logs** for events by using `LogEvent` and `LogLevel`:
-
-```py
-verbose_log = LogEvent(LogLevel.CRITICAL)
-custom_warn_log = LogEvent(LogLevel.WARNING, custom_message="{METHOD} {URL} is quite slow and flaky")
-custom_error_log = LogEvent(LogLevel.INFO, custom_message="{URL} returned a bad status code {STATUS}, but that's fine")
-```
-
-Note that placeholders are formatted and replaced later on by Gracy based on the event type, like:
-
-**Placeholders per event**
-
-| Placeholder             | Description                                                   | Example                                                        | Supported Events     |
-| ----------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- | -------------------- |
-| `{URL}`                 | Full url being targetted                                      | `https://pokeapi.co/api/v2/pokemon/pikachu`                    | *All*                |
-| `{UURL}`                | Full **Unformatted** url being targetted                      | `https://pokeapi.co/api/v2/pokemon/{NAME}`                     | *All*                |
-| `{ENDPOINT}`            | Endpoint being targetted                                      | `/pokemon/pikachu`                                             | *All*                |
-| `{UENDPOINT}`           | **Unformatted** endpoint being targetted                      | `/pokemon/{NAME}`                                              | *All*                |
-| `{METHOD}`              | HTTP Request being used                                       | `GET`, `POST`                                                  | *All*                |
-| `{STATUS}`              | Status code returned by the response                          | `200`, `404`, `501`                                            | *After Request*      |
-| `{ELAPSED}`             | Amount of seconds taken for the request to complete           | *Numeric*                                                      | *After Request*      |
-| `{REPLAY}`              | A placeholder that is displayed only when request is replayed | `REPLAYED` when replay, otherwise it's a blank str (``)        | *After Request*      |
-| `{IS_REPLAY}`           | Boolean value to show whether it's replayed or not            | String with `TRUE` when replayed or `FALSE`                    | *After Request*      |
-| `{RETRY_DELAY}`         | How long Gracy will wait before repeating the request         | *Numeric*                                                      | *Any Retry event*    |
-| `{RETRY_CAUSE}`         | What caused the retry logic to trigger                        | `[Bad Status Code: 404]`, `[Request Error: ConnectionTimeout]` | *Any Retry event*    |
-| `{CUR_ATTEMPT}`         | Current attempt count for the current request                 | *Numeric*                                                      | *Any Retry event*    |
-| `{MAX_ATTEMPT}`         | Max attempt defined for the current request                   | *Numeric*                                                      | *Any Retry event*    |
-| `{THROTTLE_LIMIT}`      | How many reqs/s is defined for the current request            | *Numeric*                                                      | *Any Throttle event* |
-| `{THROTTLE_TIME}`       | How long Gracy will wait before calling the request           | *Numeric*                                                      | *Any Throttle event* |
-| `{THROTTLE_TIME_RANGE}` | Time range defined by the throttling rule                     | `second`, `90 seconds`                                         | *Any Throttle event* |
-
-and you can set up the log events as follows:
-
-**Requests**
-
-1. Before request
-2. After response
-3. Response has non successful errors
-
-```py
-GracyConfig(
-  log_request=LogEvent(),
-  log_response=LogEvent(),
-  log_errors=LogEvent(),
+Queue(
+    max_at_once=10,                       # global in-flight cap
+    max_pending=5_000,                    # backpressure: queue depth
+    on_full="wait",                       # or "raise" -> GracyQueueFull
+    pause_on_status={429: "endpoint"},    # a 429 pauses that endpoint's lane
 )
 ```
 
-**Retry**
+Peek inside anytime with `api.queue_stats()` — pending, in-flight, throttle hits, active pauses.
 
-1. Before retry
-2. After retry
-3. When retry exhausted
+### Priorities & scoped overrides
+
+Per-call knobs live on `api.request()` (the ad-hoc escape hatch — v1 `BaseEndpoint` enums still work here) and `api.options()`:
 
 ```py
-GracefulRetry(
-  ...,
-  log_before=LogEvent(),
-  log_after=LogEvent(),
-  log_exhausted=LogEvent(),
+# jump the queue for an urgent call
+page = await api.request(
+    "GET", "/pokemon/{NAME}", path={"NAME": "pikachu"},
+    decode_as=Pokemon, priority=10,
+)
+
+# scoped override — replaces v1's @graceful; applies to nested calls too
+async with api.options(retry=None, on={404: None}):
+    await api.get_pokemon("missingno")
+```
+
+URL-shaped overrides replace scattering decorators across methods:
+
+```py
+config = GracyConfig(overrides={
+    "*/pokemon/*": GracyConfig(throttle=Throttle(rules=[Rate(5, per="1s")])),
+})
+```
+
+### Hooks
+
+Override `before`/`after` on your client (it becomes a hook itself), or register ordered hook objects:
+
+```py
+import time
+from gracy import RetryAfterBackoff
+
+class PokeAPI(Gracy):
+    hooks = [RetryAfterBackoff(lock_per_endpoint=True)]  # 👈 built-in 429/503 backoff
+
+    async def before(self, context: gracy.RequestContext) -> None:
+        context.state["t0"] = time.monotonic()  # per-request scratch space
+
+    async def after(self, context, result: gracy.Response | Exception,
+                    retry_state: gracy.RetryState | None) -> None:
+        ...  # exceptions arrive consistently GracyRequestFailed-wrapped
+```
+
+`RetryAfterBackoff` (and `RateLimitBackoff`, its fixed-delay sibling) drive **scheduler pause gates**: a 429 with `Retry-After` genuinely pauses admission for the endpoint (or whole client) — including retries already in flight. Requests issued *inside* hooks skip hooks and semaphores by default, so the v1 hook-deadlock class is gone.
+
+### Validators
+
+Decide "failed" beyond status codes — a failing validator triggers retries like any error:
+
+```py
+class NoErrorField(gracy.Validator):
+    def check(self, response: gracy.Response) -> None:
+        if response.json().get("error"):
+            raise MyDomainError(response)
+
+config = GracyConfig(
+    validators=NoErrorField(),
+    retry=Retry(on=MyDomainError, attempts=3),
 )
 ```
 
-**Throttling**
+### Decoders
 
-1. When reqs/s limit is reached
-2. When limit decreases again
+Return annotations drive decoding: `dict`/`list`/`str`/`bytes`/scalars and plain dataclasses work out of the box. For models, plug a decoder:
 
 ```py
-GracefulThrottle(
-  ...,
-  log_limit_reached=LogEvent()
-  log_wait_over=LogEvent()
+from gracy.parsing import PydanticDecoder, MsgspecDecoder
+
+config = GracyConfig(decoder=PydanticDecoder())   # pip install gracy[pydantic]
+# or MsgspecDecoder()                             # pip install gracy[msgspec]
+
+@get("/pokemon/{name}")
+async def get_pokemon(self, name: Annotated[str, Path]) -> Pokemon: ...  # validated model out
+```
+
+### Replay requests
+
+Record real traffic once, replay it forever — tests without latency, rate limits, or flakiness. Storage is pickle-free SQLite (schema v2): diffable, inspectable, safe to commit.
+
+```py
+from gracy import Replay, Scrub, SqliteStorage
+
+record = Replay(mode="record", storage=SqliteStorage("tests/pokeapi.db"))
+async with PokeAPI(replay=record) as api:
+    await api.get_pokemon("mew")             # hits the API, recorded
+
+replay = Replay(
+    mode="replay",                           # or "smart-replay": replay hits, record misses
+    storage=SqliteStorage("tests/pokeapi.db"),
+    scrub=Scrub(headers=["authorization"]),  # secrets scrubbed ON by default
+    disable_throttling=True,
 )
+async with PokeAPI(replay=replay) as api:
+    await api.get_pokemon("mew")             # served from storage, zero network
 ```
 
-**Dynamic Customization**
+Replay hits never spend throttle tokens, and parsers/retries/validators run as usual. MongoDB storage ships too (`pip install gracy[mongo]`). Got a v1 replay DB? Migrate it once: `python -m gracy.replay.migrate old.sqlite3 new.db`.
 
-You can customize it even further by passing a lambda:
+### Reports
+
+`api.report()` returns a **frozen** snapshot — print it as many times as you like:
 
 ```py
-LogEvent(
-    LogLevel.ERROR,
-    lambda r: "Request failed with {STATUS}" f" and it was {'redirected' if r.is_redirect else 'NOT redirected'}"
-    if r
-    else "",
-)
+api.report().print("rich")      # pretty table  (pip install gracy[rich])
+api.report().print("logger")    # one-liners for production logs
+api.report().print("list")      # plain stdout
+
+fig = api.report().to_plotly()  # pip install gracy[plotly]
+fig.show()
 ```
-
-Consider that:
-
-- Not all log events have the response available, so you need to guard yourself against it
-- Placeholders still works (e.g. `{STATUS}`)
-- You need to watch out for some attrs that might break the formatting logic (e.g. `r.headers`)
-
-### Custom Exceptions
-
-You can define custom exceptions for more [fine grained control over your exception messages/types](https://guicommits.com/how-to-structure-exception-in-python-like-a-pro/).
-
-The simplest you can do is:
-
-```py
-from gracy import Gracy, GracyConfig
-from gracy.exceptions import GracyUserDefinedException
-
-class MyCustomException(GracyUserDefinedException):
-  pass
-
-class MyApi(Gracy[str]):
-  class Config:
-    SETTINGS = GracyConfig(
-      ...,
-      parser={
-        HTTPStatus.BAD_REQUEST: MyCustomException
-      }
-    )
-```
-
-This will raise your custom exception under the conditions defined in your parser.
-
-You can improve it even further by customizing your message:
-
-```py
-class PokemonNotFound(GracyUserDefinedException):
-    BASE_MESSAGE = "Unable to find a pokemon with the name [{NAME}] at {URL} due to {STATUS} status"
-
-    def _format_message(self, request_context: GracyRequestContext, response: httpx.Response) -> str:
-        format_args = self._build_default_args()
-        name = request_context.endpoint_args.get("NAME", "Unknown")
-        return self.BASE_MESSAGE.format(NAME=name, **format_args)
-```
-
-## Reports
-
-### Logger
-
-Recommended for production environments.
-
-Gracy reports a short summary using `logger.info`.
-
-```python
-pokeapi = GracefulPokeAPI()
-# do stuff with your API
-pokeapi.report_status("logger")
-
-# OUTPUT
-❯ Gracy tracked that 'https://pokeapi.co/api/v2/pokemon/{NAME}' was hit 1 time(s) with a success rate of 100.00%, avg latency of 0.45s, and a rate of 1.0 reqs/s.
-❯ Gracy tracked a total of 2 requests with a success rate of 100.00%, avg latency of 0.24s, and a rate of 1.0 reqs/s.
-```
-
-### List
-
-Uses `print` to generate a short list with all attributes:
-
-```python
-pokeapi = GracefulPokeAPI()
-# do stuff with your API
-pokeapi.report_status("list")
-
-# OUTPUT
-   ____
-  / ___|_ __ __ _  ___ _   _
- | |  _| '__/ _` |/ __| | | |
- | |_| | | | (_| | (__| |_| |
-  \____|_|  \__,_|\___|\__, |
-                       |___/  Requests Summary Report
-
-
-1. https://pokeapi.co/api/v2/pokemon/{NAME}
-    Total Reqs (#): 1
-       Success (%): 100.00%
-          Fail (%): 0.00%
-   Avg Latency (s): 0.39
-   Max Latency (s): 0.39
-         2xx Resps: 1
-         3xx Resps: 0
-         4xx Resps: 0
-         5xx Resps: 0
-      Avg Reqs/sec: 1.0 reqs/s
-
-
-2. https://pokeapi.co/api/v2/generation/{ID}/
-    Total Reqs (#): 1
-       Success (%): 100.00%
-          Fail (%): 0.00%
-   Avg Latency (s): 0.04
-   Max Latency (s): 0.04
-         2xx Resps: 1
-         3xx Resps: 0
-         4xx Resps: 0
-         5xx Resps: 0
-      Avg Reqs/sec: 1.0 reqs/s
-
-
-TOTAL
-    Total Reqs (#): 2
-       Success (%): 100.00%
-          Fail (%): 0.00%
-   Avg Latency (s): 0.21
-   Max Latency (s): 0.00
-         2xx Resps: 2
-         3xx Resps: 0
-         4xx Resps: 0
-         5xx Resps: 0
-      Avg Reqs/sec: 1.0 reqs/s
-```
-
-### Table
-
-It requires you to install [Rich](https://github.com/Textualize/rich).
-
-```py
-pokeapi = GracefulPokeAPI()
-# do stuff with your API
-pokeapi.report_status("rich")
-```
-
-Here's an example of how it looks:
 
 ![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-rich-example.png)
 
+Columns cover totals, success rate, per-status counts, retries, throttles, replays, and latency avg/max/**p95/p99** per endpoint template.
 
-### Plotly
-
-It requires you to install [plotly 📊](https://github.com/plotly/plotly.py) and [pandas 🐼](https://github.com/pandas-dev/pandas).
-
-```py
-pokeapi = GracefulPokeAPI()
-# do stuff with your API
-plotly_fig = pokeapi.report_status("plotly")
-plotly_fig.show()
-```
-
-Here's an example of how it looks:
-
-![Report](https://raw.githubusercontent.com/guilatrova/gracy/main/img/report-plotly-example.png)
-
-## Replay requests
-
-Gracy allows you to replay requests and responses from previous interactions.
-
-This is powerful because it allows you to test APIs without latency or consuming your rate limit. Now writing unit tests that relies on third-party APIs is doable.
-
-It works in two steps:
-
-| **Step**     | **Description**                                                                | **Hits the API?** |
-| ------------ | ------------------------------------------------------------------------------ | ----------------- |
-| 1. Recording | Stores all requests/responses to be later replayed                             | **Yes**           |
-| 2. Replay    | Returns all previously generated responses based on your request as a "replay" | No                |
-
-### Recording
-
-The effort to record requests/responses is ZERO. You just need to pass a recording config to your Graceful API:
-
-```py
-from gracy import GracyReplay
-from gracy.replays.storages.sqlite import SQLiteReplayStorage
-
-record_mode = GracyReplay("record", SQLiteReplayStorage("pokeapi.sqlite3"))
-pokeapi = GracefulPokeAPI(record_mode)
-```
-
-**Every request** will be recorded to the defined data source.
-
-### Replay
-
-Once you have recorded all your requests you can enable the replay mode:
-
-```py
-from gracy import GracyReplay
-from gracy.replays.storages.sqlite import SQLiteReplayStorage
-
-replay_mode = GracyReplay("replay", SQLiteReplayStorage("pokeapi.sqlite3"))
-pokeapi = GracefulPokeAPI(replay_mode)
-```
-
-**Every request** will be routed to the defined data source resulting in faster responses.
-
-**⚠️ Note that parsers, retries, throttling, and similar configs will work as usual**.
-
-
-## Resource Namespacing
-
-You can have multiple namespaces to organize your API endpoints as you wish.
-
-To do so, you just have to inherit from `GracyNamespace` and instantiate it within the `GracyAPI`:
-
-```py
-from gracy import Gracy, GracyNamespace, GracyConfig
-
-class PokemonNamespace(GracyNamespace[PokeApiEndpoint]):
-    async def get_one(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-
-
-class BerryNamespace(GracyNamespace[PokeApiEndpoint]):
-    async def get_one(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_BERRY, {"NAME": name})
-
-
-class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:
-        BASE_URL = "https://pokeapi.co/api/v2/"
-        SETTINGS = GracyConfig(
-            retry=RETRY,
-            allowed_status_code={HTTPStatus.NOT_FOUND},
-            parser={HTTPStatus.NOT_FOUND: None},
-        )
-
-    # These will be automatically assigned on init
-    berry: BerryNamespace
-    pokemon: PokemonNamespace
-```
-
-And the usage will work as:
-
-```py
-await pokeapi.pokemon.get_one("pikachu")
-await pokeapi.berry.get_one("cheri")
-```
-
-Note all configs are propagated to namespaces, but namespaces can still have their own which would cause merges when instantiatedg.
-
-
-## Pagination
-
-There're endpoints that may require pagination. For that you can use `GracyPaginator`.
-
-For a simple case where you pass `offset` and `limit`, you can use `GracyOffsetPaginator`:
+### Pagination
 
 ```py
 from gracy import GracyOffsetPaginator
 
-class BerryNamespace(GracyNamespace[PokeApiEndpoint]):
-    @parsed_response(ResourceList)
-    async def list(self, offset: int = 0, limit: int = 20):
-        params = dict(offset=offset, limit=limit)
-        return await self.get(PokeApiEndpoint.BERRY_LIST, params=params)
+class PokeAPI(Gracy):
+    base_url = "https://pokeapi.co/api/v2"
 
-    def paginate(self, limit: int = 20) -> GracyOffsetPaginator[ResourceList]:
-        return GracyOffsetPaginator[ResourceList](
-            gracy_func=self.list,
-            has_next=lambda r: bool(r["next"]) if r else True,
-            page_size=limit,
+    @get("/pokemon")
+    async def list_pokemon(self, offset: Annotated[int, Query] = 0,
+                           limit: Annotated[int, Query] = 20) -> dict: ...
+
+    def paginate(self, limit: int = 20) -> GracyOffsetPaginator[dict]:
+        return GracyOffsetPaginator[dict](
+            gracy_func=self.list_pokemon,
+            has_next=lambda r: True if r is None else bool(r["next"]),
+            page_size=limit,  # honored now — v1 hardcoded 20 🙈
         )
 
+async with PokeAPI() as api:
+    paginator = api.paginate(limit=5)
+    first = await paginator.next_page()   # one page
+    async for page in paginator:          # ...or all of them
+        print(page["results"])
 ```
 
-and then use it as:
+### Namespaces
+
+Group endpoints with explicit descriptors — configs merge under the client's, and two clients never share namespace state:
 
 ```py
-async def main():
-    api = PokeApi()
-    paginator = api.berry.paginate(2)
+from gracy import GracyNamespace
 
-    # Just grabs the next page
-    first = await paginator.next_page()
-    print(first)
+class BerryNamespace(GracyNamespace):
+    path_prefix = "/berry"
 
-    # Resets current page to 0
-    paginator.set_page(0)
+    @get("/{name}")
+    async def get_one(self, name: Annotated[str, Path]) -> dict: ...
 
-    # Loop throught it all
-    async for page in paginator:
-        print(page)
+class PokeAPI(Gracy):
+    base_url = "https://pokeapi.co/api/v2"
+    berry = BerryNamespace()               # 👈 explicit, no annotation magic
+
+async with PokeAPI() as api:
+    cheri = await api.berry.get_one("cheri")
 ```
 
-## Advanced Usage
+### Testing helpers
 
-### Customizing/Overriding configs per method
-
-APIs may return different responses/conditions/payloads based on the endpoint.
-
-You can override any `GracyConfig` on a per method basis by using the `@graceful` decorator.
-
-NOTE: Use `@graceful_generator` if your function uses `yield`.
-
-```python
-from gracy import Gracy, GracyConfig, GracefulRetry, graceful, graceful_generator
-
-retry = GracefulRetry(...)
-
-class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:
-        BASE_URL = "https://pokeapi.co/api/v2/"
-        SETTINGS = GracyConfig(
-            retry=retry,
-            log_errors=LogEvent(
-                LogLevel.ERROR, "How can I become a pokemon master if {URL} keeps failing with {STATUS}"
-            ),
-        )
-
-    @graceful(
-        retry=None, # 👈 Disables retry set in Config
-        log_errors=None, # 👈 Disables log_errors set in Config
-        allowed_status_code=HTTPStatus.NOT_FOUND,
-        parser={
-            "default": lambda r: r.json()["order"],
-            HTTPStatus.NOT_FOUND: None,
-        },
-    )
-    async def maybe_get_pokemon_order(self, name: str):
-        val: str | None = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-        return val
-
-    @graceful( # 👈 Retry and log_errors are still set for this one
-      strict_status_code=HTTPStatus.OK,
-      parser={"default": lambda r: r.json()["order"]},
-    )
-    async def get_pokemon_order(self, name: str):
-      val: str = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-      return val
-
-    @graceful_generator( # 👈 Retry and log_errors are still set for this one
-      parser={"default": lambda r: r.json()["order"]},
-    )
-    async def get_2_pokemons(self):
-      names = ["charmander", "pikachu"]
-
-      for name in names:
-          r = await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
-          yield r
-```
-
-### Customizing HTTPx client
-
-You might want to modify the HTTPx client settings, do so by:
+Kill retries/throttling in tests and mock the transport — the whole pipeline still runs:
 
 ```py
-class YourAPIClient(Gracy[str]):
-    class Config:
-        ...
+import gracy
 
-    def __init__(self, token: token) -> None:
-        self._token = token
-        super().__init__()
-
-    # 👇 Implement your logic here
-    def _create_client(self) -> httpx.AsyncClient:
-        client = super()._create_client()
-        client.headers = {"Authorization": f"token {self._token}"}  # type: ignore
-        return client
+with gracy.testing.retries_off(), gracy.testing.throttle_off():
+    transport = gracy.testing.MockTransport({"*/pokemon/*": {"name": "mew", "order": 1}})
+    async with PokeAPI(transport=transport) as api:
+        assert (await api.get_pokemon("mew")).name == "mew"
+        assert len(transport.calls) == 1
 ```
 
-### Overriding default request timeout
-
-As default Gracy won't enforce a request timeout.
-
-You can define your own by setting it on Config as:
+Need the httpx ecosystem (respx, pytest-httpx, ASGI transports, mTLS)? Inject `HttpxTransport` — the queue/retry/replay treatment still applies:
 
 ```py
-class GracefulAPI(GracyApi[str]):
-  class Config:
-    BASE_URL = "https://example.com"
-    REQUEST_TIMEOUT = 10.2  # 👈 Here
+from gracy import HttpxTransport
+
+async with PokeAPI(transport=HttpxTransport(client=my_httpx_client)) as api: ...
 ```
 
-### Creating a custom Replay data source
+### Engine selection
 
-Gracy was built with extensibility in mind.
+The Rust engine is the default. A pure-Python reference engine (same semantics, tested differentially in CI) is one env var away:
 
-You can create your own storage to store/load anywhere (e.g. SQL Database), here's an example:
-
-```py
-import httpx
-from gracy import GracyReplayStorage
-
-class MyCustomStorage(GracyReplayStorage):
-  def prepare(self) -> None: # (Optional) Executed upon API instance creation.
-    ...
-
-  async def record(self, response: httpx.Response) -> None:
-    ... # REQUIRED. Your logic to store the response object. Note the httpx.Response has request data.
-
-  async def _load(self, request: httpx.Request) -> httpx.Response:
-    ... # REQUIRED. Your logic to load a response object based on the request.
-
-
-# Usage
-record_mode = GracyReplay("record", MyCustomStorage())
-replay_mode = GracyReplay("replay", MyCustomStorage())
-
-pokeapi = GracefulPokeAPI(record_mode)
+```sh
+GRACY_ENGINE=rust    # default when the compiled core is present (raises loudly if missing)
+GRACY_ENGINE=python  # pure-Python scheduler + httpx transport
 ```
 
-### Hooks before/after request
+## 🏗️ Architecture
 
-You can set up hooks simply by defining `async def before` and `async def after` methods.
+The queue IS the throttle — nothing reaches the wire without a permit:
 
-⚠️ NOTE: Gracy configs are disabled within these methods which means that retries/parsers/throttling won't take effect inside it.
-
-```py
-class GracefulPokeAPI(Gracy[PokeApiEndpoint]):
-    class Config:
-        BASE_URL = "https://pokeapi.co/api/v2/"
-        SETTINGS = GracyConfig(
-            retry=RETRY,
-            allowed_status_code={HTTPStatus.NOT_FOUND},
-            parser={HTTPStatus.NOT_FOUND: None},
-        )
-
-    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
-        self.before_count = 0
-
-        self.after_status_counter = defaultdict[HTTPStatus, int](int)
-        self.after_aborts = 0
-        self.after_retries_counter = 0
-
-        super().__init__(*args, **kwargs)
-
-    async def before(self, context: GracyRequestContext):
-        self.before_count += 1
-
-    async def after(
-        self,
-        context: GracyRequestContext, # Current request context
-        response_or_exc: httpx.Response | Exception,  # Either the request or an error
-        retry_state: GracefulRetryState | None,  # Set when this is generated from a retry
-    ):
-        if retry_state:
-            self.after_retries_counter += 1
-
-        if isinstance(response_or_exc, httpx.Response):
-            self.after_status_counter[HTTPStatus(response_or_exc.status_code)] += 1
-        else:
-            self.after_aborts += 1
-
-    async def get_pokemon(self, name: str):
-        return await self.get(PokeApiEndpoint.GET_POKEMON, {"NAME": name})
+```
+            Python (policy)                        Rust core (gracy._core)
+ ┌────────────────────────────────┐      ┌────────────────────────────────────┐
+ │ @get endpoints · config · plan │      │            SCHEDULER               │
+ │                                │      │  priority heap → concurrency       │
+ │  before hooks ── replay check ─┼──────┼─► permits → sliding-window         │
+ │                                │submit│  throttle → delay wheel · pauses   │
+ │  after hooks · validators      │      ├────────────────────────────────────┤
+ │  retry decision ─(re-admit)─┐  │◄─────┼─ TRANSPORT (tokio + reqwest)       │
+ │  decode into annotations ◄──┘  │ send │  METRICS (hdrhistogram)            │
+ └────────────────────────────────┘      │  REPLAY (SQLite, WAL)              │
+                                         └────────────────────────────────────┘
 ```
 
-In the example above invoking `get_pokemon()` will trigger `before()`/`after()` hooks in sequence.
+**Rust** owns the hot primitives: the priority queue with exact sliding-window throttling, concurrency semaphores, pause gates, the reqwest transport, latency histograms, and replay storage. **Python** owns everything you customize: endpoint declarations, config/plan compilation, the per-request pipeline, hooks, validators, and decoders — plain awaited callables, no FFI in sight. Rust is entered exactly twice per attempt (permit, send).
 
-#### Common Hooks
+Design deep-dive: [V2_PLAN.md](./V2_PLAN.md).
 
-##### `HttpHeaderRetryAfterBackOffHook`
+## 🚚 Migrating
 
-This hook checks for 429 (TOO MANY REQUESTS), and then reads the
-[`retry-after` header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After).
+- **From Gracy v1:** see [MIGRATING.md](./MIGRATING.md) — a before/after cookbook for every breaking change (`class Config` → class attributes, `parser=` → `on=`, `@graceful` → decorator kwargs + `options()`, replay DB migration, and more).
+- **From requests/httpx:** start with [the one-line drop-in](#-one-line-drop-in), then graduate to declared endpoints at your own pace.
+- **v1 docs:** the v1 README is preserved in git history (see the `main` branch history / v1 tags).
 
-If the value is set, then Gracy pauses **ALL** client requests until the time is over. This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
+## 🛠️ Development
 
-Example Usage:
+```sh
+uv venv && source .venv/bin/activate
+uv pip install maturin
 
-```py
-from gracy.common_hooks import HttpHeaderRetryAfterBackOffHook
+maturin develop            # build the Rust core into the venv (add --release to benchmark)
 
-class GracefulAPI(GracyAPI[Endpoint]):
-  def __init__(self):
-    self._retry_after_hook = HttpHeaderRetryAfterBackOffHook(
-        self._reporter,
-        lock_per_endpoint=True,
-        log_event=LogEvent(
-            LogLevel.WARNING,
-            custom_message=(
-                "{ENDPOINT} produced {STATUS} and requested to wait {RETRY_AFTER}s "
-                "- waiting {RETRY_AFTER_ACTUAL_WAIT}s"
-            ),
-        ),
-        # Wait +10s to avoid this from happening again too soon
-        seconds_processor=lambda secs_requested: secs_requested + 10,
-    )
+cargo test                 # Rust unit + property tests (crates/gracy-core is plain Rust, no PyO3)
 
-    super().__init__()
-
-  async def before(self, context: GracyRequestContext):
-    await self._retry_after_hook.before(context)
-
-  async def after(
-    self,
-    context: GracyRequestContext,
-    response_or_exc: httpx.Response | Exception,
-    retry_state: GracefulRetryState | None,
-  ):
-    retry_after_result = await self._retry_after_hook.after(context, response_or_exc)
+pytest                     # full Python suite on the default (rust) engine
+GRACY_ENGINE=python pytest # same suite on the pure-Python reference engine
+GRACY_ENGINE=rust pytest   # force the compiled core
 ```
-
-##### `RateLimitBackOffHook`
-
-This hook checks for 429 (TOO MANY REQUESTS) and locks requests for an arbitrary amount of time defined by you.
-
-If the value is set, then Gracy pauses **ALL** client requests until the time is over.
-This behavior can be modified to happen on a per-endpoint basis if `lock_per_endpoint` is True.
-
-
-```py
-from gracy.common_hooks import RateLimitBackOffHook
-
-class GracefulAPI(GracyAPI[Endpoint]):
-  def __init__(self):
-    self._ratelimit_backoff_hook = RateLimitBackOffHook(
-      30,
-      self._reporter,
-      lock_per_endpoint=True,
-      log_event=LogEvent(
-          LogLevel.INFO,
-          custom_message="{UENDPOINT} got rate limited, waiting for {WAIT_TIME}s",
-      ),
-    )
-
-    super().__init__()
-
-  async def before(self, context: GracyRequestContext):
-    await self._ratelimit_backoff_hook.before(context)
-
-  async def after(
-    self,
-    context: GracyRequestContext,
-    response_or_exc: httpx.Response | Exception,
-    retry_state: GracefulRetryState | None,
-  ):
-    backoff_result = await self._ratelimit_backoff_hook.after(context, response_or_exc)
-```
-
-
-```py
-from gracy.common_hooks import HttpHeaderRetryAfterBackOffHook, RateLimitBackOffHook
-```
-
-## 📚 Extra Resources
-
-Some good practices I learned over the past years guided Gracy's philosophy, you might benefit by reading:
-
-- [How to log](https://guicommits.com/how-to-log-in-python-like-a-pro/)
-- [How to handle exceptions](https://guicommits.com/handling-exceptions-in-python-like-a-pro/)
-  - [How to structure exceptions](https://guicommits.com/how-to-structure-exception-in-python-like-a-pro/)
-- [How to use Async correctly](https://guicommits.com/effective-python-async-like-a-pro/)
-- [Book: Python like a PRO](https://guilatrova.gumroad.com/l/python-like-a-pro)
-- [Book: Effective Python](https://amzn.to/3bEVHpG)
 
 <!-- ## Contributing -->
 <!-- Thank you for considering making Gracy better for everyone! -->
@@ -1059,4 +535,4 @@ Thanks to the last three startups I worked which forced me to do the same things
 
 Most importantly: **Thanks to God**, who allowed me (a random 🇧🇷 guy) to work for many different 🇺🇸 startups. This is ironic since due to God's grace, I was able to build Gracy. 🙌
 
-Also, thanks to the [httpx](https://github.com/encode/httpx) and [rich](https://github.com/Textualize/rich) projects for the beautiful and simple APIs that powers Gracy.
+Also, thanks to the [tokio](https://tokio.rs), [reqwest](https://github.com/seanmonstar/reqwest), [PyO3](https://pyo3.rs), and [rich](https://github.com/Textualize/rich) projects for the beautiful and simple APIs that power Gracy.
