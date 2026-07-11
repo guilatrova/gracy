@@ -49,7 +49,7 @@ jobs:
       - name: Install
         run: |
           python -m venv .venv
-          .venv/bin/pip install maturin pytest pytest-asyncio httpx pydantic rich
+          .venv/bin/pip install maturin pytest pytest-asyncio httpx pydantic rich requests
           .venv/bin/maturin develop
       - name: pytest (GRACY_ENGINE=${{ matrix.engine }})
         env:
