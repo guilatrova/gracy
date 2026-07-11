@@ -118,3 +118,50 @@ Exit codes: `0` success · `2` parse error · `1` execution error (each carries 
 JSON `error` field under `--json`). An agent can explore an API overnight and
 leave you a reviewed typed client, passing tests, and OpenAPI docs
 (`gracy docs pokeapi:PokeGracy --format yaml`) in the morning.
+
+## 4. Persistent agent loop (`--stdio`)
+
+For a long session, `gracy explore --stdio` stays alive as one process and speaks
+JSONL both ways: one JSON command per stdin line, one JSON result per stdout line
+(the framing LSP and MCP use). The session lives in memory, so there is no
+per-command Python startup or session-file re-read.
+
+```
+$ gracy explore --stdio --base https://pokeapi.co/api/v2 --session poke.gracy.json
+```
+
+```
+→ {"cmd": "get /pokemon/pikachu"}
+← {"step_id": 1, "status": 200, "matched_endpoint": null, "body_preview": {...}}
+→ {"cmd": "name get_pokemon"}
+← {"ok": true, "endpoint": "get_pokemon", "template": "/pokemon/pikachu"}
+→ {"cmd": "get /pokemon/mew"}
+← {"step_id": 2, "status": 200, "matched_endpoint": null, "template_proposal": "/pokemon/{pokemon}", "model_drift": []}
+→ {"cmd": "save pokeapi.py --tests"}
+← {"ok": true, "files": ["pokeapi.py", "test_pokeapi.py", "pokeapi.cassette.db"]}
+```
+
+A malformed line or bad command yields a `{"error": "..."}` line and the stream
+keeps going; EOF (Ctrl-D) exits 0. Each input line accepts either `{"cmd": "<command>"}`
+or a bare JSON string `"<command>"`.
+
+## 5. Drift detection in CI (`--check`)
+
+`gracy explore --check` re-probes every named endpoint against the live API and
+diffs the live response shape against what you recorded. Clean exits `0`; any
+added, removed, or type-changed field (or a status change) exits `1`, so a
+changed upstream fails the build.
+
+```
+$ gracy explore --check --session poke.gracy.json
+  ✓ list_pokemon   GET /pokemon
+  ✗ get_pokemon    GET /pokemon/{name}
+      - removed: base_experience
+      + added:   cries.latest
+      ~ type:    weight: int -> str
+
+1/2 endpoints drifted
+```
+
+Add `--json` for a machine-readable report (per-endpoint `added`/`removed`/
+`type_changed` and the `ok` flag) to wire into a scheduled CI job.

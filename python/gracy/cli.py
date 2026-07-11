@@ -73,7 +73,26 @@ def _cmd_interactive(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="gracy explore", description="interactive API explorer")
     parser.add_argument("base_url", nargs="?", default=None, help="API base URL (or set later with `base <url>`)")
     parser.add_argument("--session", default="gracy_explore.json", help="session file (default: gracy_explore.json)")
+    parser.add_argument(
+        "--stdio", action="store_true", help="persistent JSONL loop: one command per stdin line, one result per stdout line"
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="re-probe named endpoints against the live API and report shape drift"
+    )
+    parser.add_argument("--json", dest="as_json", action="store_true", help="machine-readable output (--check)")
+    parser.add_argument("--base", default=None, help="override the session base URL (--stdio/--check)")
     ns = parser.parse_args(argv)
+
+    import asyncio
+
+    from gracy.explore._session import ExploreSession
+
+    base = ns.base if ns.base is not None else ns.base_url
+
+    if ns.stdio:
+        return asyncio.run(_run_stdio(ExploreSession(ns.session, base_url=base)))
+    if ns.check:
+        return asyncio.run(_run_check(ExploreSession(ns.session, base_url=base), ns.as_json))
 
     try:
         import rich  # noqa: F401
@@ -84,16 +103,93 @@ def _cmd_interactive(argv: list[str]) -> int:
         )
         return 1
 
-    import asyncio
-
-    from gracy.explore._session import ExploreSession
     from gracy.explore.repl import run_repl
 
-    session = ExploreSession(ns.session, base_url=ns.base_url)
+    session = ExploreSession(ns.session, base_url=base)
     try:
         return asyncio.run(run_repl(session))
     except KeyboardInterrupt:
         return 130
+
+
+async def _run_stdio(session) -> int:  # type: ignore[no-untyped-def]
+    """One live process: read {"cmd": "<command>"} lines on stdin, emit one
+    JSON result line per input on stdout. The session stays in memory across
+    lines, so a long agent run pays no per-command startup or file re-read."""
+    import asyncio
+
+    from gracy.explore._parser import ParseError, parse_command
+    from gracy.explore.repl import execute_command
+
+    loop = asyncio.get_running_loop()
+
+    def _emit(obj: dict) -> None:  # type: ignore[type-arg]
+        sys.stdout.write(json.dumps(obj, default=str) + "\n")
+        sys.stdout.flush()
+
+    try:
+        while True:
+            line = await loop.run_in_executor(None, sys.stdin.readline)
+            if line == "":  # EOF
+                break
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+                command = payload["cmd"] if isinstance(payload, dict) else payload
+                if not isinstance(command, str):
+                    raise ValueError("expected a JSON object with a string 'cmd', or a JSON string")
+                cmd = parse_command(command)
+            except (json.JSONDecodeError, KeyError, ValueError, ParseError) as exc:
+                _emit({"error": str(exc)})
+                continue
+            try:
+                outcome = await execute_command(session, cmd)
+            except Exception as exc:  # noqa: BLE001 - one bad command must not kill the stream
+                _emit({"error": f"{type(exc).__name__}: {exc}"})
+                continue
+            _emit(outcome.data)
+    finally:
+        await session.aclose()
+    return 0
+
+
+async def _run_check(session, as_json: bool) -> int:  # type: ignore[no-untyped-def]
+    """Re-probe named endpoints live, diff shapes, exit 1 on any drift."""
+    try:
+        if not session.endpoints():
+            msg = "no named endpoints in this session - name some with `gracy explore` first"
+            print(json.dumps({"error": msg}) if as_json else f"gracy: {msg}", file=sys.stderr)
+            return 0
+        results = await session.check_all()
+    finally:
+        await session.aclose()
+
+    drifted = [r for r in results if not r.ok]
+    if as_json:
+        print(json.dumps({"ok": not drifted, "endpoints": [r.as_dict() for r in results]}, default=str))
+    else:
+        for r in results:
+            if r.ok:
+                print(f"  ✓ {r.endpoint}  {r.method} {r.template}")
+                continue
+            print(f"  ✗ {r.endpoint}  {r.method} {r.template}")
+            if r.error:
+                print(f"      request failed: {r.error}")
+            if r.note:
+                print(f"      {r.note}")
+            if r.status_recorded != r.status_live and r.status_live is not None:
+                print(f"      status: {r.status_recorded} -> {r.status_live}")
+            for path in r.shape.removed:
+                print(f"      - removed: {path}")
+            for path in r.shape.added:
+                print(f"      + added:   {path}")
+            for change in r.shape.type_changed:
+                print(f"      ~ type:    {change}")
+        summary = "drift detected" if drifted else "no drift - all endpoints match their recordings"
+        print(f"\n{len(drifted)}/{len(results)} endpoints drifted" if drifted else f"\n{summary}")
+    return 1 if drifted else 0
 
 
 # --------------------------------------------------------------------------- gracy x

@@ -831,6 +831,73 @@ class ExploreSession:
             }
         return summary
 
+    # ------------------------------------------------------------------ drift check
+
+    def representative_step(self, name: str) -> dict[str, t.Any] | None:
+        """The step used to re-probe an endpoint: the most recent 2xx with a
+        response body, falling back to the most recent step with any response."""
+        steps = self._endpoint_steps(name)
+        for step in reversed(steps):
+            status = step.get("status")
+            if status is not None and 200 <= status < 300 and self._response_json(step) is not None:
+                return step
+        for step in reversed(steps):
+            if self._response_json(step) is not None:
+                return step
+        return None
+
+    async def reissue_live(self, step: dict[str, t.Any]) -> tuple[int | None, t.Any, str | None]:
+        """Re-send a recorded step's request against the LIVE API without
+        recording it. Returns (status, parsed_json_or_None, error). Policy auth
+        headers are re-applied; per-request headers scrubbed at record time are
+        not resent (they were redacted), which `--check` documents."""
+        method = str(step["method"])
+        path = str(step["path"])
+        query = {k: resolve_env(str(v)) for k, v in (step.get("query") or {}).items()}
+        headers = self._policy_headers(resolve=True)
+        body_json = _resolve_env_any(step["body_json"]) if "body_json" in step else None
+        body: str | None = None
+        if body_json is None and step.get("body_b64"):
+            body = resolve_env(base64.b64decode(step["body_b64"]).decode("utf-8", "replace"))
+
+        client = await self._get_client()
+        try:
+            result = await client.request(
+                method, path, params=query or None, headers=headers or None, content=body, json=body_json
+            )
+        except Exception as exc:  # noqa: BLE001 - check reports, never crashes
+            return None, None, f"{type(exc).__name__}: {exc}"
+        if not isinstance(result, Response):
+            return None, None, "request failed with no response (transport error after retries)"
+        try:
+            return result.status, result.json(), None
+        except ValueError:
+            return result.status, None, None
+
+    async def check_all(self) -> list[t.Any]:
+        """Re-probe every named endpoint and diff its live shape vs the recording."""
+        from gracy.explore._check import EndpointDrift, diff_shape
+
+        results: list[EndpointDrift] = []
+        for name, ep in self._data["endpoints"].items():
+            drift = EndpointDrift(endpoint=name, method=ep["method"], template=ep["template"], ok=True)
+            step = self.representative_step(name)
+            if step is None:
+                drift.ok, drift.note = False, "no recorded sample to compare"
+                results.append(drift)
+                continue
+            drift.status_recorded = step.get("status")
+            status, live_json, error = await self.reissue_live(step)
+            drift.status_live = status
+            if error is not None:
+                drift.ok, drift.error = False, error
+            else:
+                drift.shape = diff_shape(self._response_json(step), live_json)
+                status_changed = status != drift.status_recorded
+                drift.ok = not drift.shape.has_drift and not status_changed
+            results.append(drift)
+        return results
+
     def model_preview(self, name: str | None = None) -> str:
         from gracy.explore import _codegen
 

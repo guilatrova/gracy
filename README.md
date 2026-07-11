@@ -216,6 +216,26 @@ $ gracy x 'save pokeapi.py --tests' --session poke.json --json
 {"ok": true, "files": ["pokeapi.py", "test_pokeapi.py", "pokeapi.cassette.db"]}
 ```
 
+For a long agent run, `gracy explore --stdio` keeps **one live process**: it reads a JSON command per stdin line and emits a JSON result per stdout line (JSONL, the same framing LSP and MCP use), so the session stays in memory with zero per-command startup:
+
+```
+→ {"cmd": "get /pokemon/pikachu"}
+← {"step_id": 1, "status": 200, "matched_endpoint": null, "body_preview": {...}}
+→ {"cmd": "save pokeapi.py --tests"}
+← {"ok": true, "files": ["pokeapi.py", "test_pokeapi.py", "pokeapi.cassette.db"]}
+```
+
+**Catch drift in CI**: `gracy explore --check` re-probes every named endpoint against the live API and diffs the response shape against the recording. It exits non-zero when a field is added, removed, or changes type, so a broken upstream fails your build:
+
+```
+$ gracy explore --check --session poke.json
+  ✗ get_pokemon  GET /pokemon/{name}
+      - removed: base_experience
+      ~ type:    weight: int -> str
+
+1/3 endpoints drifted        # exit code 1
+```
+
 ### vs Postman
 
 | | Postman | `gracy explore` |
@@ -228,7 +248,7 @@ $ gracy x 'save pokeapi.py --tests' --session poke.json --json
 | Automation | Newman (separate runner) | `gracy x … --json`, scriptable & AI-agent friendly out of the box |
 | Output | A collection | **A production SDK** |
 
-Not yet (on the roadmap): a `--stdio` JSONL loop for long agent sessions, `--check` shape-drift detection in CI, and serving recorded sessions as a mock server. Full walkthrough (POST bodies + agent flow): [examples/v2_explore_demo.md](examples/v2_explore_demo.md).
+Not yet (on the roadmap): serving a recorded session as a local mock server. Full walkthrough (POST bodies + agent flow): [examples/v2_explore_demo.md](examples/v2_explore_demo.md).
 
 ## ⚙️ Feature tour
 
