@@ -109,6 +109,9 @@ class _OptionsContext:
 # --------------------------------------------------------------------------- namespaces
 
 
+_NS = t.TypeVar("_NS", bound="GracyNamespace")
+
+
 class GracyNamespace:
     """Endpoint group assigned as a CLASS attribute instance on a Gracy subclass::
 
@@ -132,7 +135,10 @@ class GracyNamespace:
     def __set_name__(self, owner: type, name: str) -> None:
         self._attr_name = name
 
-    def __get__(self, obj: t.Any, objtype: type | None = None) -> t.Any:
+    def __get__(self: _NS, obj: t.Any, objtype: type | None = None) -> _NS:
+        # Typed as _NS so `api.berry.get_one(...)` keeps the endpoint's full
+        # signature/return type in pyright; at runtime the bound proxy is
+        # duck-compatible (EndpointMethod descriptors bind against it).
         if obj is None:
             return self
         name = self._attr_name or type(self).__name__
@@ -141,7 +147,7 @@ class GracyNamespace:
         if bound is None:
             bound = _BoundNamespace(self, obj, name)
             obj.__dict__[cache_key] = bound
-        return bound
+        return t.cast("_NS", bound)
 
 
 class _BoundNamespace:
