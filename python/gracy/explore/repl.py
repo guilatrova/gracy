@@ -11,7 +11,7 @@ import typing as t
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from gracy.explore._parser import HELP_TEXT, METHODS, SHOW_TARGETS, Command, ParseError, parse_command
+from gracy.explore._parser import HELP_TEXT, METHODS, SHOW_TARGETS, USAGE, Command, ParseError, parse_command
 from gracy.explore._session import ExploreSession, StepResult, split_segments
 
 __all__ = ["Outcome", "execute_command", "run_repl"]
@@ -431,6 +431,132 @@ def suggest_suffix(session: ExploreSession, text_before: str, history: t.Sequenc
     return ""
 
 
+# --------------------------------------------------------------------------- live context (rprompt + toolbar)
+
+FormattedText = t.List[t.Tuple[str, str]]
+
+
+def active_endpoint(session: ExploreSession) -> str | None:
+    """The endpoint that implicit commands (model/on/param) will affect: the
+    endpoint of the most recent request. None until one is named."""
+    for step in reversed(session.history()):
+        if step.get("matched_endpoint"):
+            return str(step["matched_endpoint"])
+    return None
+
+
+def _last_request(session: ExploreSession) -> dict[str, t.Any] | None:
+    steps = session.history()
+    return steps[-1] if steps else None
+
+
+def rprompt_text(session: ExploreSession) -> FormattedText:
+    """Right-aligned context on the input line: which endpoint is active."""
+    ep = active_endpoint(session)
+    if ep is None:
+        base = session.base_url
+        return [("class:rprompt", f"[{base}]" if base else "[no base_url]")]
+    steps = sum(1 for s in session.history() if s.get("matched_endpoint") == ep)
+    return [
+        ("class:rprompt", "active "),
+        ("class:rprompt.ep", ep),
+        ("class:rprompt", f" · {steps} step{'s' if steps != 1 else ''}"),
+    ]
+
+
+def _seg(cls: str, text: str) -> tuple[str, str]:
+    return (f"class:{cls}", text)
+
+
+def _action_desc(action: str) -> str:
+    if action == "none":
+        return "returns None"
+    if action.startswith("raise:"):
+        return f"raises {action[len('raise:'):]}"
+    return f"returns {action}"
+
+
+def describe_impact(session: ExploreSession, line: str) -> FormattedText:
+    """Live 'what will this command do' preview for the bottom toolbar. Pure:
+    inspects session state, never mutates. Assembled as styled segments."""
+    line = line.strip()
+    if not line:
+        return [_seg("tb.muted", "type a command · Tab lists · → accepts the grey hint · help")]
+    try:
+        cmd = parse_command(line)
+    except ParseError:
+        head = line.split()[0].lower()
+        hint = USAGE.get(head if head not in ("ls",) else "list")
+        return [_seg("tb.muted", hint or "keep typing…")]
+
+    ep = active_endpoint(session)
+    arrow = _seg("tb.muted", " → ")
+
+    if cmd.kind == "request":
+        segs = [_seg("tb.verb", "send "), _seg("tb.value", f"{cmd.method} {cmd.path}")]
+        match = session._match_endpoint(cmd.method or "", cmd.path or "")  # noqa: SLF001
+        if match:
+            segs += [_seg("tb.muted", " · matches "), _seg("tb.target", match)]
+        return segs
+    if cmd.kind == "endpoint":
+        last = _last_request(session)
+        if cmd.name in session.endpoints():
+            return [_seg("tb.verb", "folds the last request into "), _seg("tb.target", cmd.name or "")]
+        if last is None:
+            return [_seg("tb.warn", "run a request first (nothing to name)")]
+        return [
+            _seg("tb.verb", "creates endpoint "), _seg("tb.target", cmd.name or ""),
+            _seg("tb.muted", f" from {last.get('method')} {last.get('path')}"),
+        ]
+    if cmd.kind == "model":
+        if ep is None:
+            return [_seg("tb.warn", "no active endpoint: run a request first")]
+        which = "request-body" if (cmd.name or "").endswith("!request") else "response"
+        plain = (cmd.name or "").removesuffix("!request")
+        return [
+            _seg("tb.verb", f"names the {which} model of "), _seg("tb.target", ep),
+            arrow, _seg("tb.value", plain),
+        ]
+    if cmd.kind == "on":
+        if ep is None:
+            return [_seg("tb.warn", "no active endpoint: run a request first")]
+        return [
+            _seg("tb.target", ep), _seg("tb.verb", f": status {cmd.status} "),
+            arrow, _seg("tb.value", _action_desc(cmd.action or "")),
+        ]
+    if cmd.kind == "param":
+        if ep is None:
+            return [_seg("tb.warn", "no active endpoint: run a request first")]
+        return [
+            _seg("tb.target", ep), _seg("tb.verb", f": rename param {cmd.index} "),
+            arrow, _seg("tb.value", "{" + (cmd.name or "") + "}"),
+        ]
+    if cmd.kind == "rename":
+        exists = (cmd.name in session.endpoints()) if cmd.target == "endpoint" else True
+        segs = [
+            _seg("tb.verb", f"renames {cmd.target} "), _seg("tb.target", cmd.name or ""),
+            arrow, _seg("tb.value", cmd.value or ""),
+        ]
+        if cmd.target == "endpoint" and not exists:
+            return [_seg("tb.warn", f"no endpoint named '{cmd.name}'")]
+        return segs
+    if cmd.kind in ("retry", "throttle", "timeout", "auth", "header", "base"):
+        detail = cmd.spec or cmd.value or (f"{cmd.name}={cmd.value}" if cmd.name else "")
+        label = {"base": "base_url"}.get(cmd.kind, cmd.kind)
+        return [_seg("tb.verb", f"sets {label} "), arrow, _seg("tb.value", str(detail))]
+    if cmd.kind == "save":
+        n_ep = len(session.endpoints())
+        extra = " + tests + cassette" if cmd.tests else ""
+        return [
+            _seg("tb.verb", "writes "), _seg("tb.value", cmd.path or "the client"),
+            _seg("tb.verb", extra), _seg("tb.muted", f" · {n_ep} endpoint{'s' if n_ep != 1 else ''}"),
+        ]
+    if cmd.kind == "show":
+        return [_seg("tb.verb", f"shows {cmd.target}")]
+    descriptions = {"undo": "undoes the last change", "help": "lists commands", "quit": "leaves the explorer"}
+    return [_seg("tb.muted", descriptions.get(cmd.kind, cmd.kind))]
+
+
 def _build_pt_session(session: ExploreSession) -> t.Any:
     """A prompt_toolkit PromptSession with inline ghost-text suggestions + Tab
     completion, or None when prompt_toolkit is not installed."""
@@ -456,7 +582,34 @@ def _build_pt_session(session: ExploreSession) -> t.Any:
             for cand in candidates_for(session, leading, word):
                 yield Completion(cand.rstrip(), start_position=-len(word))
 
-    style = Style.from_dict({"": "", "prompt": "bold"})
+    # ANSI colors so it adapts to the user's light/dark terminal theme.
+    style = Style.from_dict({
+        "prompt": "bold",
+        "rprompt": "fg:ansibrightblack",
+        "rprompt.ep": "fg:ansicyan bold",
+        "bottom-toolbar": "noreverse fg:ansibrightblack",  # a calm status line, not a reversed bar
+        "tb.muted": "fg:ansibrightblack italic",
+        "tb.verb": "fg:ansidefault",
+        "tb.target": "fg:ansicyan bold",
+        "tb.value": "fg:ansigreen",
+        "tb.warn": "fg:ansiyellow",
+    })
+
+    def _toolbar() -> FormattedText:
+        try:
+            from prompt_toolkit.application import get_app
+
+            text = get_app().current_buffer.text
+            return [_seg("tb.muted", "↳ "), *describe_impact(session, text)]
+        except Exception:  # noqa: BLE001 - the toolbar must never break the prompt
+            return []
+
+    def _rprompt() -> FormattedText:
+        try:
+            return rprompt_text(session)
+        except Exception:  # noqa: BLE001
+            return []
+
     try:
         return PromptSession(
             message=[("class:prompt", PROMPT)],
@@ -464,6 +617,8 @@ def _build_pt_session(session: ExploreSession) -> t.Any:
             auto_suggest=_GhostSuggest(),
             completer=_PTCompleter(),
             complete_while_typing=False,  # Tab to open the menu; ghost text shows inline
+            rprompt=_rprompt,
+            bottom_toolbar=_toolbar,
             style=style,
         )
     except Exception:  # noqa: BLE001 - fall back to readline if the terminal rejects it

@@ -223,6 +223,8 @@ The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("
 
 The REPL suggests as you type: an inline grey **ghost text** shows the rest of the likely word (type `g`, see `et`), which `→` accepts; **Tab** lists all matches. Both read your live session: commands, `show` targets, endpoint names (`endpoint <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `save`. History persists in `~/.gracy_history`. Ghost text needs `prompt_toolkit` (`pip install 'gracy[explore]'`); without it the REPL falls back to plain Tab completion.
 
+It also keeps you oriented: a dim **right-prompt** shows the *active endpoint* (the one `model`/`on`/`param` will change), and a **bottom bar** previews the impact of the line you're typing before you run it — `model Pokemon` shows `names the response model of get_pokemon → Pokemon`, `save api.py --tests` shows `writes api.py + tests + cassette · 2 endpoints`. No more guessing what a command will do.
+
 **Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved, so secrets never hit disk.
 
 **Agent mode**: same engine, no TTY, machine-readable output (this is how an AI agent drives it):
