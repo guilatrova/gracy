@@ -55,8 +55,11 @@ impl SlidingWindow {
     }
 
     /// Spend a window token at `now`. Caller must have just checked
-    /// `next_allowed(now) <= now` under the same lock.
+    /// `next_allowed(now) <= now` under the same lock. Evicts first so the
+    /// `deque.len() <= limit` memory bound holds structurally — not only by
+    /// caller discipline (v1's unbounded-history regression guard).
     pub fn reserve(&mut self, now: Instant) {
+        self.evict(now);
         self.deque.push_back(now);
     }
 }
@@ -102,5 +105,26 @@ mod tests {
         // Way past expiry: front + per is in the past — must clamp to now.
         let late = t0 + Duration::from_secs(10);
         assert_eq!(w.next_allowed(late), late);
+    }
+
+    #[test]
+    fn window_history_stays_bounded_after_many_grants() {
+        // v1 regression: its ThrottleController appended every request's
+        // timestamp forever — memory grew with total traffic. The window
+        // must hold AT MOST `limit` stamps no matter how many pass through.
+        let per = Duration::from_millis(50);
+        let limit = 25usize;
+        let mut w = SlidingWindow::new(limit as u32, per);
+        let t0 = Instant::now();
+
+        let mut now = t0;
+        for _ in 0..10_000 {
+            let allowed = w.next_allowed(now);
+            now = allowed.max(now);
+            w.reserve(now);
+            now += Duration::from_micros(500);
+            assert!(w.deque.len() <= limit, "window grew past its limit: {}", w.deque.len());
+        }
+        assert!(w.deque.len() <= limit);
     }
 }
