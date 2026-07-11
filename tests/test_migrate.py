@@ -40,7 +40,7 @@ def test_migrate_repo_v1_fixture(v1_copy: Path, tmp_path: Path, capsys: pytest.C
     rows = con.execute(
         "SELECT method, url, status, response_body, schema_version, recorded_at FROM gracy_recordings_v2"
     ).fetchall()
-    # One fixture row was pickled by an ancient httpx that imported rfc3986 —
+    # One fixture row was pickled by an ancient httpx that imported rfc3986 -
     # unpicklable today. Exactly the version-trap schema v2 kills; the tool
     # must skip it loudly and keep going, not die.
     skipped = v1_count - len(rows)
@@ -52,7 +52,7 @@ def test_migrate_repo_v1_fixture(v1_copy: Path, tmp_path: Path, capsys: pytest.C
         assert schema_version == 2
         assert isinstance(recorded_at, int)
         assert 200 <= status < 500
-        # v2 stores the RAW body bytes (pokeapi JSON) — no pickle envelope.
+        # v2 stores the RAW body bytes (pokeapi JSON) - no pickle envelope.
         assert bytes(body).lstrip()[:1] in (b"{", b"["), f"{method} {url} body is not raw JSON"
 
 
@@ -60,7 +60,7 @@ async def test_replay_from_migrated_db(v1_copy: Path, tmp_path: Path):
     import asyncio
 
     new_db = tmp_path / "v2.db"
-    # main() drives its own asyncio.run — hop off this test's loop to call it.
+    # main() drives its own asyncio.run - hop off this test's loop to call it.
     assert await asyncio.to_thread(main, [str(v1_copy), str(new_db), "--yes-i-trust-this-file"]) == 0
 
     method, url = sqlite3.connect(new_db).execute(

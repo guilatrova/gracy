@@ -1,7 +1,7 @@
 """Protocols every engine stage implements. Rust and Python implementations are interchangeable.
 
 Contract stability note: these signatures are the seam between the Python
-policy layer and the Rust core. Changing them is a breaking internal change —
+policy layer and the Rust core. Changing them is a breaking internal change -
 update _core.pyi, the Rust bindings, and the pure-Python reference together.
 """
 

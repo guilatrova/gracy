@@ -1,7 +1,7 @@
-"""gracy.docs — generate API documentation from a Gracy subclass, statically.
+"""gracy.docs - generate API documentation from a Gracy subclass, statically.
 
 Everything works from the CLASS alone: no instance is created, no scheduler,
-transport or monitor is ever started. Zero required dependencies — pydantic is
+transport or monitor is ever started. Zero required dependencies - pydantic is
 used lazily for JSON schemas when it happens to be importable.
 
     from gracy.docs import inspect_api, to_openapi, to_yaml, to_json, to_html
@@ -67,7 +67,7 @@ def to_json(cls: type[Gracy]) -> str:
 
 
 def to_yaml(cls: type[Gracy]) -> str:
-    """OpenAPI 3.1.0 document as YAML (stdlib-only emitter — no pyyaml)."""
+    """OpenAPI 3.1.0 document as YAML (stdlib-only emitter - no pyyaml)."""
     from gracy.docs._yaml import dumps
 
     return dumps(to_openapi(cls))

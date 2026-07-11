@@ -8,10 +8,10 @@ Usage::
 
 Two layers make the switches effective everywhere:
 
-1. **Build time** — the client calls :func:`apply_test_overrides` on the
+1. **Build time** - the client calls :func:`apply_test_overrides` on the
    resolved config before compiling the plan, stripping ``retry=`` and
    ``throttle=`` so nothing is compiled into the scheduler plan.
-2. **Runtime** — throttle rules already compiled into a *running* scheduler
+2. **Runtime** - throttle rules already compiled into a *running* scheduler
    can't be un-compiled, so ``client._call`` paths must also check
    :func:`throttle_is_disabled` (i.e. ``_throttle_disabled``) per request and
    submit with ``no_throttle=True``, making :func:`throttle_off` work even for

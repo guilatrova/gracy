@@ -53,7 +53,7 @@ class Point:
 
 
 class Exotic:
-    """Not a dataclass, not pydantic, not json-like — undecodable without a Decoder."""
+    """Not a dataclass, not pydantic, not json-like - undecodable without a Decoder."""
 
 
 class TeapotError(Exception):

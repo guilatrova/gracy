@@ -1,4 +1,4 @@
-# Gracy 2.0 — Feature Parity Checklist (release gate)
+# Gracy 2.0 - Feature Parity Checklist (release gate)
 
 Rule: **2.0.0 does not ship until every row links to a passing test** (or is
 explicitly marked `DROPPED` with rationale). Status below reflects the suite
@@ -33,7 +33,7 @@ Legend: `rust` = crates/gracy-core, `py` = python/gracy, `split` = both.
 | 22 | Common backoff hooks + `HookResult` | py `hooks.py` → queue pause gates (actually pause now) | ✔ | `tests/test_hooks.py`, `tests/test_queue_throttle.py` |
 | 23 | Customizing the httpx client | py `transports.py` (`TransportConfig` + `HttpxTransport` hatch + injected client) | ✔ | `tests/test_endpoints.py`, `tests/test_rust_engine.py` |
 | 24 | Request kwargs + `BaseEndpoint` + `GracyRequestContext` | py `endpoints.py` (`api.request()` compat; one whitelist) | ✔ | `tests/test_endpoints.py` |
-| 25 | `parsed_response` / `generated_parsed_response` | **DROPPED** — deprecated no-op shims; return annotations replace them | ✔ | n/a |
+| 25 | `parsed_response` / `generated_parsed_response` | **DROPPED** - deprecated no-op shims; return annotations replace them | ✔ | n/a |
 | 26 | `DEBUG_ENABLED` + introspection | py (`debug=True`, `api.plan.explain()`, `api.queue_stats()`) | ✔ | `tests/test_client.py` |
 | 27 | `ThrottleController` rate metrics feeding reports | rust scheduler stats + py collector (`total_seconds` math) | ✔ | `tests/test_reports.py` |
 
@@ -57,7 +57,7 @@ Legend: `rust` = crates/gracy-core, `py` = python/gracy, `split` = both.
 | `gracy.compat.httpx` drop-in (AsyncClient/Client) | ✔ | `tests/test_compat_httpx.py` |
 | Wheel matrix install+import (8 targets + cp314t) | ◐ | local abi3-py310 build green; CI wheels job added (`.github/workflows/ci.yml`), full matrix pending first main build |
 
-## v1 bugs — regression tests asserting the v2 behavior
+## v1 bugs - regression tests asserting the v2 behavior
 
 | # | Bug | Fixed by | Status |
 |---|---|---|---|
@@ -68,7 +68,7 @@ Legend: `rust` = crates/gracy-core, `py` = python/gracy, `split` = both.
 | 5 | SQLite `discard_replays_older_than` TypeError (str vs datetime) | unix-ms integers | ✔ `tests/test_replay.py` |
 | 6 | `plotly` extra not installable | declared extras | ✔ `pyproject.toml` (install-tested locally; CI extra job pending) |
 | 7 | `logging.basicConfig` at import hijacks root logger | NullHandler | ✔ `tests/test_logging.py` |
-| 8 | Pickle replay storage (RCE + httpx version trap) | schema v2, zero pickle at runtime | ✔ `tests/test_replay.py`, `tests/test_migrate.py` (fixture even contains an unpicklable old-httpx row — skipped loudly) |
+| 8 | Pickle replay storage (RCE + httpx version trap) | schema v2, zero pickle at runtime | ✔ `tests/test_replay.py`, `tests/test_migrate.py` (fixture even contains an unpicklable old-httpx row - skipped loudly) |
 | 9 | `readable_time_range` iterates a set (nondeterministic) | ordered rendering | ✔ (v2 renders from typed `Rate.per`) |
 | 10 | Hook requests still throttled/limited despite docs | `from_hook` bypass + explicit knob | ✔ `tests/test_queue_throttle.py`, cargo |
 | 11 | Backoff hooks claim to pause but don't | dispatcher pause gates | ✔ `tests/test_hooks.py` |

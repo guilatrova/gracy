@@ -1,7 +1,7 @@
 """Regression tests for v1's per-instance typed-method leak.
 
 v1's _init_typed_http_methods created SEVEN new classes (Get/Post/...) on
-EVERY Gracy instantiation and stored them on the instance — memory grew with
+EVERY Gracy instantiation and stored them on the instance - memory grew with
 each client, and the classes kept instances alive until the weakref band-aid
 (v1.34.0). v2 endpoints are class-level descriptors: instantiating a client
 must create ZERO new classes, and clients must be garbage-collectible.
@@ -42,7 +42,7 @@ def test_instantiation_creates_no_new_classes() -> None:
 
 
 def test_endpoint_descriptors_are_shared_class_attrs() -> None:
-    # The descriptor lives on the class — one object, not per-instance copies.
+    # The descriptor lives on the class - one object, not per-instance copies.
     assert DuckAPI.__dict__["duck"] is type(DuckAPI()).__dict__["duck"]
     a, b = DuckAPI(), DuckAPI()
     # Bound access is an ephemeral closure (like bound methods), never cached on self.
@@ -59,7 +59,7 @@ async def test_built_client_is_garbage_collectible() -> None:
     del client, api
     for _ in range(3):
         gc.collect()
-    assert ref() is None, "closed client not garbage-collected — something in the pipeline pins it"
+    assert ref() is None, "closed client not garbage-collected - something in the pipeline pins it"
 
 
 async def test_many_client_lifecycles_do_not_accumulate_objects() -> None:

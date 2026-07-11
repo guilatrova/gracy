@@ -57,7 +57,7 @@ def _serve(html: str, port: int) -> t.NoReturn:
 def main(argv: t.Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="gracy-docs",
-        description="Generate OpenAPI/YAML/JSON/HTML docs from a Gracy client class — statically.",
+        description="Generate OpenAPI/YAML/JSON/HTML docs from a Gracy client class - statically.",
     )
     parser.add_argument("target", help="import target as 'module.path:ClassName'")
     parser.add_argument(

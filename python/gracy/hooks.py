@@ -1,6 +1,6 @@
 """Built-in hooks. v2 backoff hooks drive scheduler-level pause gates (V2_PLAN §6.3).
 
-Because pauses are dispatcher gates on the queue — not sleeps inside the hook —
+Because pauses are dispatcher gates on the queue - not sleeps inside the hook -
 these hooks genuinely pause admission for ALL matching requests, including
 retries (which re-enter admission on every attempt).
 """
@@ -33,7 +33,7 @@ logger = logging.getLogger("gracy")
 
 @dataclass
 class HookResult:
-    """v1-compat shim. The v2 pipeline ignores hook return values — pausing is
+    """v1-compat shim. The v2 pipeline ignores hook return values - pausing is
     done via the scheduler's pause gates, not by returning HookResult."""
 
     should_pause: bool = False

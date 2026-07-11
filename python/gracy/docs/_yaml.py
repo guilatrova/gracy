@@ -1,4 +1,4 @@
-"""Minimal YAML emitter (block style, 2-space indent) — gracy has ZERO runtime deps.
+"""Minimal YAML emitter (block style, 2-space indent) - gracy has ZERO runtime deps.
 
 Supports dicts (str keys), lists/tuples, str/int/float/bool/None. Strings are
 kept plain only when unambiguously safe; everything else is JSON-double-quoted

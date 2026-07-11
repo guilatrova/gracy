@@ -1,12 +1,12 @@
 """Async paginators over gracy endpoint functions.
 
 v2 fixes over v1 (`src/gracy/_paginator.py`):
-  * ``page_size`` is honored — v1 hardcoded ``page_size=20`` in its fetch
+  * ``page_size`` is honored - v1 hardcoded ``page_size=20`` in its fetch
     path regardless of what the user configured (V2_PLAN.md §12, bug #4).
   * Extra ``kwargs`` are forwarded to the endpoint function on every fetch.
   * Typed generics: ``GracyPaginator[RESP_T]`` works under pyright strict.
 
-IMPORTANT — the ``has_next`` contract:
+IMPORTANT - the ``has_next`` contract:
     ``has_next`` is called with ``None`` BEFORE the first fetch (there is no
     response yet). It MUST return ``True`` for ``None``, otherwise the
     paginator never fetches a single page::

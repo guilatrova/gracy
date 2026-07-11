@@ -1,6 +1,6 @@
 """Log templating: SafeDict placeholders + the event emitter used by pipeline.py.
 
-Emission is synchronous and lossless — it happens inline in the Python
+Emission is synchronous and lossless - it happens inline in the Python
 pipeline (no broadcast channel, nothing dropped). An UNSET/None LogEvent
 means "don't log this event" and costs one attribute lookup.
 

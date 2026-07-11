@@ -1,4 +1,4 @@
-"""Gracy 2.0 live monitor demo — run this, then watch the dashboard.
+"""Gracy 2.0 live monitor demo - run this, then watch the dashboard.
 
 Terminal A:  python examples/v2_monitor_demo.py
 Terminal B:  python -m gracy.monitor
@@ -168,9 +168,9 @@ async def main() -> None:
             failed = sum(1 for r in results if isinstance(r, BaseException))
             print(f"wave {wave:>2}: {len(results) - failed:>2} ok / {failed} aborted", flush=True)
             await asyncio.sleep(LULL_S)  # short lull so the sparklines breathe
-        print("demo finished — the dashboard greys this source out, then reaps it")
+        print("demo finished - the dashboard greys this source out, then reaps it")
     except KeyboardInterrupt:
-        print("\ninterrupted — shutting down cleanly")
+        print("\ninterrupted - shutting down cleanly")
     finally:
         await api.aclose()
         server.shutdown()

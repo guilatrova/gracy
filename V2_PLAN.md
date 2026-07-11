@@ -1,4 +1,4 @@
-# Gracy 2.0 — Rust Core Rewrite Plan
+# Gracy 2.0 - Rust Core Rewrite Plan
 
 > **Status:** approved design, pre-implementation.
 > **Target release:** `gracy 2.0.0` (current: 1.34.0).
@@ -14,12 +14,12 @@ Three principles drive everything below:
 
 1. **The queue IS the throttle.** No request reaches the transport without a
    permit from the scheduler. Throttling, concurrency limits, priorities,
-   pausing, and backpressure are all admission control on one component —
+   pausing, and backpressure are all admission control on one component -
    not "sleep before send".
 2. **Python callbacks never cross the FFI boundary in 2.0.** The per-request
    orchestration loop stays in Python; Rust is entered exactly twice per
    attempt (permit, send). Hooks/validators/parsers are ordinary awaited
-   Python callables — zero GIL choreography, zero reentrancy hazards.
+   Python callables - zero GIL choreography, zero reentrancy hazards.
 3. **Every stage is a protocol.** v2.0 ships orchestration in Python and hot
    primitives in Rust; 2.x can swap more stages into Rust (up to a full-Rust
    fast path when no Python callbacks are registered) without changing a
@@ -41,11 +41,11 @@ the other two (compile-once plan, `pause_on_status` dispatcher gates,
 - Rust-grade per-request overhead and true parallelism for scheduling,
   throttling, transport, metrics, and replay I/O.
 - An internal request **queue** as the single mechanism for throttling,
-  concurrency, priorities, and backpressure — with exact sliding-window math
+  concurrency, priorities, and backpressure - with exact sliding-window math
   (fixes v1's negative-wait bug by construction).
 - Python-pluggable **hooks, validators, parsers, transports, and replay
-  storages** — plain Python callables/protocols, no FFI knowledge required.
-- Zero feature loss vs v1 (see `V2_PARITY.md` — release gate: every row needs
+  storages** - plain Python callables/protocols, no FFI knowledge required.
+- Zero feature loss vs v1 (see `V2_PARITY.md` - release gate: every row needs
   a linked test) except deliberate drops listed in §13.
 - All 19 known v1 bugs fixed by construction (§12).
 
@@ -65,14 +65,14 @@ the other two (compile-once plan, `pause_on_status` dispatcher gates,
 | Async bridge | **pyo3-async-runtimes 0.29** (tokio) | `future_into_py` for every awaitable `_core` method |
 | Runtime | **tokio 1.52** (rt-multi-thread, sync, time) | one process-global lazy runtime; threads = `min(4, cpus)`, `GRACY_CORE_THREADS` override |
 | HTTP | **reqwest 0.13** | rustls with **ring** provider (aws-lc-rs breaks musllinux-aarch64/windows-arm64 builds); http2, gzip/brotli/zstd, cookies, socks, stream |
-| Rate limiting | hand-rolled `VecDeque<Instant>` sliding window (default) + **governor 0.10** GCRA (`mode="smooth"` opt-in) | v1's contract is "max N in any trailing window W" — GCRA alone can't express it exactly |
+| Rate limiting | hand-rolled `VecDeque<Instant>` sliding window (default) + **governor 0.10** GCRA (`mode="smooth"` opt-in) | v1's contract is "max N in any trailing window W" - GCRA alone can't express it exactly |
 | Queue | `BinaryHeap` + `tokio_util::time::DelayQueue` + keyed `tokio::sync::Semaphore` (dashmap) | see §6 |
 | Metrics | **hdrhistogram 7.5** + atomics | per-worker, merged on snapshot |
 | Replay | **rusqlite 0.40 `bundled`** | WAL, single-writer task, versioned schema, no pickle |
 | Packaging | **maturin 1.14** mixed layout + maturin-action | abi3-py310 wheels (~8 targets) + cp314t builds; migrate to abi3t at Python 3.15 |
 | Python floor | **3.10** | 3.9 is EOL |
 
-License hygiene: rnet/wreq are GPLv3 — study architecture only, never vendor
+License hygiene: rnet/wreq are GPLv3 - study architecture only, never vendor
 code. primp (MIT-family) and ry are the reference implementations to read.
 
 ---
@@ -82,7 +82,7 @@ code. primp (MIT-family) and ry are the reference implementations to read.
 ```
 Cargo.toml                     # workspace
 crates/
-  gracy-core/                  # pure Rust, NO PyO3 — `cargo test`-able, policy-free
+  gracy-core/                  # pure Rust, NO PyO3 - `cargo test`-able, policy-free
     src/
       plan.rs                  # CompiledPlan: serde structs received once from Python
       queue/{mod,throttle,concurrency,delay}.rs
@@ -123,7 +123,7 @@ python/gracy/
 (Python) → `await permit.send(spec)` (Rust). The plan compiler records
 `has_before_hooks / has_after_hooks / has_validators / has_custom_parser`
 flags and specializes the pipeline into a list of present-only stage callables
-— absent stages cost zero branches per request, and the flags double as the
+- absent stages cost zero branches per request, and the flags double as the
 Phase-6 fast-path eligibility signal.
 
 ---
@@ -186,7 +186,7 @@ class PokeAPI(Gracy):
         ),
     )
 
-    berry = BerryNamespace()             # explicit descriptor — no annotation scanning
+    berry = BerryNamespace()             # explicit descriptor - no annotation scanning
 
     @get("/pokemon/{name}", on={HTTPStatus.NOT_FOUND: None}, retry=None)
     async def get_pokemon(self, name: Annotated[str, Path]) -> Pokemon | None: ...
@@ -204,13 +204,13 @@ class PokeAPI(Gracy):
 ```
 
 The return annotation drives decoding; pyright sees real types with zero
-casts. Endpoint stubs use `...` bodies — mypy users need
+casts. Endpoint stubs use `...` bodies - mypy users need
 `disable_error_code = ["empty-body"]` (documented; a mypy plugin is a 2.x
 candidate). Endpoint validation (unknown path params, `on=` statuses vs the
 return union) runs at `build()` time, not class-definition time, so
 `from __future__ import annotations` and forward refs work.
 
-### 4.2 Using it — explicit lifecycle
+### 4.2 Using it - explicit lifecycle
 
 ```python
 async def main() -> None:
@@ -228,13 +228,13 @@ async def main() -> None:
         fig = api.report().to_plotly()    # report is frozen; printers never mutate
 
 # Sync facade: dedicated background thread runs a private loop hosting the
-# real async client — sync and async share 100% of the pipeline, hooks included.
+# real async client - sync and async share 100% of the pipeline, hooks included.
 with PokeAPI.sync() as api:
     mew = api.get_pokemon("mew")
 ```
 
 Per-call knobs (`priority=`, overrides) live on `api.request()` and
-`api.options()` — NOT as magic kwargs on typed endpoint methods, which would
+`api.options()` - NOT as magic kwargs on typed endpoint methods, which would
 break their declared signatures under pyright.
 
 ### 4.3 Hooks, validators, scoped overrides
@@ -255,11 +255,11 @@ class NoErrorField(gracy.Validator):
         if response.json().get("error"):
             raise MyDomainError(response)
 
-# scoped override — replaces @graceful; contextvar semantics kept but explicit
+# scoped override - replaces @graceful; contextvar semantics kept but explicit
 async with api.options(retry=None, on={404: None}):
     await api.get_pokemon("x")            # applies to nested calls too
 
-# URL-shaped overrides — replaces scattering @graceful across methods
+# URL-shaped overrides - replaces scattering @graceful across methods
 config = GracyConfig(overrides={
     "*/pokemon/*": gracy.Override(throttle=Throttle(rules=[Rate(5, per="1s")])),
 })
@@ -268,7 +268,7 @@ config = GracyConfig(overrides={
 Requests issued inside hooks: skip hooks (recursion guard via contextvar),
 bypass concurrency semaphores by default (kills v1's documented hook
 deadlock; `from_hook=True` on the ticket), throttle-in-hooks is an explicit
-`Queue(throttle_in_hooks=False)` knob — v1's README claim becomes true.
+`Queue(throttle_in_hooks=False)` knob - v1's README claim becomes true.
 
 ### 4.4 Replay
 
@@ -298,7 +298,7 @@ with gracy.testing.retries_off(), gracy.testing.throttle_off():
 ```
 
 `HttpxTransport` keeps respx/`httpx.MockTransport`/ASGI-transport workflows
-alive (§7) — the testing ecosystem does not die with the default transport.
+alive (§7) - the testing ecosystem does not die with the default transport.
 
 ---
 
@@ -314,7 +314,7 @@ alive (§7) — the testing ecosystem does not die with the default transport.
   default error logging (fixes v1's silent `DEFAULT_CONFIG` replacement).
 - `plan.compile()` validates everything early (conflicting `status_policy`,
   unknown placeholders, bad regexes) and emits one JSON plan handed to
-  `_core` at build — polars-style compile-once; `api.plan.explain()` prints
+  `_core` at build - polars-style compile-once; `api.plan.explain()` prints
   the merged per-route plan.
 
 ---
@@ -329,30 +329,30 @@ alive (§7) — the testing ecosystem does not die with the default transport.
   FIFO tie-break via monotonic `seq`; **retries keep their original `seq`**,
   so they outrank newer work of equal priority without a starvation knob.
 - **Priority-aware backpressure (judge fix):** `max_pending` capacity is
-  accounted on the heap mutex itself — no FIFO semaphore in front of the
+  accounted on the heap mutex itself - no FIFO semaphore in front of the
   heap (that would queue priority-10 submits behind priority-0 under
   saturation). `on_full="wait"` waiters park in a priority-ordered wait list
   and are woken in priority order; `on_full="raise"` → `GracyQueueFull`.
 - **Throttle rules (compiled once):** `Vec<CompiledRule { regex,
   windows: Vec<SlidingWindow> }>`. Default `SlidingWindow` =
   `VecDeque<Instant>` ring buffer: `next_allowed(now) = if len < max { now }
-  else { front + window }` — the exact instant the oldest in-window request
+  else { front + window }` - the exact instant the oldest in-window request
   expires. Fixes v1's negative-wait (burst over limit) AND full-window
   over-wait (exactly at limit) bugs. Opt-in `mode="smooth"` uses governor
   GCRA (`Quota::with_period(W/N).allow_burst(N)`).
 - **Delay wheel:** `tokio_util::time::DelayQueue` parks not-yet-allowed items;
   the dispatcher never busy-waits and wakes at exact instants. Retry backoff
-  is a re-enqueue through the same wheel — no `sleep()` anywhere.
+  is a re-enqueue through the same wheel - no `sleep()` anywhere.
 - **Concurrency limits:** `dashmap<ConcKey, Arc<Semaphore>>`, key =
-  `(rule_id, uurl_or_global, blocking_arg_values…)` — v1
+  `(rule_id, uurl_or_global, blocking_arg_values…)` - v1
   `ConcurrentRequestLimit` semantics exactly, but scoped to the scheduler
   instance. **Idle-TTL eviction** on keyed entries (judge fix: high-cardinality
   `blocking_args` must not leak semaphores for the client's lifetime).
 
-### 6.2 Admission ordering — no check-then-reserve race (judge fix)
+### 6.2 Admission ordering - no check-then-reserve race (judge fix)
 
 The winning proposal's original sketch reserved window slots in a spawned
-task *after* awaiting the concurrency semaphore — two items could both pass
+task *after* awaiting the concurrency semaphore - two items could both pass
 a window check that includes neither. v2 admission is strictly ordered:
 
 ```
@@ -360,10 +360,10 @@ submit() ──► heap (priority + seq, capacity-checked)
 dispatcher loop:
   1. pop max-priority ready item
   2. concurrency permit: try_acquire; if unavailable, park item on that key's
-     waiter list (dispatcher moves on — no head-of-line blocking); the key's
+     waiter list (dispatcher moves on - no head-of-line blocking); the key's
      release wakes the item back into the ready set
   3. WITH permit held: throttle check + window reservation, done serially
-     and atomically inside the dispatcher (single thread — no TOCTOU)
+     and atomically inside the dispatcher (single thread - no TOCTOU)
      - not allowed yet -> release nothing, park in DelayQueue until
        next_allowed (permit retained; see note), re-run step 3 on wake
   4. grant: reply.send(PermitGrant { permit, grant_instant })
@@ -371,24 +371,24 @@ dispatcher loop:
 
 Because reservation happens serially in the single dispatcher task *after*
 the permit is held, admission can never over-commit a window, and a granted
-permit is immediately usable — the grant→send gap is one FFI hop (§6.4).
+permit is immediately usable - the grant→send gap is one FFI hop (§6.4).
 
 ### 6.3 Pause gates
 
 `Queue(pause_on_status={429: "endpoint" | "client"})` and
 `engine.pause(scope, until)` are **dispatcher gates**, not locks held by
-requests (grafted from the max-Rust/DX proposals — structurally cannot
+requests (grafted from the max-Rust/DX proposals - structurally cannot
 deadlock). A paused lane parks its ready items in the DelayQueue; **in-flight
 retries also re-enter admission**, so they respect the pause (fixes the
 "pause defeated by already-dispatched retries" judge finding). The built-in
-`RetryAfterBackoff`/`RateLimitBackoff` hooks drive these gates — making v1's
+`RetryAfterBackoff`/`RateLimitBackoff` hooks drive these gates - making v1's
 "pauses ALL client requests" docstring true for the first time.
 
 ### 6.4 Hooks run BEFORE admission (judge fix)
 
 v1 ordering was throttle → hooks → send, which in a queue world means window
 slots get consumed at grant time while Python `before` hooks (and pause
-gates) run between grant and wire — under a 429 pause, granted-but-paused
+gates) run between grant and wire - under a 429 pause, granted-but-paused
 requests would fire as a burst that violates the rate limit exactly when the
 server asked for mercy. v2 pipeline order per attempt:
 
@@ -399,7 +399,7 @@ validators ─► retry decision ─► [re-enter at before hooks] ─► decode
 ```
 
 Consequences, all deliberate:
-- Token spend happens at the last possible instant before the wire — no
+- Token spend happens at the last possible instant before the wire - no
   grant-vs-wire divergence, no burst-after-pause.
 - Replay hits **never spend throttle tokens** (checked before admission;
   also kills v1's double storage lookup for `disable_throttling`).
@@ -423,7 +423,7 @@ aborts the tokio side (`JoinHandle::abort` wired through `future_into_py`):
   (the wire was touched)
 
 When the plan has zero Python callbacks, 2.x collapses both hops into
-`scheduler.execute(spec)` — the all-Rust fast path — with identical
+`scheduler.execute(spec)` - the all-Rust fast path - with identical
 observable behavior (Phase 6, gated on the differential suite).
 
 ### 6.6 Observability
@@ -442,10 +442,10 @@ column and the 3am-debugging surface the judges asked for.
 - **`RustTransport`** (default): `CoreTransport` / reqwest. Configured via
   `TransportConfig` (headers, proxy, TLS, timeouts, http2, redirects).
 - **`HttpxTransport`** (escape hatch, ships in 2.0): full httpx client under
-  the hood — custom SSLContext/mTLS, UDS, `httpx.Auth`, ASGI/WSGI transports,
+  the hood - custom SSLContext/mTLS, UDS, `httpx.Auth`, ASGI/WSGI transports,
   respx/pytest-httpx mocking all keep working. Swapping transport does NOT
   bypass the queue: the Rust permit is granted first, then the Python
-  transport sends — full queue/retry/replay treatment either way.
+  transport sends - full queue/retry/replay treatment either way.
 - **`MockTransport`** (in `gracy.testing`): pattern → canned response.
 
 This is the answer to "dropping httpx severs the testing ecosystem": the
@@ -456,7 +456,7 @@ default is Rust, the protocol keeps every httpx-based workflow one line away.
 ## 8. Async model & lifecycle
 
 - **Runtime:** process-global lazy tokio runtime, initialized on first
-  `build()` — **never at import**. Module-level client *instances* are
+  `build()` - **never at import**. Module-level client *instances* are
   fork-safe because unstarted clients own no runtime state.
 - **Fork safety (judge fix):** `os.register_at_fork` handler clears the
   runtime handle in the child and poisons *started* clients with a clear
@@ -467,7 +467,7 @@ default is Rust, the protocol keeps every httpx-based workflow one line away.
   raises `GracyWrongLoopError` instead of silently hanging.
 - **Loop-death guard (judge fix):** all completions route through one guarded
   waker that catches `RuntimeError` from `call_soon_threadsafe` on a closed
-  loop and resolves/abandons cleanly — no tokio task ever hangs on a dead
+  loop and resolves/abandons cleanly - no tokio task ever hangs on a dead
   loop (pytest teardown, `asyncio.run()` return, Ctrl-C).
 - **Shutdown:** `aclose()` cancels the dispatcher, drains in-flight permits,
   flushes replay storage, closes the reqwest client. Finalizer warns
@@ -477,7 +477,7 @@ default is Rust, the protocol keeps every httpx-based workflow one line away.
   pipeline (no lossy broadcast channel).
 - **Sync facade:** background thread + private loop hosting the real async
   client; `asyncio.run_coroutine_threadsafe(...).result()`. Sync and async
-  share the pipeline — async hooks work in sync mode (the private loop runs
+  share the pipeline - async hooks work in sync mode (the private loop runs
   them). trio is out of scope for 2.0.
 - **Free-threading:** `gil_used = false`; abi3-py310 wheels + explicit cp314t
   builds; abi3t when Python 3.15 lands.
@@ -501,7 +501,7 @@ default is Rust, the protocol keeps every httpx-based workflow one line away.
   Python behind the async `ReplayStorage` protocol
   (`prepare/record/find/load/flush`); pymongo becomes a real extra with an
   eager, instructive `ImportError`. `aclose()` always flushes.
-- **Migration:** `python -m gracy.replay.migrate old.sqlite3 new.db` —
+- **Migration:** `python -m gracy.replay.migrate old.sqlite3 new.db` -
   separate opt-in CLI, restricted unpickler, loud "only run on DBs you trust"
   warning. v2 runtime imports zero pickle.
 - Replayed responses carry `is_replay=True`, feed the `{REPLAY}` placeholders
@@ -514,14 +514,14 @@ default is Rust, the protocol keeps every httpx-based workflow one line away.
 - `CoreMetrics` (Rust): per-uurl counters (total, 2xx/3xx/4xx/5xx, aborts,
   retries, throttles, replays) + hdrhistogram latencies; monotonic +
   `total_seconds()` math.
-- `api.report()` returns a **frozen** `GracyReport` from `snapshot()` —
+- `api.report()` returns a **frozen** `GracyReport` from `snapshot()` -
   printers are pure functions (double-print bug dies), TOTAL row computed in
   the renderer. Columns match v1 + free p95/p99.
 - **Per-instance scope** (class-level global state removed);
   `Gracy.shared_metrics(group=...)` opts into cross-client aggregation;
   `api.reset_metrics()` replaces `dangerously_reset_report()`.
 - `success_when=` configurable (default counts 2xx + allowed/parsed statuses;
-  v1 counted only 2xx — dashboards will shift, documented).
+  v1 counted only 2xx - dashboards will shift, documented).
 - `rich` and `plotly` extras actually declared and install-tested in CI.
 
 ---
@@ -529,12 +529,12 @@ default is Rust, the protocol keeps every httpx-based workflow one line away.
 ## 11. Everything that stays Python (policy layer)
 
 Validators (same sync `check()` protocol), per-status `on=` actions
-(callable | `raises(Exc)` | literal — v1 semantics preserved, including
+(callable | `raises(Exc)` | literal - v1 semantics preserved, including
 "parse runs last, even on failed responses when suppressed"), decoders
 (pydantic/msgspec extras; core stays dependency-free), LogEvent templating
 with the full typed placeholder matrix, the exception hierarchy (picklable,
 subclass-preserving), paginators (`page_size` honored, typed generics),
-namespaces (explicit descriptor with per-instance `__get__` binding — no
+namespaces (explicit descriptor with per-instance `__get__` binding - no
 class-attribute state bleed, nesting and cross-module declarations work),
 `api.options()` scoped overrides, and the whole `pipeline.py` orchestrator.
 
@@ -581,12 +581,12 @@ class-attribute state bleed, nesting and cross-module declarations work),
 - `strict_status_code`/`allowed_status_code` → single `status_policy=`;
   combining both is a build-time error (was silent precedence).
 - `GracefulRetry.behavior="pass"` split into `on_exhausted="return"` vs
-  `suppress=True` — pick which you meant.
+  `suppress=True` - pick which you meant.
 - Replay format v2 (no pickle) + async 5-method storage protocol; one-shot
   migration CLI.
 - Namespaces declared explicitly (`berry = BerryNamespace()`); bare
   annotations raise a helpful build-time error.
-- Unset `REQUEST_TIMEOUT` no longer disables timeouts — default 30s;
+- Unset `REQUEST_TIMEOUT` no longer disables timeouts - default 30s;
   `timeout=None` is explicit.
 - `_create_client()` override → `TransportConfig` / `Transport` protocol
   (`HttpxTransport` for full httpx control); unknown request kwargs fail
@@ -595,7 +595,7 @@ class-attribute state bleed, nesting and cross-module declarations work),
 - Import-time `logging.basicConfig` removed.
 - Success-rate definition in reports changed (configurable).
 - **Hook ordering: `before` hooks now run BEFORE throttling** (v1: after).
-  Deliberate — see §6.4. Hooks that relied on running post-throttle must move
+  Deliberate - see §6.4. Hooks that relied on running post-throttle must move
   to a queue gate or the `after` side.
 
 A `gracy.v1compat` shim maps `GracyConfig(parser=...)`/`@graceful` onto the
@@ -606,16 +606,16 @@ new plan with deprecation warnings for the alpha/beta cycle only.
 ## 14. Implementation phases (each independently shippable)
 
 Estimates are optimistic single-focus weeks; judges flagged scope realism as
-the #1 project risk — the phase gates are the mitigation, and every phase
+the #1 project risk - the phase gates are the mitigation, and every phase
 ships value even if later phases slip.
 
-**Phase 0 — Skeleton & CI.** maturin mixed layout, workspace, hello-world
+**Phase 0 - Skeleton & CI.** maturin mixed layout, workspace, hello-world
 `_core`, abi3-py310 + cp314t wheel matrix on maturin-action, drop py3.8/3.9.
 Release tooling: replace python-semantic-release v7 (incompatible with
 compiled wheels) with git-cliff changelog + tag-triggered maturin-action
 publish. *Exit:* wheels install and import on all 8 targets.
 
-**Phase 1 — Python facade, pure-Python engine (the executable spec).**
+**Phase 1 - Python facade, pure-Python engine (the executable spec).**
 `endpoints/config/plan/pipeline/hooks/validators/parsing/exceptions/logging/paginator`
 on top of `HttpxTransport` and a Python `Scheduler` implementing the same
 protocol the Rust one will. Port the v1 test suite as the parity oracle
@@ -623,7 +623,7 @@ protocol the Rust one will. Port the v1 test suite as the parity oracle
 merge/precedence. *Exit:* behavioral parity suite green; `V2_PARITY.md` rows
 all linked; pyright strict passes; docs example runs.
 
-**Phase 2 — Rust queue (`CoreScheduler`).** Sliding window, GCRA mode,
+**Phase 2 - Rust queue (`CoreScheduler`).** Sliding window, GCRA mode,
 concurrency semaphores + TTL eviction, priorities, backpressure, DelayQueue,
 pause gates, stats. Swap behind the protocol. *Exit:* parity suite green with
 the flag flipped; `cargo test` property tests ("never > N in any trailing W
@@ -631,24 +631,24 @@ under random schedules", loom on the window math); timing tests
 (burst-over-limit, exact wake-up, per-attempt throttling, hook bypass,
 pause-covers-retries); differential runs vs the Python reference scheduler.
 
-**Phase 3 — Rust transport (reqwest).** `RustTransport` default,
+**Phase 3 - Rust transport (reqwest).** `RustTransport` default,
 `HttpxTransport` kept. *Exit:* parity suite green on BOTH transports (CI
 matrix); differential tests against a local httpbin-style server (redirects,
 proxies, compression, streaming, timeouts, TLS errors → exception taxonomy).
 **→ ship `2.0.0a1`** (call for testers).
 
-**Phase 4 — Rust replay + migration tool.** Schema v2, scrubbing, Mongo
+**Phase 4 - Rust replay + migration tool.** Schema v2, scrubbing, Mongo
 protocol port, `gracy.replay.migrate`. *Exit:* record→replay round-trips on
 both storages; the repo's own v1 fixture DB migrates and replays; cargo-fuzz
 on the cassette codec.
 
-**Phase 5 — Rust metrics + reports.** *Exit:* report matches hand-computed
+**Phase 5 - Rust metrics + reports.** *Exit:* report matches hand-computed
 fixtures; double-print identical; extras install-tested.
 **→ ship `2.0.0b1`**, then **`2.0.0`** when the migration guide + cookbook
 (before/after for every inventory feature) are done. v1 gets security-only
 maintenance for 12 months.
 
-**Phase 6 (2.x) — Rust fast path.** `scheduler.execute()` for callback-free
+**Phase 6 (2.x) - Rust fast path.** `scheduler.execute()` for callback-free
 plans; `Py<PyAny>` hook slots + `into_future` bridging (per-submit
 TaskLocals, `spawn_blocking` for sync callables, never blocking a worker
 while attached) for the rest. *Exit:* parity suite green on both pipelines;
@@ -681,7 +681,7 @@ job. Rust unit tests own timing math; the Python suite owns semantics.
 
 ## 16. Drop-in compat adapters + documentation (added scope)
 
-### 16.1 `gracy.compat` — one-line swap from requests/httpx
+### 16.1 `gracy.compat` - one-line swap from requests/httpx
 
 Goal: a user replaces `import requests` with `from gracy.compat import requests`
 (or `requests = gracy.compat.requests`) and their code keeps working, duck-typed,
@@ -699,7 +699,7 @@ now running through the full gracy pipeline (retry/throttle/queue/reports).
 - **`gracy.compat.httpx`** (async duck-type): `AsyncClient(base_url=,
   headers=, timeout=)` with `get/post/...` coroutines and httpx-shaped
   responses; `Client` sync twin. Same `configure()` hook.
-- Both adapters are pure sugar over the public Gracy API — no pipeline forks.
+- Both adapters are pure sugar over the public Gracy API - no pipeline forks.
 - Tests: mirror idiomatic requests/httpx snippets (params/json/data/headers/
   timeout/raise_for_status/session reuse) against the local test server, plus
   "the swap line" itself (`requests = gracy.compat.requests`).
@@ -709,9 +709,9 @@ now running through the full gracy pipeline (retry/throttle/queue/reports).
 - **README.md rewritten for v2**: Rust-core pitch, quickstart (async + sync),
   feature tour matching the real v2 API, compat one-liner section, dev setup
   (maturin/uv), badges updated.
-- **MIGRATING.md**: (a) v1 → v2 cookbook — one before/after block for every
+- **MIGRATING.md**: (a) v1 → v2 cookbook - one before/after block for every
   breaking change in §13; (b) "coming from requests" and "coming from httpx"
-  — the one-line swap, then gradual adoption (declared endpoints, configs);
+  - the one-line swap, then gradual adoption (declared endpoints, configs);
   (c) replay DB migration walkthrough (`python -m gracy.replay.migrate`).
 
 ## 17. Immediate next steps

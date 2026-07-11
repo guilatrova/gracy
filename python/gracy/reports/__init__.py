@@ -2,7 +2,7 @@
 
 `GracyReport` is an immutable snapshot produced by
 `gracy.reports.collector.MetricsCollector.snapshot()`. Printers are pure
-functions over it — the v1 "printing mutates the report / double-print"
+functions over it - the v1 "printing mutates the report / double-print"
 bug class cannot exist here.
 
 Documented v2 change: **success = 2xx + 3xx** responses (v1 counted only

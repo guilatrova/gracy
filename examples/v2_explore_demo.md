@@ -1,8 +1,8 @@
-# `gracy explore` — explore an API, walk away with a typed client
+# `gracy explore` - explore an API, walk away with a typed client
 
 A hands-on walkthrough of the interactive explorer. Every request you fire is
 executed through the real gracy pipeline, recorded into a session file, and
-mined for types — then `save` compiles the whole session into a typed client
+mined for types - then `save` compiles the whole session into a typed client
 plus tests that pass offline.
 
 ## 1. Human REPL flow
@@ -25,14 +25,14 @@ GET .../pokemon/mew -> 200 (78 ms)
 
 gracy› name get_pokemon
 endpoint 'get_pokemon': /pokemon/{pokemon}
-✨ params: {pokemon} (segment 1) — rename with `param <index> as <name>`
+✨ params: {pokemon} (segment 1) - rename with `param <index> as <name>`
 
 gracy› param 1 as name
 get_pokemon: param 1 -> {name}
 
 gracy› get /pokemon/notreal999
 GET .../pokemon/notreal999 -> 404 (120 ms)
-✨ one segment differs from get_pokemon — folds into /pokemon/{name}
+✨ one segment differs from get_pokemon - folds into /pokemon/{name}
 
 gracy› on 404 none
 get_pokemon: on 404 -> none
@@ -58,7 +58,7 @@ gracy› quit
 ```
 
 `pokeapi.py` is a ready-to-use typed client; `test_pokeapi.py` replays the
-recorded responses from `pokeapi.cassette.db` — **it passes with no network**.
+recorded responses from `pokeapi.cassette.db` - **it passes with no network**.
 
 ## 2. Bodies: POST / PUT / PATCH (httpie-style)
 
@@ -88,12 +88,12 @@ Body value syntax:
 | `-H 'K: v'` | header | `-H 'X-Api-Key: $KEY'` |
 
 `$VAR` / `${VAR}` resolve from the environment at send time but are stored
-**unresolved** in the session — secrets never hit disk (even a value the server
+**unresolved** in the session - secrets never hit disk (even a value the server
 echoes back is redacted to `***`).
 
 ## 3. Agent one-shot mode (`gracy x`)
 
-The same engine, no TTY — every command is one process, state lives in the
+The same engine, no TTY - every command is one process, state lives in the
 session file, and `--json` prints a machine-readable result. This is how an AI
 agent drives it:
 

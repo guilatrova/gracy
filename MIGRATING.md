@@ -10,7 +10,7 @@ Gracy 2.0 is a ground-up rewrite of the request machinery:
   hooks, validators, and parsers stay ordinary Python callables.
 - **The queue IS the throttle.** No request reaches the wire without a permit
   from the scheduler. Throttling, concurrency limits, priorities, pauses, and
-  backpressure are all admission control on one component — not "sleep before
+  backpressure are all admission control on one component - not "sleep before
   send". Backoff hooks that used to *claim* to pause now genuinely pause the
   queue.
 - **Per-instance state.** v1 kept metrics and throttle state on **class**
@@ -26,7 +26,7 @@ Gracy 2.0 is a ground-up rewrite of the request machinery:
 - **New in 2.0: live monitor.** Pass `Gracy(monitor=True)` (or set
   `GRACY_MONITOR=1`) and every built client streams lightweight snapshots to a
   spool file; `python -m gracy.monitor` (or `gracy-monitor`) renders them as a
-  live terminal dashboard — queue depth, in-flight, throttles, pauses, retries
+  live terminal dashboard - queue depth, in-flight, throttles, pauses, retries
   and per-endpoint stats, across all running processes. Zero overhead when off.
 
 Requirements and install:
@@ -50,10 +50,10 @@ Requirements and install:
 | `Config.REQUEST_TIMEOUT` | `timeout = 5.0` class attr (unset now means **30s**, not "no timeout") |
 | `Config.SETTINGS = GracyConfig(...)` | `config = GracyConfig(...)` class attr |
 | instantiate-and-go (implicit lifecycle) | `async with MyApi() as api:` / `await api.build()` + `await api.aclose()` |
-| — (no sync support) | `with MyApi.sync() as api:` blocking facade |
+| - (no sync support) | `with MyApi.sync() as api:` blocking facade |
 | `self.get[T]("/x/{ID}", {"ID": ...})` (and `post`/`put`/…) | `@get("/x/{id}")`-decorated endpoint stubs |
 | ad-hoc `self._request(...)` | `await api.request("GET", endpoint, {...}, decode_as=T)` |
-| `BaseEndpoint` (str enum) | `BaseEndpoint` — unchanged, works with `api.request()` |
+| `BaseEndpoint` (str enum) | `BaseEndpoint` - unchanged, works with `api.request()` |
 | `@graceful(...)` / `@graceful_generator(...)` | endpoint-decorator kwargs, `api.options(...)`, URL-glob `overrides=` |
 | `GracyConfig(parser={...})` | `GracyConfig(on={...})` (also per-endpoint `@get(..., on={...})`) |
 | parser value: bare exception class | `raises(MyError)` (bare classes are a build-time error) |
@@ -67,7 +67,7 @@ Requirements and install:
 | `GracefulRetry.retry_on={429, 503}` | `Retry(on=status(429, 503))`; exceptions: `Retry(on=(status(503), TimeoutError))` |
 | `GracefulRetry.retry_on=None` (retry any failure) | `Retry(on=(Exception,))` |
 | `GracefulRetry.overrides={404: OverrideRetryOn(delay=10)}` | `Retry(overrides={404: 10.0})` |
-| `GracefulRetry.behavior="pass"` | `Retry(on_exhausted="return")` **or** `Retry(suppress=True)` — see cookbook |
+| `GracefulRetry.behavior="pass"` | `Retry(on_exhausted="return")` **or** `Retry(suppress=True)` - see cookbook |
 | `GracefulRetryState` | `RetryState` (same fields, handed to after-hooks/log placeholders) |
 | `GracyConfig(throttling=...)` | `GracyConfig(throttle=...)` |
 | `GracefulThrottle` | `Throttle` |
@@ -76,14 +76,14 @@ Requirements and install:
 | `ConcurrentRequestLimit` | `Concurrency` |
 | `ConcurrentRequestLimit.uurl_pattern` | `Concurrency.match` |
 | `ConcurrentRequestLimit.blocking_args` | `Concurrency.key_by` |
-| `ConcurrentRequestLimit.limit_per_uurl` (default `True`) | `Concurrency.per_uurl` (default `False` — flipped!) |
+| `ConcurrentRequestLimit.limit_per_uurl` (default `True`) | `Concurrency.per_uurl` (default `False` - flipped!) |
 | `GracefulValidator` (ABC, `check(httpx.Response)`) | `Validator` (same sync `check()`, takes a gracy `Response`) |
 | `LogEvent` / `LogLevel` | same names; `custom_message` is str-only (callables dropped) |
 | `GracyRequestContext` | `RequestContext` |
 | `self.before` / `self.after` overrides | unchanged concept; also `hooks = [...]` class attr; `after` result is always `GracyRequestFailed`-wrapped |
 | `common_hooks.HttpHeaderRetryAfterBackOffHook` | `RetryAfterBackoff` (registered via `hooks = [...]`; actually pauses the queue) |
 | `common_hooks.RateLimitBackOffHook` | `RateLimitBackoff` |
-| `common_hooks.HookResult` | `HookResult` (compat shim; return values are ignored — pauses are scheduler gates) |
+| `common_hooks.HookResult` | `HookResult` (compat shim; return values are ignored - pauses are scheduler gates) |
 | `_create_client()` override | `transport=HttpxTransport(client=...)` / `TransportConfig` / `Transport` protocol |
 | unknown request kwargs silently passed to httpx | unknown kwargs fail eagerly |
 | `GracyReplay` | `Replay` |
@@ -96,11 +96,11 @@ Requirements and install:
 | `api.report_status(printer)` | `api.report().print("rich" \| "list" \| "logger" \| "plotly")` |
 | `Gracy.dangerously_reset_report()` (classmethod, global) | `api.reset_metrics()` (per instance) |
 | report success = 2xx only | success = **2xx + 3xx** (documented change; dashboards will shift) |
-| `parsed_response` / `generated_parsed_response` | **deleted** (were no-op shims) — use return annotations |
+| `parsed_response` / `generated_parsed_response` | **deleted** (were no-op shims) - use return annotations |
 | namespace via bare annotation (`berry: BerryNamespace`) | explicit instance (`berry = BerryNamespace()`) |
 | `DEBUG_ENABLED=True` | `Gracy(debug=True)`; also `api.queue_stats()` |
 | `ongoing_requests_count` | `api.queue_stats()["in_flight"]` |
-| import-time `logging.basicConfig(...)` | removed — gracy installs a `NullHandler`; configure logging yourself |
+| import-time `logging.basicConfig(...)` | removed - gracy installs a `NullHandler`; configure logging yourself |
 | `GracyPaginator(gracy_func, has_next, page_size=20)` | same class; `page_size` is now actually honored |
 
 ---
@@ -172,7 +172,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-**v2 (sync — new)**
+**v2 (sync - new)**
 
 ```python
 def main() -> None:
@@ -181,7 +181,7 @@ def main() -> None:
 ```
 
 The sync facade runs the real async client on a private daemon-thread event
-loop — hooks, retry, throttle, and replay behave identically.
+loop - hooks, retry, throttle, and replay behave identically.
 
 ### 3. Typed methods: `self.get[T](endpoint, args)` → `@get` decorators
 
@@ -219,7 +219,7 @@ class PokeAPI(Gracy):
     async def create_pokemon(self, body: dict) -> dict: ...
 ```
 
-The stub body is literally `...` — gracy compiles the route at `build()`.
+The stub body is literally `...` - gracy compiles the route at `build()`.
 Parameters map onto the URL automatically: names matching a `{placeholder}`
 become path args, everything else becomes a query param. Use
 `Annotated[..., Path/Query/Header/Body]` markers to be explicit:
@@ -260,7 +260,7 @@ async def fetch(api: PokeAPI) -> dict:
 ### 4. `parser={...}` → `on={...}` + `raises()`
 
 Keys are plain ints (or `"default"`), and bare exception classes are rejected
-at build time — wrap them in `raises()` so intent is explicit.
+at build time - wrap them in `raises()` so intent is explicit.
 
 **v1**
 
@@ -299,7 +299,7 @@ config = GracyConfig(
 )
 ```
 
-And the most common v1 parser — `"default": lambda r: r.json()` — usually
+And the most common v1 parser - `"default": lambda r: r.json()` - usually
 disappears entirely: annotate the endpoint `-> dict` and gracy decodes for
 you (see also `PydanticDecoder` / `MsgspecDecoder` via `GracyConfig(decoder=...)`).
 
@@ -323,7 +323,7 @@ class PokeAPI(Gracy[str]):
         return await self.get("/pokemon/{NAME}", {"NAME": name})
 ```
 
-**v2 — the config moves onto the endpoint decorator:**
+**v2 - the config moves onto the endpoint decorator:**
 
 ```python
 from gracy import Gracy, Retry, get, status, strict
@@ -339,8 +339,8 @@ class PokeAPI(Gracy):
     async def get_pokemon(self, name: str) -> dict: ...
 ```
 
-**v2 — per-call scoped overrides (`api.options()`):** for the v1 pattern of
-wrapping arbitrary call sites with `@graceful`, use the context manager —
+**v2 - per-call scoped overrides (`api.options()`):** for the v1 pattern of
+wrapping arbitrary call sites with `@graceful`, use the context manager -
 works as `with` and `async with`, nests, and layers on top of everything else:
 
 ```python
@@ -350,9 +350,9 @@ async def bulk_import(api: PokeAPI) -> None:
 ```
 
 Scheduler-side knobs (`throttle`, `concurrency`, `queue`) are compiled at
-`build()` and rejected by `options()` — declare those on the client/endpoint.
+`build()` and rejected by `options()` - declare those on the client/endpoint.
 
-**v2 — URL-glob overrides:** config that applies to a URL subset lives in
+**v2 - URL-glob overrides:** config that applies to a URL subset lives in
 `overrides=` on any config layer:
 
 ```python
@@ -427,16 +427,16 @@ Notes:
 - `on=` is **required**. v1's `retry_on=None` ("retry any failure") becomes
   `Retry(on=(Exception,))`. Mixed matching: `Retry(on=(status(503), TimeoutError))`.
 - `Backoff` also supports `max=` (delay cap) and `jitter=True`.
-- New: `respect_retry_after=True` by default — a parseable `Retry-After`
+- New: `respect_retry_after=True` by default - a parseable `Retry-After`
   header wins over the computed wait.
 
-**`behavior="pass"` split — pick which one you meant:**
+**`behavior="pass"` split - pick which one you meant:**
 
-- `Retry(on_exhausted="return")` — retries run; if they exhaust, the last
+- `Retry(on_exhausted="return")` - retries run; if they exhaust, the last
   response is **returned** instead of raising. Transport errors and other
   exceptions still raise. Pick this if you used `behavior="pass"` to inspect
   the final failed response yourself.
-- `Retry(suppress=True)` — never raise, even for mid-retry failures and
+- `Retry(suppress=True)` - never raise, even for mid-retry failures and
   transport errors with no response at all (the call returns the response, or
   `None` when there is none). Pick this if your v1 code relied on gracy never
   throwing from a `behavior="pass"` endpoint.
@@ -482,7 +482,7 @@ config = GracyConfig(
 - New: `Throttle(mode="smooth")` opts into GCRA-style smoothing; the default
   `"exact"` is a strict sliding window (and fixes v1's negative-wait burst bug).
 - Enforcement moved into the scheduler: a request holds throttle tokens from
-  the moment its permit is granted — parallel clients can no longer race past
+  the moment its permit is granted - parallel clients can no longer race past
   the limit between "check" and "send".
 
 ### 9. `ConcurrentRequestLimit` → `Concurrency`
@@ -603,7 +603,7 @@ Renames: `GracyReplay` → `Replay`, `SQLiteReplayStorage` → `SqliteStorage`,
 New knobs: `match_on=("method", "url", "body")` picks the request dimensions
 that must match, and `scrub=Scrub(...)` **redacts secrets by default**
 (`authorization`, `cookie`, `x-api-key` headers become `***` before hashing
-and before recording — pass `scrub=None` to opt out).
+and before recording - pass `scrub=None` to opt out).
 
 **Migrating an existing v1 database** (one-shot CLI):
 
@@ -620,7 +620,7 @@ Migrated 1204 recording(s) (2 skipped) -> new-recordings.db
 - Usage: `python -m gracy.replay.migrate OLD NEW --yes-i-trust-this-file`.
   `OLD` is the v1 `.sqlite3` file; `NEW` is created if missing.
 - **Why the scary flag?** v1 rows contain a pickled `httpx.Response`, and
-  unpickling executes any code embedded in the file — a malicious cassette
+  unpickling executes any code embedded in the file - a malicious cassette
   can take over the machine that loads it. The tool refuses to run (exit
   code 2) until you assert with `--yes-i-trust-this-file` that *you* recorded
   the database or fully trust its origin. This is the only place in gracy v2
@@ -633,7 +633,7 @@ Migrated 1204 recording(s) (2 skipped) -> new-recordings.db
 
 ### 12. Custom replay storage: ABC → async protocol
 
-**v1** — subclass `GracyReplayStorage`, httpx types, mixed sync/async:
+**v1** - subclass `GracyReplayStorage`, httpx types, mixed sync/async:
 
 ```python
 import typing as t
@@ -658,7 +658,7 @@ class MyStorage(GracyReplayStorage):
     def flush(self) -> None: ...
 ```
 
-**v2** — duck-type the `ReplayStorage` protocol: four async methods over
+**v2** - duck-type the `ReplayStorage` protocol: four async methods over
 gracy's transport-agnostic `RequestSpec`/`Response` (no base class needed,
 no pickle, no httpx):
 
@@ -682,13 +682,13 @@ class MyStorage:
 ```
 
 Optionally implement the keyed fast path (`record_key(key, spec, response)` /
-`find_by_key(key, discard_before)`) — `Replay` prefers it when present so the
+`find_by_key(key, discard_before)`) - `Replay` prefers it when present so the
 match hash honoring the user's `match_on`/`scrub` is computed exactly once
 (see `SqliteStorage` / `MemoryStorage` / `MongoReplayStorage` for reference).
 
 ### 13. Reports: `report_status` / `dangerously_reset_report` → `api.report()` / `reset_metrics()`
 
-**v1** — reports were built from **class-level** global state and printing
+**v1** - reports were built from **class-level** global state and printing
 mutated the report (the double-TOTAL bug):
 
 ```python
@@ -697,7 +697,7 @@ api.report_status("rich")
 PokeAPI.dangerously_reset_report()  # classmethod: nuked metrics for EVERY instance
 ```
 
-**v2** — per-instance, frozen snapshots; printing never mutates:
+**v2** - per-instance, frozen snapshots; printing never mutates:
 
 ```python
 async def main() -> None:
@@ -748,7 +748,7 @@ class FastAPI(Gracy):
 ```
 
 `timeout=` is also a `GracyConfig` field, an endpoint-decorator kwarg, an
-`api.options()` kwarg, and an `api.request()` kwarg — same precedence chain
+`api.options()` kwarg, and an `api.request()` kwarg - same precedence chain
 as everything else.
 
 ### 16. Custom httpx client: `_create_client()` → transports
@@ -783,7 +783,7 @@ def build_clients() -> None:
     # connection knobs on the default (Rust) transport:
     api = PokeAPI(transport=RustTransport(TransportConfig(http2=True, verify_tls=False)))
 
-    # or full httpx control — bring your own configured AsyncClient:
+    # or full httpx control - bring your own configured AsyncClient:
     import httpx
 
     client = httpx.AsyncClient(http2=True, verify=False)
@@ -849,7 +849,7 @@ class PokeAPI(Gracy):
 
 `HttpHeaderRetryAfterBackOffHook` → `RetryAfterBackoff`,
 `RateLimitBackOffHook` → `RateLimitBackoff`. `HookResult` still imports, but
-return values are ignored — pausing goes through the scheduler.
+return values are ignored - pausing goes through the scheduler.
 
 ---
 
@@ -870,7 +870,7 @@ data = resp.json()
 
 **What works as-is:** `get/post/put/patch/delete/head/options/request`;
 `params=`, `headers=`, `json=`, `data=` (dict/pairs → form-encoded, str/bytes
-→ raw), `timeout=` (float or `(connect, read)` tuple — collapsed to one
+→ raw), `timeout=` (float or `(connect, read)` tuple - collapsed to one
 budget), basic `auth=(user, password)`; responses with `.status_code`, `.ok`
 (< 400, requests semantics), `.text`, `.content`, `.json()`, case-insensitive
 `.headers`, `.url`, `.elapsed`, `.reason`, `.iter_content()`,
@@ -901,17 +901,17 @@ failures (raised as a `ConnectionError` subclass of it).
    `requests.shutdown()` tears down the shared engine (it lazily rebuilds).
 3. **Declare your hot endpoints** on a `Gracy` subclass (`@get("/pokemon/{name}")
    ... -> dict`) to gain typed signatures, per-endpoint policies, and
-   per-instance reports — while the long tail stays on the compat shim.
+   per-instance reports - while the long tail stays on the compat shim.
 4. **Full client.** Move the remaining calls to `api.request(...)` and drop
    the shim.
 
-**Honest limits** — the adapter deliberately does **not** emulate:
+**Honest limits** - the adapter deliberately does **not** emulate:
 
 - **Streaming**: `stream=True` is ignored; bodies are always fully buffered
   (`iter_content()` just slices the buffered body).
 - **Cookie jar**: no `cookies=` kwarg, no `Session.cookies` persistence
   (set a `Cookie` header manually if you must).
-- **Hooks**: requests' `hooks=` kwarg is ignored — use gracy hooks instead.
+- **Hooks**: requests' `hooks=` kwarg is ignored - use gracy hooks instead.
 - Also ignored (with a `UserWarning` naming the kwarg): `files=`, `proxies=`,
   `verify=`, `cert=`, `allow_redirects=`, and anything else unknown.
   Redirects are always followed (transport default); TLS/proxy settings
@@ -920,7 +920,7 @@ failures (raised as a `ConnectionError` subclass of it).
   auth objects raise `TypeError`.
 - Only **absolute** `http(s)://` URLs.
 - Transport failures raise gracy-flavored exceptions (`ConnectionError` /
-  `GracyRequestFailed`), not `requests.exceptions.*` classes — catch the
+  `GracyRequestFailed`), not `requests.exceptions.*` classes - catch the
   shim's `RequestException` or plain `Exception`.
 
 ## Coming from httpx
@@ -964,7 +964,7 @@ def sync_usage() -> None:
         data = client.get("/pokemon/mew").json()
 ```
 
-**Testing with an injected transport** — where you used
+**Testing with an injected transport** - where you used
 `httpx.MockTransport`, inject a gracy transport (the compat clients accept
 `transport=`, same as `Gracy(...)`):
 
@@ -982,10 +982,10 @@ async def test_mew() -> None:
         assert transport.calls[0].method == "GET"
 ```
 
-(respx / pytest-httpx keep working too — inject
+(respx / pytest-httpx keep working too - inject
 `gracy.HttpxTransport()` so requests go through a real httpx client.)
 
-**Honest limits:** no streaming API (`client.stream(...)`, `aiter_bytes`) —
+**Honest limits:** no streaming API (`client.stream(...)`, `aiter_bytes`) -
 bodies are buffered; no cookie jar; no `auth=` flows; no event hooks
 (`event_hooks=`); no `follow_redirects=` per call (transport-level default);
 the response object is the subset shown above (no `.request`, no
@@ -1028,7 +1028,7 @@ a silent fallback. Check what you're on with `gracy.engine_version()` /
 **How do forks / prefork servers (gunicorn, celery) work?**
 Build clients **per worker, after the fork**. An *unstarted* client
 (constructed but not built) holds no runtime state and is fork-safe by
-construction — module-level instances are fine as long as `build()` happens
+construction - module-level instances are fine as long as `build()` happens
 in the worker. A client built *before* the fork is poisoned in the child and
 raises `GracyForkedClientError` on use (and using a client from a different
 event loop raises `GracyWrongLoopError`). Typical pattern: create the client
@@ -1037,7 +1037,7 @@ in the worker's startup hook (`post_fork`, FastAPI `lifespan`, celery
 
 **Which wheels ship? What about PyPy?**
 Prebuilt wheels cover CPython 3.10+ (abi3) on the mainstream platforms
-(Linux x86_64/aarch64, macOS, Windows). Anything else — PyPy included —
+(Linux x86_64/aarch64, macOS, Windows). Anything else - PyPy included -
 installs from the **sdist, which compiles the Rust core and therefore needs a
 Rust toolchain** (`rustup` + a C linker; the build runs via maturin
 automatically under pip). If building the extension isn't an option, the
@@ -1046,5 +1046,5 @@ sdist's pure-Python fallback path plus `GRACY_ENGINE=python` and
 
 **Is there a v1 compatibility shim?**
 `gracy.v1compat` maps `GracyConfig(parser=...)` / `@graceful` onto the new
-plan with deprecation warnings — it exists only for the alpha/beta cycle to
+plan with deprecation warnings - it exists only for the alpha/beta cycle to
 ease incremental migration and will be removed for the 2.0.0 final.

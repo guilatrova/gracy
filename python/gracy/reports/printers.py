@@ -2,7 +2,7 @@
 mutates it (v1 printers appended the TOTAL row into the report's own list, so
 printing twice duplicated rows).
 
-rich / plotly are optional extras — imported lazily with instructive errors.
+rich / plotly are optional extras - imported lazily with instructive errors.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def _cells(row: GracyRequestRow) -> tuple[str, ...]:
 
 
 def _all_rows(report: GracyReport) -> tuple[GracyRequestRow, ...]:
-    """NEW tuple with TOTAL appended — report.rows is never touched."""
+    """NEW tuple with TOTAL appended - report.rows is never touched."""
     return (*report.rows, report.total_row)
 
 
@@ -141,7 +141,7 @@ def print_rich(report: GracyReport) -> None:
     for column_title in _COLUMN_TITLES[1:]:
         table.add_column(column_title, justify="right")
 
-    # A NEW list of renderables — report.rows is never appended to or reordered.
+    # A NEW list of renderables - report.rows is never appended to or reordered.
     renderables: list[tuple[str, ...]] = [_cells(row) for row in report.rows]
     for cells in renderables:
         table.add_row(*cells)

@@ -1,7 +1,7 @@
 """The Gracy client: declarative class surface + explicit lifecycle + sync facade.
 
 Lifecycle (V2_PLAN.md §8):
-  * ``__init__`` stores arguments only — an unstarted client owns NO runtime
+  * ``__init__`` stores arguments only - an unstarted client owns NO runtime
     state, so module-level instances are fork-safe by construction.
   * ``await build()`` (or ``async with``) captures the running loop + pid,
     collects endpoint specs, compiles the plan once, and starts the
@@ -11,7 +11,7 @@ Lifecycle (V2_PLAN.md §8):
     cross-loop use raises GracyWrongLoopError.
   * ``aclose()`` flushes replay storage and closes scheduler + transport.
 
-Namespaces are explicit descriptors (``berry = BerryNamespace()``) — no
+Namespaces are explicit descriptors (``berry = BerryNamespace()``) - no
 annotation scanning, no class-attribute state bleed (V2_PLAN.md §11).
 """
 
@@ -203,10 +203,10 @@ class Gracy:
                 raise GracyConfigError(
                     f"{type(self).__name__} declares a nested `class Config` (v1 style). "
                     "In v2, declare class attributes instead: `base_url = ...`, `timeout = ...`, "
-                    "`config = GracyConfig(...)` — see the v2 migration cookbook."
+                    "`config = GracyConfig(...)` - see the v2 migration cookbook."
                 )
 
-        # Arguments only — NO runtime state (fork-safety: unstarted clients are inert).
+        # Arguments only - NO runtime state (fork-safety: unstarted clients are inert).
         self._replay = replay
         self._injected_transport = transport
         self._injected_scheduler = scheduler
@@ -384,7 +384,7 @@ class Gracy:
     def _check_ready(self) -> None:
         if not self._built or self._closed:
             raise GracyClientClosedError(
-                "Client not started (or already closed) — use 'async with MyClient() as api:' "
+                "Client not started (or already closed) - use 'async with MyClient() as api:' "
                 "or 'await client.build()' before issuing requests"
             )
         if os.getpid() != self._pid:
@@ -530,7 +530,7 @@ class Gracy:
         priority: int = 0,
         timeout: float | None | Unset = UNSET,
     ) -> t.Any:
-        """Ad-hoc escape hatch — full queue/retry/replay treatment without a declared endpoint."""
+        """Ad-hoc escape hatch - full queue/retry/replay treatment without a declared endpoint."""
         self._check_ready()
         assert self._plan is not None and self._pipeline is not None
 
@@ -632,7 +632,7 @@ class Gracy:
         """Blocking facade: ``with MyClient.sync() as api: api.get_pokemon("mew")``.
 
         A daemon thread runs a private event loop hosting the REAL async
-        client — sync and async share 100% of the pipeline, hooks included.
+        client - sync and async share 100% of the pipeline, hooks included.
         """
         return SyncGracy(cls, init_kwargs)
 

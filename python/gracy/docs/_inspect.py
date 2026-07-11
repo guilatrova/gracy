@@ -1,7 +1,7 @@
 """STATIC introspection of a Gracy subclass into the doc model.
 
-Mirrors Gracy._collect_specs() — walk the MRO for EndpointMethod descriptors
-and GracyNamespace instances — but works from the CLASS alone: nothing is
+Mirrors Gracy._collect_specs() - walk the MRO for EndpointMethod descriptors
+and GracyNamespace instances - but works from the CLASS alone: nothing is
 instantiated, no scheduler/transport/monitor is ever started.
 """
 
@@ -104,7 +104,7 @@ def split_optional(tp: t.Any) -> tuple[t.Any, bool]:
 
 
 def json_schema_for(tp: t.Any, ref_template: str | None = None) -> dict[str, t.Any] | None:
-    """JSON schema via pydantic (model_json_schema / TypeAdapter) — lazy and optional.
+    """JSON schema via pydantic (model_json_schema / TypeAdapter) - lazy and optional.
 
     Returns None when pydantic is not importable or the type is not adaptable.
     """
@@ -313,7 +313,7 @@ def collect(cls: type[Gracy]) -> tuple[ApiDoc, SpecIndex]:
     """Walk the class (never an instance) into (ApiDoc, spec index).
 
     Exactly mirrors Gracy._collect_specs()'s MRO walk, so the docs always match
-    what build() would compile — without starting anything.
+    what build() would compile - without starting anything.
     """
     from gracy import __version__
     from gracy.client import GracyNamespace  # runtime isinstance check

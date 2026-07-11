@@ -234,7 +234,7 @@ async def test_after_receives_wrapped_failure_consistently_across_retries():
 
     assert result == {"ok": True}
     assert calls["n"] == 3
-    # Every failed attempt hands after() the SAME wrapper type — never the raw exc.
+    # Every failed attempt hands after() the SAME wrapper type - never the raw exc.
     assert [type(r) for r in results] == [GracyRequestFailed, GracyRequestFailed, Response]
     for wrapped in results[:2]:
         assert isinstance(wrapped.original_exc, ConnectionError)

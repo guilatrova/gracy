@@ -1,4 +1,4 @@
-"""gracy.compat httpx adapter — duck-typed httpx clients over the gracy pipeline.
+"""gracy.compat httpx adapter - duck-typed httpx clients over the gracy pipeline.
 
 One-line swap::
 
@@ -10,15 +10,15 @@ One-line swap::
         data = resp.json()
 
 Every request runs through the FULL gracy pipeline (queue, throttle, retry,
-metrics, replay) — pass ``config=GracyConfig(...)`` to the client constructor
+metrics, replay) - pass ``config=GracyConfig(...)`` to the client constructor
 to enable policies (the httpx idiom: configuration lives on the client).
 
 Semantics follow httpx, not gracy: non-2xx responses are RETURNED, not
-raised — call :meth:`CompatResponse.raise_for_status` to get an
+raised - call :meth:`CompatResponse.raise_for_status` to get an
 :class:`HTTPStatusError`. Transport failures (timeouts, connect errors)
 still raise ``gracy.GracyRequestFailed``.
 
-Pure sugar over the public Gracy API — no pipeline forks (V2_PLAN.md §16.1).
+Pure sugar over the public Gracy API - no pipeline forks (V2_PLAN.md §16.1).
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ class HTTPStatusError(GracyException):
     """httpx-shaped error raised by :meth:`CompatResponse.raise_for_status`.
 
     Carries ``.response`` (the :class:`CompatResponse`) and ``.request``
-    (always ``None`` here — gracy does not expose a request object, but the
+    (always ``None`` here - gracy does not expose a request object, but the
     attribute exists so httpx-style handlers keep working).
     """
 
@@ -195,7 +195,7 @@ class AsyncClient:
     async def __aenter__(self) -> AsyncClient:
         if self._gracy is None:
             client = Gracy(transport=self._transport)
-            # Instance attributes shadow Gracy's declarative class attrs —
+            # Instance attributes shadow Gracy's declarative class attrs -
             # build() reads self.base_url / self.config, so no subclass needed.
             client.base_url = self._base_url
             base = GracyConfig(log_errors=None)  # httpx never logs; errors are return values
@@ -230,7 +230,7 @@ class AsyncClient:
     ) -> CompatResponse:
         if self._gracy is None:
             raise GracyClientClosedError(
-                "AsyncClient not started — use 'async with AsyncClient(...) as client:'"
+                "AsyncClient not started - use 'async with AsyncClient(...) as client:'"
             )
 
         merged_params: dict[str, _QueryValue] = {**self._params, **dict(params or {})}
@@ -260,7 +260,7 @@ class AsyncClient:
                 timeout=call_timeout,
             )
         except GracyResponseError as exc:
-            # httpx semantics: non-2xx is a RESPONSE, not an exception —
+            # httpx semantics: non-2xx is a RESPONSE, not an exception -
             # unwrap gracy's status-policy failure back into a response.
             if exc.response is None:
                 raise

@@ -35,7 +35,7 @@ class GracyQueueFull(GracyException):
 class GracyRequestFailed(GracyException):
     """Transport-level failure (connect error, timeout, ...). Wraps the original exception.
 
-    Hooks and `retry.on` matching ALWAYS see this wrapper — consistently, on
+    Hooks and `retry.on` matching ALWAYS see this wrapper - consistently, on
     every attempt (v1 mixed raw and wrapped exceptions between attempts).
     """
 

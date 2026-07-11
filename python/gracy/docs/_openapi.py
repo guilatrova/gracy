@@ -168,7 +168,7 @@ def build_openapi(cls: type[Gracy]) -> dict[str, t.Any]:
             method = endpoint.http_method.lower()
             path_key = endpoint.path
             if method in paths.get(path_key, {}):
-                # Two endpoints share (path, method) — OpenAPI cannot express that,
+                # Two endpoints share (path, method) - OpenAPI cannot express that,
                 # so the later one gets a disambiguated key instead of vanishing.
                 path_key = f"{endpoint.path}#{op['operationId']}"
             paths.setdefault(path_key, {})[method] = op

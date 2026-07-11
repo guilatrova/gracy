@@ -1,4 +1,4 @@
-"""Gracy 2.0 end-to-end example — live PokeAPI, Rust engine.
+"""Gracy 2.0 end-to-end example - live PokeAPI, Rust engine.
 
 Run: python examples/v2_pokeapi.py
 Shows: typed endpoints, 404 -> None parsing, retry, exact sliding-window

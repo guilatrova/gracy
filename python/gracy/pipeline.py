@@ -1,6 +1,6 @@
-"""The per-request orchestrator — pure Python, the executable spec.
+"""The per-request orchestrator - pure Python, the executable spec.
 
-Per-attempt order (V2_PLAN.md §6.4 — hooks run BEFORE admission):
+Per-attempt order (V2_PLAN.md §6.4 - hooks run BEFORE admission):
 
     before hooks -> replay check -> admission (queue: throttle+concurrency)
     -> transport send -> record (if recording) -> after hooks -> metrics/logs
@@ -179,7 +179,7 @@ class Pipeline:
     ) -> tuple[Response | None, Exception | None]:
         """Runs attempts + validation + retry loop. Returns (response, unresolved_exc).
 
-        Decoding/parsing is the caller's job (parsing.py) — it needs the
+        Decoding/parsing is the caller's job (parsing.py) - it needs the
         endpoint's return annotation, which the pipeline doesn't know about.
         """
         self.log_emit("request", config, context)

@@ -1,7 +1,7 @@
 """Compile-once plan: config chain resolved at build() into plain data.
 
 The scheduler (Python or Rust) receives SCHEDULER-side data as a JSON-able
-dict — this shape is the FFI contract with crates/gracy-core/src/plan.rs:
+dict - this shape is the FFI contract with crates/gracy-core/src/plan.rs:
 
 {
   "throttle": {
@@ -16,7 +16,7 @@ dict — this shape is the FFI contract with crates/gracy-core/src/plan.rs:
 }
 
 POLICY-side data (retry, validators, parsing, hooks, logging) never crosses
-the FFI — it stays on CompiledRoute / CompiledPlan for pipeline.py.
+the FFI - it stays on CompiledRoute / CompiledPlan for pipeline.py.
 """
 
 from __future__ import annotations

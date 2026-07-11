@@ -1,4 +1,4 @@
-"""Typing showcase — what your IDE sees when you use Gracy 2.0.
+"""Typing showcase - what your IDE sees when you use Gracy 2.0.
 
 Run the types:   pyright examples/v2_typing_showcase.py
 Run for real:    python examples/v2_typing_showcase.py
@@ -79,11 +79,11 @@ class PokeAPI(Gracy):
 
     berry = BerryNamespace()
 
-    # 404 becomes None — and the return type SAYS so:
+    # 404 becomes None - and the return type SAYS so:
     @get("/pokemon/{name}", on={HTTPStatus.NOT_FOUND: None})
     async def get_pokemon(self, name: Annotated[str, Path]) -> Pokemon | None: ...
 
-    # Or make 404 raise a rich domain exception — type narrows to Pokemon:
+    # Or make 404 raise a rich domain exception - type narrows to Pokemon:
     @get("/pokemon/{name}", on={HTTPStatus.NOT_FOUND: raises(PokemonNotFound)})
     async def get_pokemon_strict(self, name: Annotated[str, Path]) -> Pokemon: ...
 
@@ -106,7 +106,7 @@ async def main() -> None:
             print(f"{mew.name} weighs {mew.weight}")
 
         strict = await api.get_pokemon_strict("pikachu")
-        reveal_type(strict)  # ── pyright: Pokemon — no None to handle
+        reveal_type(strict)  # ── pyright: Pokemon - no None to handle
         print(strict.id, strict.name)
 
         page = await api.list_pokemon(limit=5)

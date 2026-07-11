@@ -56,7 +56,7 @@ async def _do_request(session: ExploreSession, cmd: Command) -> Outcome:
     hints: list[str] = []
     if result.template_proposal:
         hints.append(
-            f"✨ one segment differs from an existing endpoint — template proposal: "
+            f"✨ one segment differs from an existing endpoint - template proposal: "
             f"{result.template_proposal} (run `name <endpoint>` to fold it in)"
         )
     hints.extend(f"✨ {line}" for line in result.model_drift)
@@ -66,7 +66,7 @@ async def _do_request(session: ExploreSession, cmd: Command) -> Outcome:
     status = str(result.status) if result.status is not None else "ERROR"
     human = f"{result.method} {result.url} -> {status} ({result.elapsed_ms:.1f} ms)"
     if result.error:
-        human += f" — {result.error}"
+        human += f" - {result.error}"
     return Outcome("request", asdict(result), human, step=result, hints=hints)
 
 
@@ -84,7 +84,7 @@ async def _do_name(session: ExploreSession, cmd: Command) -> Outcome:
     params = session.endpoints()[cmd.name]["params"]
     if params:
         listed = ", ".join(f"{{{p['name']}}} (segment {p['index']})" for p in params)
-        hints.append(f"✨ params: {listed} — rename with `param <index> as <name>`")
+        hints.append(f"✨ params: {listed} - rename with `param <index> as <name>`")
     return Outcome(
         "name",
         {"ok": True, "endpoint": cmd.name, "template": template},
@@ -145,7 +145,7 @@ async def _do_show(session: ExploreSession, cmd: Command) -> Outcome:
     if cmd.target == "last":
         history = session.history()
         if not history:
-            raise ValueError("no steps yet — run a request first")
+            raise ValueError("no steps yet - run a request first")
         last = history[-1]
         step = StepResult(**last)
         status = str(step.status) if step.status is not None else "ERROR"
@@ -226,7 +226,7 @@ def _make_console() -> t.Any:
         from rich.console import Console
     except ImportError:  # pragma: no cover - venvs in this repo have rich
         raise RuntimeError(
-            "gracy explore needs the optional 'rich' package — install it with: pip install 'gracy[rich]'"
+            "gracy explore needs the optional 'rich' package - install it with: pip install 'gracy[rich]'"
         ) from None
     console = Console()
     if not console.is_terminal:  # stable layout for pipes / tests
@@ -310,8 +310,8 @@ async def run_repl(session: ExploreSession) -> int:
     if is_tty:
         _setup_readline()
 
-    console.print(f"[bold]gracy explorer[/bold] — session [cyan]{session.session_path}[/cyan]")
-    base = session.base_url or "(not set — `base <url>`)"
+    console.print(f"[bold]gracy explorer[/bold] - session [cyan]{session.session_path}[/cyan]")
+    base = session.base_url or "(not set - `base <url>`)"
     console.print(f"base_url: [cyan]{base}[/cyan] · type [bold]help[/bold] for commands · Ctrl-D or quit to leave")
 
     while True:

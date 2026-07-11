@@ -12,7 +12,7 @@ and all transport semantics live in crates/gracy-core/src/transport.rs
 (mirroring transports.HttpxTransport). This module only translates types and
 error markers across the FFI.
 
-NOTE: this module must not import gracy.transports at module level —
+NOTE: this module must not import gracy.transports at module level -
 transports.py re-exports RustTransport from here (import cycle).
 """
 
@@ -175,7 +175,7 @@ class RustScheduler:
     def stats(self) -> dict[str, t.Any]:
         stats = json.loads(self._core.stats_json())
         # JSON object keys are always strings; PyScheduler.stats() uses the
-        # int rule ids — normalize so both engines report the same shape.
+        # int rule ids - normalize so both engines report the same shape.
         stats["throttle_hits"] = {int(rule_id): count for rule_id, count in stats["throttle_hits"].items()}
         return stats
 
@@ -193,7 +193,7 @@ class RustTransport:
     Construction stores config only; the core client (and the shared tokio
     runtime) is built lazily in ``start()`` so unstarted clients stay
     fork-safe. Transport errors propagate RAW (TimeoutError / ConnectionError /
-    ValueError / RuntimeError from the bindings) — the pipeline is the single
+    ValueError / RuntimeError from the bindings) - the pipeline is the single
     point that wraps them into GracyRequestFailed.
     """
 

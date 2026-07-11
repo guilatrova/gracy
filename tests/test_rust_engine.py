@@ -232,7 +232,7 @@ async def test_permit_double_release_does_not_leak_capacity():
 
     first = await asyncio.wait_for(sched.submit(UURL, url), 15)
     first.release()
-    first.release()  # idempotent — must NOT free a second slot
+    first.release()  # idempotent - must NOT free a second slot
     assert sched.stats()["in_flight"] == 0
 
     second = await asyncio.wait_for(sched.submit(UURL, url), 15)
@@ -390,7 +390,7 @@ async def test_transport_connect_refused_raises_raw():
     await transport.start()
     try:
         with pytest.raises(ConnectionError):
-            # 127.0.0.1:9 (discard) — nothing listens there in CI or locally
+            # 127.0.0.1:9 (discard) - nothing listens there in CI or locally
             await transport.send(_spec("GET", "http://127.0.0.1:9/nope", timeout=5.0))
     finally:
         await transport.aclose()

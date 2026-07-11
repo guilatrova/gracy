@@ -6,7 +6,7 @@ scrub-before-hash-and-record invariant, discard_older_than (v1 str-vs-datetime
 TypeError regression) and discard_bad_responses freshness rules, strict-miss
 errors, MemoryStorage roundtrips, counters, and flush-on-aclose.
 
-Everything runs against gracy.testing.MockTransport — no real server needed.
+Everything runs against gracy.testing.MockTransport - no real server needed.
 """
 
 from __future__ import annotations
@@ -321,7 +321,7 @@ async def test_discard_bad_responses_makes_smart_replay_refetch(tmp_path):
 
 
 async def test_strict_replay_miss_raises_and_never_hits_transport(tmp_path):
-    transport = ok_transport()  # could serve the request — must never be asked to
+    transport = ok_transport()  # could serve the request - must never be asked to
     replay = Replay(mode="replay", storage=SqliteStorage(tmp_path / "empty.db"))
     async with Api(replay=replay, transport=transport) as api:
         with pytest.raises(GracyReplayRequestNotFound):

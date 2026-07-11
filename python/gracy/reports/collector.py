@@ -6,7 +6,7 @@ owns one MetricsCollector; cross-client aggregation is an explicit opt-in
 at the client layer, never an accident here.
 
 The pipeline calls track() once per ATTEMPT (retries included), so `total`
-counts attempts — v1 parity.
+counts attempts - v1 parity.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ class MetricsCollector:
             stats.retries += 1
         if replayed:
             stats.replays += 1
-        # Replayed responses carry recorded (or zero) latency — excluding them
+        # Replayed responses carry recorded (or zero) latency - excluding them
         # keeps the latency columns about the live wire only.
         if context.elapsed is not None and not replayed:
             stats.latencies.append(context.elapsed)

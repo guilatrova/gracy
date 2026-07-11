@@ -1,4 +1,4 @@
-"""``gracy`` — the umbrella CLI.
+"""``gracy`` - the umbrella CLI.
 
     gracy explore [BASE_URL] [--session f.json]  interactive API explorer
     gracy x '<command>' [--session f.json] [--base URL] [--json]
@@ -79,7 +79,7 @@ def _cmd_interactive(argv: list[str]) -> int:
         import rich  # noqa: F401
     except ImportError:
         print(
-            "gracy explore needs the optional 'rich' package — install it with: pip install 'gracy[rich]'",
+            "gracy explore needs the optional 'rich' package - install it with: pip install 'gracy[rich]'",
             file=sys.stderr,
         )
         return 1

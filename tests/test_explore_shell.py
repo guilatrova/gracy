@@ -1,4 +1,4 @@
-"""gracy explorer shell tests — command parser, `gracy x` one-shot mode, REPL, umbrella CLI."""
+"""gracy explorer shell tests - command parser, `gracy x` one-shot mode, REPL, umbrella CLI."""
 
 from __future__ import annotations
 
@@ -284,7 +284,7 @@ def test_x_show_history_json(test_server: str, tmp_path: Path) -> None:
 
 
 # ===========================================================================
-# REPL (piped stdin — the non-tty path)
+# REPL (piped stdin - the non-tty path)
 # ===========================================================================
 
 

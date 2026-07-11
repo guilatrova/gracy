@@ -1,4 +1,4 @@
-"""Gracy 2.0 — Python's most graceful API Client Framework, Rust-powered."""
+"""Gracy 2.0 - Python's most graceful API Client Framework, Rust-powered."""
 
 from __future__ import annotations
 

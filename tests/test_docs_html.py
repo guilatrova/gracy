@@ -278,7 +278,7 @@ class TestCli:
         assert reread.returncode == 0, reread.stderr
         page = reread.stdout
         assert page.startswith("<!doctype html>")
-        assert "<title>PokeAPI — API docs</title>" in page
+        assert "<title>PokeAPI - API docs</title>" in page
         assert "/pokemon/{name}" in page
 
     def test_html_stdout(self):

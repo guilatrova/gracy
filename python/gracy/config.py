@@ -201,7 +201,7 @@ class Queue:
     """Queue admission knobs.
 
     There is NO cap on how many requests a caller may have outstanding: with
-    the default ``on_full="wait"`` a submit never fails — gracy manages the
+    the default ``on_full="wait"`` a submit never fails - gracy manages the
     backlog. ``max_pending`` only bounds how many submits actively contend on
     the throttle/concurrency machinery at once; everything beyond it parks as
     a tiny priority-heap entry (no timers, no polling) and is admitted in
@@ -251,7 +251,7 @@ class Raises:
 
 
 def raises(exc: type[BaseException]) -> Raises:
-    """on={404: raises(NotFoundError)} — raise this exception for the status."""
+    """on={404: raises(NotFoundError)} - raise this exception for the status."""
     if not (isinstance(exc, type) and issubclass(exc, BaseException)):
         raise GracyConfigError(f"raises() expects an exception class, got {exc!r}")
     return Raises(exc)
@@ -268,7 +268,7 @@ def validate_on_map(on: OnMap) -> None:
             raise GracyConfigError(f"on= keys must be int status codes or 'default', got {key!r}")
         if isinstance(action, type) and issubclass(action, BaseException):
             raise GracyConfigError(
-                f"on={{{key}: {action.__name__}}} — bare exception classes are not allowed in v2; "
+                f"on={{{key}: {action.__name__}}} - bare exception classes are not allowed in v2; "
                 f"use raises({action.__name__})"
             )
 

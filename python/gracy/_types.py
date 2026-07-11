@@ -39,13 +39,13 @@ def pick(*values: Any, default: Any = None) -> Any:
 class RequestSpec:
     """Everything needed to send AND replay-match one HTTP request.
 
-    The SAME object drives the live request and the replay match hash —
+    The SAME object drives the live request and the replay match hash -
     the v1 whitelist-divergence bug class cannot exist here.
     """
 
     method: str
     url: str  # final, absolute, formatted URL
-    uurl: str  # unformatted template, e.g. "https://api/pokemon/{NAME}" — throttle/metrics key
+    uurl: str  # unformatted template, e.g. "https://api/pokemon/{NAME}" - throttle/metrics key
     headers: tuple[tuple[str, str], ...] = ()
     content: bytes | None = None
     timeout: float | None = None  # seconds; None = no timeout (explicit opt-out)

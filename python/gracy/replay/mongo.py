@@ -1,5 +1,5 @@
 """MongoDB cassette storage (schema v2, no pickle). pymongo is imported lazily
-in ``prepare()`` — install with ``pip install gracy[mongo]``.
+in ``prepare()`` - install with ``pip install gracy[mongo]``.
 
 Documents mirror the SQLite v2 columns (bytes become BSON Binary automatically):
 match_hash, method, url, request_headers_json, request_body, status,
@@ -35,7 +35,7 @@ class MongoReplayStorage:
     """Cassette storage on MongoDB. All pymongo calls run in ``asyncio.to_thread``.
 
     ``batch_size > 0`` buffers writes as ReplaceOne upserts (under a lock) and
-    flushes via ``bulk_write`` once the buffer reaches ``batch_size`` — and
+    flushes via ``bulk_write`` once the buffer reaches ``batch_size`` - and
     always on ``flush()``, which ``Gracy.aclose()`` guarantees to await, so
     batched recordings are never lost (v1 bug #12).
     """

@@ -1,4 +1,4 @@
-"""``gracy.compat.requests`` — a sync drop-in duck-type of the ``requests`` API.
+"""``gracy.compat.requests`` - a sync drop-in duck-type of the ``requests`` API.
 
 The one-line swap::
 
@@ -16,7 +16,7 @@ Differences from real ``requests`` (kept deliberately small):
 
 * Only absolute ``http(s)://`` URLs are supported.
 * Transport failures (timeouts, connect errors) raise
-  :class:`gracy.exceptions.GracyRequestFailed` — catch ``rq.RequestException``
+  :class:`gracy.exceptions.GracyRequestFailed` - catch ``rq.RequestException``
   (or plain ``Exception``); ``raise_for_status()`` raises :class:`HTTPError`
   exactly like requests.
 * Unsupported keyword arguments are ignored with a ``UserWarning``.
@@ -199,7 +199,7 @@ class CompatResponse:
 
 # Requests semantics baked into the shared client:
 #  * status_policy stays at the library default (2xx validation) so Retry(on=
-#    status(...)) keeps firing — the pipeline only retries on validation errors.
+#    status(...)) keeps firing - the pipeline only retries on validation errors.
 #  * on={"default": identity} then swallows the validation error at decode time
 #    and hands back the raw Response for EVERY status: non-2xx never raises,
 #    only raise_for_status() does. Transport failures still raise (no response).
@@ -362,7 +362,7 @@ def _do_request(
         )
     if not url.lower().startswith(("http://", "https://")):
         raise ValueError(
-            f"gracy.compat.requests only supports absolute URLs, got {url!r} — "
+            f"gracy.compat.requests only supports absolute URLs, got {url!r} - "
             "include the scheme, e.g. 'https://api.example.com/path'"
         )
 
@@ -385,7 +385,7 @@ def _do_request(
         )
     except GracyResponseError as exc:
         # Only reachable when a user configure() overrode the compat on= map:
-        # keep requests semantics — a completed response never raises here.
+        # keep requests semantics - a completed response never raises here.
         if exc.response is None:
             raise
         response = exc.response
@@ -436,7 +436,7 @@ def options(url: str, **kwargs: t.Any) -> CompatResponse:
 class Session:
     """requests-shaped session: persistent headers over the shared engine.
 
-    ``close()`` only drops this session's state — the module-level engine is
+    ``close()`` only drops this session's state - the module-level engine is
     shared and stays alive for other callers (use :func:`shutdown` for that).
     """
 

@@ -52,19 +52,19 @@ F = t.TypeVar("F", bound=t.Callable[..., t.Any])
 
 
 class Path:
-    """Annotated[str, Path] — value fills a {placeholder} in the endpoint path."""
+    """Annotated[str, Path] - value fills a {placeholder} in the endpoint path."""
 
 
 class Query:
-    """Annotated[str, Query] — value becomes a query-string parameter."""
+    """Annotated[str, Query] - value becomes a query-string parameter."""
 
 
 class Header:
-    """Annotated[str, Header] — value becomes a request header."""
+    """Annotated[str, Header] - value becomes a request header."""
 
 
 class Body:
-    """Annotated[dict, Body] — value becomes the request body (always explicit)."""
+    """Annotated[dict, Body] - value becomes the request body (always explicit)."""
 
 
 _MARKER_KINDS: dict[type, ParamKind] = {Path: "path", Query: "query", Header: "header", Body: "body"}
@@ -157,7 +157,7 @@ def append_query(url: str, params: t.Mapping[str, t.Any]) -> str:
 
 
 class EndpointMethod:
-    """Descriptor produced by @get/@post/... — turns a `...` stub into a real call.
+    """Descriptor produced by @get/@post/... - turns a `...` stub into a real call.
 
     Class access returns the descriptor itself (client.build() scans for these);
     instance access returns a bound async callable that routes through
@@ -185,7 +185,7 @@ class EndpointMethod:
         self.attr_name = name
 
     def make_spec(self, name: str) -> EndpointSpec:
-        """Resolve type hints NOW (build-time — forward refs work) and parse params."""
+        """Resolve type hints NOW (build-time - forward refs work) and parse params."""
         hints = t.get_type_hints(self.func, include_extras=True)
         placeholders = {p.lower() for p in _PLACEHOLDER_RE.findall(self.path)}
         params: list[ParamSpec] = []

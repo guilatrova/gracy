@@ -1,4 +1,4 @@
-"""ExploreSession — the `gracy explore` engine (no REPL in here).
+"""ExploreSession - the `gracy explore` engine (no REPL in here).
 
 Every request runs through a real, lazily-built internal :class:`gracy.Gracy`
 client, so retry/throttle/timeout policies behave exactly like production.
@@ -61,7 +61,7 @@ def _referenced_env_values(*pieces: t.Any) -> set[str]:
     """The concrete os.environ VALUES a request's unresolved strings reference.
 
     Used to scrub secrets a server ECHOES back: the request stores placeholders,
-    but the response may contain the resolved value verbatim — redact it before
+    but the response may contain the resolved value verbatim - redact it before
     the response ever touches disk (recordings are git-committable)."""
     values: set[str] = set()
 
@@ -429,7 +429,7 @@ class ExploreSession:
             query = merged
 
         if not path.lower().startswith(("http://", "https://")) and not self._data.get("base_url"):
-            raise ValueError("No base_url set — use set_policy(base_url=...) or pass an absolute URL")
+            raise ValueError("No base_url set - use set_policy(base_url=...) or pass an absolute URL")
 
         # -- resolved (wire) values vs unresolved (persisted) values
         resolved_query = {k: resolve_env(str(v)) for k, v in (query or {}).items()}
@@ -498,10 +498,10 @@ class ExploreSession:
             step["error"] = error
         if response is not None:
             step["response_headers"] = [list(kv) for kv in response.headers]
-            # A server may echo a resolved secret back — redact any env value the
+            # A server may echo a resolved secret back - redact any env value the
             # request referenced before the response touches disk.
             secrets = _referenced_env_values(headers, query, body, body_json, self._policy_headers(resolve=False))
-            # Store the parsed JSON in full (never truncated) — model inference
+            # Store the parsed JSON in full (never truncated) - model inference
             # and the replay cassette both rely on it being valid. The raw b64
             # blob is only a capped fallback for non-JSON bodies.
             try:
@@ -698,7 +698,7 @@ class ExploreSession:
         for step in reversed(self._data["steps"]):
             if step.get("endpoint"):
                 return t.cast(str, step["endpoint"])
-        raise ValueError("No named endpoint yet — run name_endpoint() first")
+        raise ValueError("No named endpoint yet - run name_endpoint() first")
 
     # ------------------------------------------------------------------ endpoint metadata
 

@@ -1,4 +1,4 @@
-"""gracy.compat.requests — the sync drop-in duck-type of the requests library.
+"""gracy.compat.requests - the sync drop-in duck-type of the requests library.
 
 Exercised against the conftest test_server:
   GET  /echo/{x}       -> {"path", "query", "headers"}

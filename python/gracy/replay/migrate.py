@@ -2,7 +2,7 @@
 
     python -m gracy.replay.migrate OLD.sqlite3 NEW.db --yes-i-trust-this-file
 
-v1 rows store a PICKLED httpx.Response — unpickling EXECUTES code embedded in
+v1 rows store a PICKLED httpx.Response - unpickling EXECUTES code embedded in
 the file, so this tool refuses to run without the explicit trust flag, needs
 httpx importable, and is the ONLY place in gracy v2 that touches pickle.
 """
@@ -27,7 +27,7 @@ _TRUST_WARNING = f"""
 !!  REFUSING TO MIGRATE.
 !!
 !!  Gracy v1 replay databases store PICKLED responses. Unpickling EXECUTES
-!!  ARBITRARY CODE embedded in the file — a malicious .sqlite3 file can take
+!!  ARBITRARY CODE embedded in the file - a malicious .sqlite3 file can take
 !!  over this machine the moment it is loaded.
 !!
 !!  Only migrate databases YOU recorded or fully trust. If you do, re-run with:

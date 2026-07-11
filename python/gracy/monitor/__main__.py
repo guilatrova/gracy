@@ -1,4 +1,4 @@
-"""``python -m gracy.monitor`` — launch the live terminal dashboard."""
+"""``python -m gracy.monitor`` - launch the live terminal dashboard."""
 
 from __future__ import annotations
 

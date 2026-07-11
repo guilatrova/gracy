@@ -1,4 +1,4 @@
-"""The one-line swap — a script written for `requests`, running on gracy.
+"""The one-line swap - a script written for `requests`, running on gracy.
 
 Before:  import requests
 After:   from gracy.compat import requests

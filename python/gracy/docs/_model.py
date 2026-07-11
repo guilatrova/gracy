@@ -1,7 +1,7 @@
 """The doc model: the shared contract between introspection (inspect_api) and
 the emitters (OpenAPI/YAML/JSON on one side, HTML on the other).
 
-Plain frozen dataclasses, stdlib-only. Everything here is already humanized —
+Plain frozen dataclasses, stdlib-only. Everything here is already humanized -
 emitters never need to touch GracyConfig objects again.
 """
 

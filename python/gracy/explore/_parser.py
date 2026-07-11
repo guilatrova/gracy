@@ -5,7 +5,7 @@ httpie-flavoured request pairs:
     k=v         body field (string value)
     k:=v        body field (raw JSON value)
     @file       body from a file (JSON when it parses, raw text otherwise)
-    {inline}    inline JSON body (may be unquoted — braces are matched pre-shlex)
+    {inline}    inline JSON body (may be unquoted - braces are matched pre-shlex)
     -H 'N: v'   request header
 
 Pure parsing (the only I/O is reading an ``@file`` body); every error is a
@@ -120,7 +120,7 @@ def _extract_json_spans(text: str) -> tuple[str, str | None, dict[str, t.Any]]:
 
 
 def _find_json_span(text: str) -> tuple[int, int, str | None] | None:
-    """First unquoted JSON span: (start, end, key) — key None for an inline body."""
+    """First unquoted JSON span: (start, end, key) - key None for an inline body."""
     quote: str | None = None
     for i, ch in enumerate(text):
         if quote is not None:
@@ -290,7 +290,7 @@ def parse_command(line: str) -> Command:
         tokens = shlex.split(stripped)
     except ValueError as exc:
         raise ParseError(f"cannot tokenize command: {exc}") from None
-    if not tokens:  # line was pure inline json — no method
+    if not tokens:  # line was pure inline json - no method
         raise ParseError("empty command; type 'help' for the command list")
     head, rest = tokens[0].lower(), tokens[1:]
 

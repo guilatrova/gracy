@@ -182,7 +182,7 @@ def infer(samples: list[t.Any], name: str) -> InferredModel:
 
 
 def _fingerprint(tp: InferredType) -> t.Any:
-    """Structural (name-free) shape of a type — the dedup key."""
+    """Structural (name-free) shape of a type - the dedup key."""
     if tp.kind == "model":
         assert tp.model is not None
         return ("model", _model_fingerprint(tp.model), tp.optional)

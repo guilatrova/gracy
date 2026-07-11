@@ -1,6 +1,6 @@
 """Monitor publisher: spool-file lifecycle, schema-1 shape, error resilience.
 
-All against MockTransport in a tmp GRACY_MONITOR_DIR — no real network, no
+All against MockTransport in a tmp GRACY_MONITOR_DIR - no real network, no
 shared global spool directory.
 """
 
@@ -184,7 +184,7 @@ async def test_publisher_survives_get_snapshot_errors(spool: Path):
             raise RuntimeError("injected monitor failure")
 
         metrics.monitor_rows = boom  # type: ignore[method-assign]
-        await asyncio.sleep(INTERVAL * 2)  # a few failing ticks — must not crash
+        await asyncio.sleep(INTERVAL * 2)  # a few failing ticks - must not crash
 
         metrics.monitor_rows = original  # type: ignore[method-assign]
         healthy = read_snapshot(spool)["ts"]

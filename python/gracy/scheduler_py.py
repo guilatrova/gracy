@@ -1,4 +1,4 @@
-"""Pure-Python reference Scheduler — the executable spec the Rust engine must match.
+"""Pure-Python reference Scheduler - the executable spec the Rust engine must match.
 
 Implements the ``Scheduler`` protocol from gracy._protocols on top of plain
 asyncio primitives. Kept deliberately readable: differential tests run the
@@ -85,7 +85,7 @@ class _Waiter:
 class PyPermit:
     """Held admission: throttle tokens spent + concurrency slots acquired.
 
-    ``release()`` is idempotent — the pipeline calls it in a finally block.
+    ``release()`` is idempotent - the pipeline calls it in a finally block.
     """
 
     __slots__ = ("_scheduler", "_held", "_released")
@@ -116,7 +116,7 @@ class PyScheduler:
         queue = plan.get("queue", {})
 
         # mode="smooth" (GCRA) is a Rust-side optimization; the reference
-        # implementation treats it exactly like "exact" — same external contract
+        # implementation treats it exactly like "exact" - same external contract
         # ("never more than N grants in any trailing window"), stricter timing.
         self._mode: str = throttle.get("mode", "exact")
         self._throttle_rules = [_ThrottleRule(r) for r in throttle.get("rules", ())]
@@ -153,7 +153,7 @@ class PyScheduler:
 
     async def aclose(self) -> None:
         self._closed = True
-        # Wake everyone parked at the door WITHOUT reserving capacity —
+        # Wake everyone parked at the door WITHOUT reserving capacity -
         # _admit sees reserved=False + closed and raises GracyClientClosedError.
         for _, _, waiter in self._waiters:
             waiter.event.set()
@@ -184,7 +184,7 @@ class PyScheduler:
                         await sem.acquire()
                         held.append(sem)
                 # Pause gate BEFORE throttle: paused requests spend no window
-                # tokens (they hold their concurrency slots — gates are short).
+                # tokens (they hold their concurrency slots - gates are short).
                 await self._pause_gate(uurl)
             if not (no_throttle or (from_hook and not self._throttle_in_hooks)):
                 await self._throttle(uurl, url)
@@ -212,7 +212,7 @@ class PyScheduler:
         try:
             await waiter.event.wait()
         except asyncio.CancelledError:
-            if waiter.reserved:  # capacity was already handed to us — pass it on
+            if waiter.reserved:  # capacity was already handed to us - pass it on
                 self._pending -= 1
                 self._wake_next_waiter()
             else:
@@ -258,7 +258,7 @@ class PyScheduler:
 
     async def _throttle(self, uurl: str, url: str) -> None:
         """Sliding-window wait + reserve. The final check and the reservation
-        happen with NO await in between — atomic under single-threaded asyncio,
+        happen with NO await in between - atomic under single-threaded asyncio,
         so admission can never over-commit a window."""
         matching = [rule for rule in self._throttle_rules if rule.regex.search(url)]
         if not matching:
@@ -276,7 +276,7 @@ class PyScheduler:
                     hit_rules.add(rule.id)
                     self._throttle_hits[rule.id] = self._throttle_hits.get(rule.id, 0) + 1
             if wait <= 0:
-                for rule in matching:  # reserve — no await since the check above
+                for rule in matching:  # reserve - no await since the check above
                     rule.timestamps.append(now)
                 return
             if not counted_uurl:

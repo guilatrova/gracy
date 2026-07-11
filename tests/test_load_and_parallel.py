@@ -51,7 +51,7 @@ async def test_window_history_stays_bounded_after_thousands_of_requests():
 
     rule = scheduler._throttle_rules[0]
     assert len(rule.timestamps) <= limit, (
-        f"window history holds {len(rule.timestamps)} stamps after 3000 requests — "
+        f"window history holds {len(rule.timestamps)} stamps after 3000 requests - "
         f"must stay <= limit ({limit}); v1 grew forever"
     )
     stats = scheduler.stats()
@@ -61,7 +61,7 @@ async def test_window_history_stays_bounded_after_thousands_of_requests():
 @pytest.mark.parametrize("engine", ["python", "rust"])
 async def test_thousands_of_pending_submits_all_complete_and_drain_clean(engine: str):
     """3000 concurrent submits through a throttled lane: everything grants,
-    nothing leaks — pending/in_flight return to zero on both engines."""
+    nothing leaks - pending/in_flight return to zero on both engines."""
     if engine == "rust":
         pytest.importorskip("gracy._core")
         from gracy.engine import RustScheduler
@@ -77,7 +77,7 @@ async def test_thousands_of_pending_submits_all_complete_and_drain_clean(engine:
     stats = scheduler.stats()
     assert stats["pending"] == 0, stats
     assert stats["in_flight"] == 0, stats
-    # 3000 grants at 500/0.05s can't be instantaneous — the throttle really ran.
+    # 3000 grants at 500/0.05s can't be instantaneous - the throttle really ran.
     assert elapsed >= 0.2
     await scheduler.aclose()
 
@@ -85,7 +85,7 @@ async def test_thousands_of_pending_submits_all_complete_and_drain_clean(engine:
 @pytest.mark.parametrize("engine", ["python", "rust"])
 async def test_unlimited_callers_default_never_rejects(engine: str):
     """THE caller-facing guarantee: with the default on_full='wait', callers
-    can have UNLIMITED requests outstanding — gracy manages the backlog.
+    can have UNLIMITED requests outstanding - gracy manages the backlog.
     20,000 concurrent submits through a tiny max_pending=50 admission window:
     zero failures, everything grants, scheduler drains to zero."""
     plan = _plan(limit=5_000, per=0.05, max_pending=50)  # default on_full="wait"
@@ -121,7 +121,7 @@ async def test_load_shedding_with_on_full_raise_protects_memory():
     shed = sum(1 for r in results if isinstance(r, GracyQueueFull))
     assert granted + shed == 300
     assert shed >= 250, f"expected most submits shed, got granted={granted} shed={shed}"
-    # Shedding must be immediate — the 300 gather calls above resolved without
+    # Shedding must be immediate - the 300 gather calls above resolved without
     # waiting for the slow lane to drain (granted few, shed the rest at once).
     await scheduler.aclose()
 

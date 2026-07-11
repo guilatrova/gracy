@@ -25,7 +25,7 @@ from gracy import (
 )
 from gracy.endpoints import append_query, format_url, join_url
 
-# NOTE: no `from __future__ import annotations` here on purpose — gracy resolves
+# NOTE: no `from __future__ import annotations` here on purpose - gracy resolves
 # endpoint annotations via typing.get_type_hints at build() time, and eager
 # annotations let tests annotate with classes defined inside test functions.
 

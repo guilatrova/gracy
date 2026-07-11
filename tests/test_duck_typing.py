@@ -1,5 +1,5 @@
 """THE duck-typing proof: the SAME script body runs against the real library
-and against gracy.compat — only the import line changes.
+and against gracy.compat - only the import line changes.
 
 Each scenario is a plain function written as if for requests/httpx. It is then
 executed twice: once with the genuine library, once with the gracy drop-in,
@@ -31,7 +31,7 @@ def _requests_script(requests: t.Any, base: str) -> dict[str, t.Any]:
 
     try:
         requests.get(f"{base}/status/404", timeout=5).raise_for_status()
-    except Exception as exc:  # requests.HTTPError | gracy HTTPError — duck-typed
+    except Exception as exc:  # requests.HTTPError | gracy HTTPError - duck-typed
         out["raised"] = type(exc).__name__.endswith("HTTPError")
         out["raised_status"] = exc.response.status_code  # type: ignore[attr-defined]
 

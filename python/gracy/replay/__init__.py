@@ -1,4 +1,4 @@
-"""Replay v2 — record/replay HTTP traffic through pickle-free cassette storages.
+"""Replay v2 - record/replay HTTP traffic through pickle-free cassette storages.
 
 Design notes (pragmatic, documented):
 
@@ -8,8 +8,8 @@ Design notes (pragmatic, documented):
 * Storage seam: the :class:`gracy._protocols.ReplayStorage` protocol is
   spec-shaped (``find(spec, discard_before)`` / ``record(spec, response)``) so
   custom storages can match however they like. The storages that ship with
-  gracy additionally expose a keyed API — ``find_by_key(key, discard_before)``
-  and ``record_key(key, spec, response)`` — which :class:`Replay` prefers
+  gracy additionally expose a keyed API - ``find_by_key(key, discard_before)``
+  and ``record_key(key, spec, response)`` - which :class:`Replay` prefers
   (hasattr check) so the hash is computed exactly once, here, with the user's
   ``match_on``/``scrub`` settings. Custom protocol-only storages receive the
   already-scrubbed spec.

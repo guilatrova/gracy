@@ -7,7 +7,7 @@ atomically rewrites a single spool file every ``interval`` seconds:
     {monitor_dir()}/{pid}-{ClientClassName}-{8-hex-id}.json
 
 Writes are atomic (tmp sibling + os.replace) so the viewer never reads a
-torn file. Snapshot/write errors are swallowed and logged — monitoring must
+torn file. Snapshot/write errors are swallowed and logged - monitoring must
 never take the application down. ``aclose()`` writes one final snapshot with
 ``closed: true`` and leaves the file behind for the viewer to reap.
 """
@@ -70,7 +70,7 @@ class MonitorPublisher:
     async def aclose(self) -> None:
         """Cancel the loop and write one final ``closed: true`` snapshot (best effort).
 
-        The spool file is intentionally NOT deleted — the viewer greys out and
+        The spool file is intentionally NOT deleted - the viewer greys out and
         reaps closed files on its own schedule.
         """
         task, self._task = self._task, None
@@ -92,7 +92,7 @@ class MonitorPublisher:
             await asyncio.sleep(self._interval)
 
     def _write_snapshot(self, *, closed: bool) -> None:
-        """Envelope + atomic write. Swallows and logs EVERY error — a broken
+        """Envelope + atomic write. Swallows and logs EVERY error - a broken
         snapshot must never crash the app (or the publish loop)."""
         try:
             body = self._get_snapshot() if self._get_snapshot is not None else {}

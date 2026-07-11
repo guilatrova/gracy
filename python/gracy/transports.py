@@ -2,12 +2,12 @@
 
 Implementations of the `gracy._protocols.Transport` protocol:
 
-- HttpxTransport — full httpx client under the hood (escape hatch, ships in 2.0).
+- HttpxTransport - full httpx client under the hood (escape hatch, ships in 2.0).
   Keeps respx / pytest-httpx / ASGI-transport workflows alive. Swapping the
   transport does NOT bypass the queue: the scheduler permit is granted first,
   then this transport sends.
-- MockTransport — fnmatch-glob pattern -> canned response, for tests.
-- RustTransport — the 2.0 default (reqwest via gracy._core); implemented in
+- MockTransport - fnmatch-glob pattern -> canned response, for tests.
+- RustTransport - the 2.0 default (reqwest via gracy._core); implemented in
   gracy.engine and re-exported here.
 
 Transport failures propagate RAW: the pipeline is the single point that wraps
@@ -63,7 +63,7 @@ class HttpxTransport:
 
     Use this when you need anything reqwest can't give you: custom SSLContext /
     mTLS, unix domain sockets, httpx.Auth flows, ASGI/WSGI transports, or the
-    respx / pytest-httpx mocking ecosystem — inject your own configured
+    respx / pytest-httpx mocking ecosystem - inject your own configured
     AsyncClient via `client=` and gracy will use it (and will NOT close it).
     """
 
@@ -139,7 +139,7 @@ class MockTransport:
     """Pattern -> canned response transport for tests (also exported via gracy.testing).
 
     Keys are fnmatch glob patterns, tried against "METHOD url" first, then
-    against the plain url — first match (insertion order) wins. Values:
+    against the plain url - first match (insertion order) wins. Values:
 
     - dict / list      -> json body, status = default_status
     - (status, body)   -> body is dict (json) | str | bytes

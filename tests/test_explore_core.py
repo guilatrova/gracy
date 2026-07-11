@@ -1,4 +1,4 @@
-"""gracy explore engine tests — inference, live session (real pipeline), codegen."""
+"""gracy explore engine tests - inference, live session (real pipeline), codegen."""
 
 from __future__ import annotations
 
@@ -117,7 +117,7 @@ def test_render_empty_model_and_keyword_field() -> None:
 
 
 # ===========================================================================
-# ExploreSession — live, against the conftest test_server (real pipeline)
+# ExploreSession - live, against the conftest test_server (real pipeline)
 # ===========================================================================
 
 
@@ -389,7 +389,7 @@ async def test_class_preview(make_session: t.Callable[..., ExploreSession]) -> N
 
 
 # ===========================================================================
-# save_code — generated module, models, and replay tests
+# save_code - generated module, models, and replay tests
 # ===========================================================================
 
 

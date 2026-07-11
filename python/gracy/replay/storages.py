@@ -4,7 +4,7 @@ Both expose the keyed API (``find_by_key``/``record_key``) that
 :class:`gracy.replay.Replay` prefers, PLUS the spec-shaped
 :class:`gracy._protocols.ReplayStorage` protocol methods (``find``/``record``)
 so they remain drop-in valid protocol implementations. The protocol methods
-hash with the DEFAULT match dimensions and no scrub (the caller — Replay —
+hash with the DEFAULT match dimensions and no scrub (the caller - Replay -
 already scrubbed the spec on that path); use the keyed API for custom
 ``match_on`` settings.
 """
