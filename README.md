@@ -19,7 +19,7 @@
 
 Gracy handles failures, retries, throttling, parsing, replaying, and reporting for all your HTTP interactions.
 
-**Gracy 2.0 is a Rust-powered rewrite.** 🦀 The hot path — a priority request **queue** with exact sliding-window throttling, the HTTP transport (tokio + reqwest), metrics, and replay storage — now lives in a compiled Rust core. Everything you touch stays plain Python: typed `@get`/`@post` endpoint decorators, hooks, validators, parsers, and config. The queue IS the throttle: no request reaches the wire without a permit, so rate limits, concurrency caps, priorities, and 429-pauses are all one mechanism instead of scattered sleeps.
+**Gracy is Rust-powered.** 🦀 The hot path — a priority request **queue** with exact sliding-window throttling, the HTTP transport (tokio + reqwest), metrics, and replay storage — runs in a compiled Rust core. Everything you touch stays plain Python: typed `@get`/`@post` endpoint decorators, hooks, validators, parsers, and config. The queue IS the throttle: no request reaches the wire without a permit, so rate limits, concurrency caps, priorities, and 429-pauses are one mechanism, not scattered sleeps.
 
 > "Let Gracy do the boring stuff while you focus on your application"
 
@@ -251,7 +251,7 @@ class PokeAPI(Gracy):
     async def maybe(self, name: Annotated[str, Path]) -> dict | None: ...
 ```
 
-Combining strict + allow is a build-time error (v1 silently picked one 🫠).
+Combining strict + allow is a build-time error, so you never silently get one policy when you meant the other.
 
 ### Per-status actions: on= and raises()
 
@@ -340,7 +340,7 @@ Peek inside anytime with `api.queue_stats()` — pending, in-flight, throttle hi
 
 ### Priorities & scoped overrides
 
-Per-call knobs live on `api.request()` (the ad-hoc escape hatch — v1 `BaseEndpoint` enums still work here) and `api.options()`:
+Per-call knobs live on `api.request()` (the ad-hoc escape hatch) and `api.options()`:
 
 ```py
 # jump the queue for an urgent call
@@ -349,7 +349,7 @@ page = await api.request(
     decode_as=Pokemon, priority=10,
 )
 
-# scoped override — replaces v1's @graceful; applies to nested calls too
+# scoped override — applies to nested calls too
 async with api.options(retry=None, on={404: None}):
     await api.get_pokemon("missingno")
 ```
@@ -381,7 +381,7 @@ class PokeAPI(Gracy):
         ...  # exceptions arrive consistently GracyRequestFailed-wrapped
 ```
 
-`RetryAfterBackoff` (and `RateLimitBackoff`, its fixed-delay sibling) drive **scheduler pause gates**: a 429 with `Retry-After` genuinely pauses admission for the endpoint (or whole client) — including retries already in flight. Requests issued *inside* hooks skip hooks and semaphores by default, so the v1 hook-deadlock class is gone.
+`RetryAfterBackoff` (and `RateLimitBackoff`, its fixed-delay sibling) drive **scheduler pause gates**: a 429 with `Retry-After` genuinely pauses admission for the endpoint (or whole client) — including retries already in flight. Requests issued *inside* hooks skip hooks and semaphores by default, so a hook that issues its own request can never deadlock behind the lane it's trying to heal.
 
 ### Validators
 
@@ -434,7 +434,7 @@ async with PokeAPI(replay=replay) as api:
     await api.get_pokemon("mew")             # served from storage, zero network
 ```
 
-Replay hits never spend throttle tokens, and parsers/retries/validators run as usual. MongoDB storage ships too (`pip install gracy[mongo]`). Got a v1 replay DB? Migrate it once: `python -m gracy.replay.migrate old.sqlite3 new.db`.
+Replay hits never spend throttle tokens, and parsers/retries/validators run as usual. Recordings are a plain, pickle-free SQLite schema you can inspect with any client. MongoDB storage ships too (`pip install gracy[mongo]`).
 
 ### Reports
 
@@ -545,7 +545,7 @@ class PokeAPI(Gracy):
         return GracyOffsetPaginator[dict](
             gracy_func=self.list_pokemon,
             has_next=lambda r: True if r is None else bool(r["next"]),
-            page_size=limit,  # honored now — v1 hardcoded 20 🙈
+            page_size=limit,
         )
 
 async with PokeAPI() as api:
@@ -631,9 +631,8 @@ Design deep-dive: [V2_PLAN.md](./V2_PLAN.md).
 
 ## 🚚 Migrating
 
-- **From Gracy v1:** see [MIGRATING.md](./MIGRATING.md) — a before/after cookbook for every breaking change (`class Config` → class attributes, `parser=` → `on=`, `@graceful` → decorator kwargs + `options()`, replay DB migration, and more).
 - **From requests/httpx:** start with [the one-line drop-in](#-one-line-drop-in), then graduate to declared endpoints at your own pace.
-- **v1 docs:** the v1 README is preserved in git history (see the `main` branch history / v1 tags).
+- **Upgrading an existing project:** [MIGRATING.md](./MIGRATING.md) is a before/after cookbook with a migration path for everything.
 
 ## 🛠️ Development
 
