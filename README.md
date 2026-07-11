@@ -35,6 +35,7 @@ Gracy handles failures, retries, throttling, parsing, replaying, and reporting f
   - [Coming from requests](#coming-from-requests)
   - [Coming from httpx](#coming-from-httpx)
 - [🧪 Interactive mode (`gracy -i`)](#-interactive-mode-gracy--i)
+  - [vs Postman](#vs-postman)
 - [⚙️ Feature tour](#️-feature-tour)
   - [Status policies](#status-policies)
   - [Per-status actions: on= and raises()](#per-status-actions-on-and-raises)
@@ -178,7 +179,14 @@ Pass `config=GracyConfig(...)` to the client constructor to enable policies (a s
 
 ## 🧪 Interactive mode (`gracy -i`)
 
-Exploring or reverse-engineering an API? `gracy -i` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types — then **`save` compiles the whole session into a typed client + tests that pass offline**. Think Postman, except you walk away with production Python instead of a JSON collection.
+Exploring or reverse-engineering an API? `gracy -i` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types — then **`save` compiles the whole session into a typed client + tests that pass offline**. It's a terminal-native Postman that hands you production Python instead of a JSON collection.
+
+**Reach for it when you're:**
+
+- **Poking at an unfamiliar API** — fire requests, see responses, and let gracy infer the models and `{param}` templates as you go.
+- **Bootstrapping a client** — walk the endpoints once, `save`, and ship the typed `Gracy` class you'd otherwise hand-write.
+- **Locking down behavior** — `save --tests` gives you replay-backed tests that run in CI with zero network.
+- **Driving it from an AI agent** — `gracy x '<cmd>' --json` is scriptable and stateful; an agent can map an API overnight and leave you a reviewed client, passing tests, and OpenAPI docs.
 
 ```console
 $ gracy -i https://pokeapi.co/api/v2
@@ -208,7 +216,19 @@ $ gracy x 'save pokeapi.py --tests' --session poke.json --json
 {"ok": true, "files": ["pokeapi.py", "test_pokeapi.py", "pokeapi.cassette.db"]}
 ```
 
-Full walkthrough (including POST bodies and the agent flow): [examples/v2_explore_demo.md](examples/v2_explore_demo.md).
+### vs Postman
+
+| | Postman | `gracy -i` |
+|---|---|---|
+| Where it lives | GUI + cloud account | Your terminal, offline |
+| Saved work | Proprietary collection (JSON) | A session file **and typed Python** — both diff in git |
+| Tests | Written in JS, run in the app | Generated pytest, replay-backed, green in CI with no network |
+| Environments / secrets | Cloud-synced variables | `$VAR` env refs, resolved at send, **never written to disk** |
+| Docs | Add-on | `gracy docs` on the generated client → OpenAPI 3.1 + HTML, free |
+| Automation | Newman (separate runner) | `gracy x … --json` — scriptable & AI-agent friendly out of the box |
+| Output | A collection | **A production SDK** |
+
+Not yet (on the roadmap): a `--stdio` JSONL loop for long agent sessions, `--check` shape-drift detection in CI, and serving recorded sessions as a mock server. Full walkthrough (POST bodies + agent flow): [examples/v2_explore_demo.md](examples/v2_explore_demo.md).
 
 ## ⚙️ Feature tour
 
