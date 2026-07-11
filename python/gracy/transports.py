@@ -7,7 +7,8 @@ Implementations of the `gracy._protocols.Transport` protocol:
   transport does NOT bypass the queue: the scheduler permit is granted first,
   then this transport sends.
 - MockTransport — fnmatch-glob pattern -> canned response, for tests.
-- RustTransport — the Wave-2 default (reqwest via gracy._core); stub for now.
+- RustTransport — the 2.0 default (reqwest via gracy._core); implemented in
+  gracy.engine and re-exported here.
 
 Transport failures propagate RAW: the pipeline is the single point that wraps
 them into GracyRequestFailed.
@@ -221,27 +222,9 @@ class MockTransport:
 
 # --------------------------------------------------------------------------- rust
 
-
-class RustTransport:
-    """The 2.0 default transport: reqwest, exposed through gracy._core.
-
-    TODO(Wave 2, Phase 3 of V2_PLAN.md): wire this to CoreTransport in
-    crates/gracy-core/src/transport.rs via the gracy-py bindings —
-    TransportConfig maps onto the reqwest ClientBuilder (base headers, proxy,
-    rustls verification, redirect policy, http2), send() crosses the FFI once
-    and returns the same buffered gracy Response shape as HttpxTransport.
-    Until then, construction succeeds (so plans can reference it) but start()
-    fails loudly.
-    """
-
-    def __init__(self, config: TransportConfig | None = None) -> None:
-        self._config = config or TransportConfig()
-
-    async def start(self) -> None:
-        raise NotImplementedError("RustTransport lands in Wave 2 — use HttpxTransport or MockTransport")
-
-    async def send(self, spec: RequestSpec) -> Response:
-        raise NotImplementedError("RustTransport lands in Wave 2 — use HttpxTransport or MockTransport")
-
-    async def aclose(self) -> None:
-        return None
+# The real implementation lives in gracy.engine (which owns engine selection
+# and must not be imported at the top of this module: engine.py imports
+# TransportConfig/HttpxTransport from here lazily). Re-exported so
+# `from gracy.transports import RustTransport` (and the gracy top-level
+# export) keep working.
+from gracy.engine import RustTransport  # noqa: E402

@@ -46,10 +46,9 @@ from gracy.exceptions import (
 from gracy.logging_events import make_emitter
 from gracy.pipeline import Pipeline, decode_result
 from gracy.plan import CompiledPlan, CompiledRoute, compile_plan
+from gracy.engine import default_scheduler, default_transport
 from gracy.reports.collector import MetricsCollector
-from gracy.scheduler_py import PyScheduler
 from gracy.testing import apply_test_overrides
-from gracy.transports import HttpxTransport
 from gracy.validators import normalize_validators
 
 if t.TYPE_CHECKING:
@@ -259,8 +258,8 @@ class Gracy:
             getattr(self, "timeout", UNSET),
         )
 
-        scheduler: Scheduler = self._injected_scheduler or PyScheduler(plan.scheduler_plan)
-        transport: Transport = self._injected_transport or HttpxTransport()
+        scheduler: Scheduler = self._injected_scheduler or default_scheduler(plan.scheduler_plan)
+        transport: Transport = self._injected_transport or default_transport()
         await scheduler.start()
         await transport.start()
         if self._replay is not None:
