@@ -362,7 +362,7 @@ def _chart(
         )
     return Panel(
         grid,
-        title=f"activity — last {window}s",
+        title=f"activity · last {window}s",
         title_align="left",
         box=box.ROUNDED,
         border_style="dim",

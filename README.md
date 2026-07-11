@@ -19,7 +19,7 @@
 
 Gracy handles failures, retries, throttling, parsing, replaying, and reporting for all your HTTP interactions.
 
-**Gracy is Rust-powered.** 🦀 The hot path — a priority request **queue** with exact sliding-window throttling, the HTTP transport (tokio + reqwest), metrics, and replay storage — runs in a compiled Rust core. Everything you touch stays plain Python: typed `@get`/`@post` endpoint decorators, hooks, validators, parsers, and config. The queue IS the throttle: no request reaches the wire without a permit, so rate limits, concurrency caps, priorities, and 429-pauses are one mechanism, not scattered sleeps.
+**Gracy is Rust-powered.** 🦀 The hot path (a priority request **queue** with exact sliding-window throttling, the HTTP transport (tokio + reqwest), metrics, and replay storage) runs in a compiled Rust core. Everything you touch stays plain Python: typed `@get`/`@post` endpoint decorators, hooks, validators, parsers, and config. The queue IS the throttle: no request reaches the wire without a permit, so rate limits, concurrency caps, priorities, and 429-pauses are one mechanism, not scattered sleeps.
 
 > "Let Gracy do the boring stuff while you focus on your application"
 
@@ -72,11 +72,11 @@ Gracy 2.0 is a pre-release:
 pip install --pre gracy
 ```
 
-Wheels ship with the compiled Rust core for all major platforms — no toolchain needed. Zero required Python dependencies.
+Wheels ship with the compiled Rust core for all major platforms: no toolchain needed. Zero required Python dependencies.
 
 ### Quickstart
 
-Examples use the [PokeAPI](https://pokeapi.co). Declare endpoints with decorators, and let return annotations drive decoding — your IDE sees real types, zero casts:
+Examples use the [PokeAPI](https://pokeapi.co). Declare endpoints with decorators, and let return annotations drive decoding, so your IDE sees real types, zero casts:
 
 ```py
 import asyncio
@@ -105,7 +105,7 @@ class PokeAPI(Gracy):
         ),
     )
 
-    # 👇 404 becomes None instead of raising — and the type says so
+    # 👇 404 becomes None instead of raising, and the type says so
     @get("/pokemon/{name}", on={HTTPStatus.NOT_FOUND: None})
     async def get_pokemon(self, name: Annotated[str, Path]) -> Pokemon | None: ...
 
@@ -124,11 +124,11 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-That's retries, typed parsing, 404-to-None, metrics, and an explicit lifecycle — with no `try/except` boilerplate in sight.
+That's retries, typed parsing, 404-to-None, metrics, and an explicit lifecycle, with no `try/except` boilerplate in sight.
 
 ### Sync? Also one line
 
-The sync facade runs the **real** async client on a private background loop — hooks, retries, and throttling all included:
+The sync facade runs the **real** async client on a private background loop, so hooks, retries, and throttling are all included:
 
 ```py
 with PokeAPI.sync() as api:
@@ -179,16 +179,16 @@ Pass `config=GracyConfig(...)` to the client constructor to enable policies (a s
 
 ## 🧪 Interactive mode (`gracy explore`)
 
-Exploring or reverse-engineering an API? `gracy explore` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types — then **`save` compiles the whole session into a typed client + tests that pass offline**. It's a terminal-native Postman that hands you production Python instead of a JSON collection.
+Exploring or reverse-engineering an API? `gracy explore` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types, then **`save` compiles the whole session into a typed client + tests that pass offline**. It's a terminal-native Postman that hands you production Python instead of a JSON collection.
 
 **Reach for it when you're:**
 
-- **Poking at an unfamiliar API** — fire requests, see responses, and let gracy infer the models and `{param}` templates as you go.
-- **Bootstrapping a client** — walk the endpoints once, `save`, and ship the typed `Gracy` class you'd otherwise hand-write.
-- **Locking down behavior** — `save --tests` gives you replay-backed tests that run in CI with zero network.
-- **Driving it from an AI agent** — `gracy x '<cmd>' --json` is scriptable and stateful; an agent can map an API overnight and leave you a reviewed client, passing tests, and OpenAPI docs.
+- **Poking at an unfamiliar API**: fire requests, see responses, and let gracy infer the models and `{param}` templates as you go.
+- **Bootstrapping a client**: walk the endpoints once, `save`, and ship the typed `Gracy` class you'd otherwise hand-write.
+- **Locking down behavior**: `save --tests` gives you replay-backed tests that run in CI with zero network.
+- **Driving it from an AI agent**: `gracy x '<cmd>' --json` is scriptable and stateful; an agent can map an API overnight and leave you a reviewed client, passing tests, and OpenAPI docs.
 
-```console
+```
 $ gracy explore https://pokeapi.co/api/v2
 gracy› get /pokemon/pikachu
 GET .../pokemon/pikachu -> 200 (81 ms)
@@ -203,13 +203,13 @@ gracy› save pokeapi.py --tests
 wrote pokeapi.py, test_pokeapi.py, pokeapi.cassette.db
 ```
 
-The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses — **green with no network**.
+The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**.
 
-**Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved — secrets never hit disk.
+**Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved, so secrets never hit disk.
 
-**Agent mode** — same engine, no TTY, machine-readable output (this is how an AI agent drives it):
+**Agent mode**: same engine, no TTY, machine-readable output (this is how an AI agent drives it):
 
-```console
+```
 $ gracy x 'get /pokemon/ditto' --base https://pokeapi.co/api/v2 --session poke.json --json
 {"step_id": 1, "status": 200, "matched_endpoint": null, "body_preview": {...}}
 $ gracy x 'save pokeapi.py --tests' --session poke.json --json
@@ -221,11 +221,11 @@ $ gracy x 'save pokeapi.py --tests' --session poke.json --json
 | | Postman | `gracy explore` |
 |---|---|---|
 | Where it lives | GUI + cloud account | Your terminal, offline |
-| Saved work | Proprietary collection (JSON) | A session file **and typed Python** — both diff in git |
+| Saved work | Proprietary collection (JSON) | A session file **and typed Python**, both diff in git |
 | Tests | Written in JS, run in the app | Generated pytest, replay-backed, green in CI with no network |
 | Environments / secrets | Cloud-synced variables | `$VAR` env refs, resolved at send, **never written to disk** |
 | Docs | Add-on | `gracy docs` on the generated client → OpenAPI 3.1 + HTML, free |
-| Automation | Newman (separate runner) | `gracy x … --json` — scriptable & AI-agent friendly out of the box |
+| Automation | Newman (separate runner) | `gracy x … --json`, scriptable & AI-agent friendly out of the box |
 | Output | A collection | **A production SDK** |
 
 Not yet (on the roadmap): a `--stdio` JSONL loop for long agent sessions, `--check` shape-drift detection in CI, and serving recorded sessions as a mock server. Full walkthrough (POST bodies + agent flow): [examples/v2_explore_demo.md](examples/v2_explore_demo.md).
@@ -242,7 +242,7 @@ from gracy import allow, strict
 class PokeAPI(Gracy):
     base_url = "https://pokeapi.co/api/v2"
 
-    # ONLY 200 passes — even 201 would fail validation
+    # ONLY 200 passes; even 201 would fail validation
     @get("/pokemon/{name}", status_policy=strict(HTTPStatus.OK))
     async def only_200(self, name: Annotated[str, Path]) -> dict: ...
 
@@ -293,7 +293,7 @@ Retry(
 
 ### Throttling
 
-Rate limiting issues? No more. Rules are **exact sliding windows** enforced by the Rust queue — never N+1 requests in any trailing window, and never over-waiting either:
+Rate limiting issues? No more. Rules are **exact sliding windows** enforced by the Rust queue: never N+1 requests in any trailing window, and never over-waiting either:
 
 ```py
 from gracy import Rate, Throttle
@@ -323,7 +323,7 @@ Concurrency(limit=5, key_by=("org",))
 
 ### The queue
 
-Every request is admitted through one scheduler — throttles, semaphores, priorities, backpressure, and pauses are all admission control:
+Every request is admitted through one scheduler: throttles, semaphores, priorities, backpressure, and pauses are all admission control:
 
 ```py
 from gracy import Queue
@@ -336,7 +336,7 @@ Queue(
 )
 ```
 
-Peek inside anytime with `api.queue_stats()` — pending, in-flight, throttle hits, active pauses.
+Peek inside anytime with `api.queue_stats()`: pending, in-flight, throttle hits, active pauses.
 
 ### Priorities & scoped overrides
 
@@ -349,7 +349,7 @@ page = await api.request(
     decode_as=Pokemon, priority=10,
 )
 
-# scoped override — applies to nested calls too
+# scoped override, applies to nested calls too
 async with api.options(retry=None, on={404: None}):
     await api.get_pokemon("missingno")
 ```
@@ -381,11 +381,11 @@ class PokeAPI(Gracy):
         ...  # exceptions arrive consistently GracyRequestFailed-wrapped
 ```
 
-`RetryAfterBackoff` (and `RateLimitBackoff`, its fixed-delay sibling) drive **scheduler pause gates**: a 429 with `Retry-After` genuinely pauses admission for the endpoint (or whole client) — including retries already in flight. Requests issued *inside* hooks skip hooks and semaphores by default, so a hook that issues its own request can never deadlock behind the lane it's trying to heal.
+`RetryAfterBackoff` (and `RateLimitBackoff`, its fixed-delay sibling) drive **scheduler pause gates**: a 429 with `Retry-After` genuinely pauses admission for the endpoint (or whole client), including retries already in flight. Requests issued *inside* hooks skip hooks and semaphores by default, so a hook that issues its own request can never deadlock behind the lane it's trying to heal.
 
 ### Validators
 
-Decide "failed" beyond status codes — a failing validator triggers retries like any error:
+Decide "failed" beyond status codes: a failing validator triggers retries like any error:
 
 ```py
 class NoErrorField(gracy.Validator):
@@ -415,7 +415,7 @@ async def get_pokemon(self, name: Annotated[str, Path]) -> Pokemon: ...  # valid
 
 ### Replay requests
 
-Record real traffic once, replay it forever — tests without latency, rate limits, or flakiness. Storage is pickle-free SQLite (schema v2): diffable, inspectable, safe to commit.
+Record real traffic once, replay it forever: tests without latency, rate limits, or flakiness. Storage is pickle-free SQLite (schema v2): diffable, inspectable, safe to commit.
 
 ```py
 from gracy import Replay, Scrub, SqliteStorage
@@ -438,7 +438,7 @@ Replay hits never spend throttle tokens, and parsers/retries/validators run as u
 
 ### Reports
 
-`api.report()` returns a **frozen** snapshot — print it as many times as you like:
+`api.report()` returns a **frozen** snapshot you can print as many times as you like:
 
 ```py
 api.report().print("rich")      # pretty table  (pip install gracy[rich])
@@ -455,7 +455,7 @@ Columns cover totals, success rate, per-status counts, retries, throttles, repla
 
 ### 📟 Live terminal dashboard
 
-Reports tell you what happened; the monitor shows what's happening **right now**. Every monitored client publishes ~4 snapshots/s to a tiny spool file, and `python -m gracy.monitor` renders them as a live dashboard — queue depth, in-flight requests, throttle waits, pauses, retries, and per-endpoint stats, aggregated across every running client (and process) on the machine.
+Reports tell you what happened; the monitor shows what's happening **right now**. Every monitored client publishes ~4 snapshots/s to a tiny spool file, and `python -m gracy.monitor` renders them as a live dashboard: queue depth, in-flight requests, throttle waits, pauses, retries, and per-endpoint stats, aggregated across every running client (and process) on the machine.
 
 Enable it per client or globally via env var:
 
@@ -481,7 +481,7 @@ python -m gracy.monitor        # or the installed alias: gracy-monitor
 │    4    ││   25    ││   19    ││  2.0s  ││   0    ││    3    ││    0    │
 │IN-FLIGHT││ ON HOLD ││THROTTLES││ PAUSED ││ ABORTS ││ RETRIES ││ REPLAYS │
 ╰─────────╯╰─────────╯╰─────────╯╰────────╯╰────────╯╰─────────╯╰─────────╯
-╭─ activity — last 60s ────────────────────────────────────────────────────╮
+╭─ activity · last 60s ────────────────────────────────────────────────────╮
 │ in-flight  ▁▁▂▄██▅▃▂▁▁▁▃▅███▆▄▂▁▁▁▂▄▆██▇▅▃▂▁▁▁▂▄▆███▅▃▂▁▁▂▄▆██        4  │
 │ on hold    ▁▁▅███▇▅▃▂▁▁▁▄▇██▆▄▂▁▁▁▃▆███▆▄▂▁▁▁▃▅███▇▅▃▁▁▁▃▅███        25  │
 │ req/s      ▁▂▄▆▇███▇▆▅▄▄▅▆▇██▇▆▅▄▄▅▆▇███▇▆▅▄▄▅▆▇██▇▆▅▄▄▅▆▇██        7.9  │
@@ -497,21 +497,21 @@ python -m gracy.monitor        # or the installed alias: gracy-monitor
 ctrl+c to quit
 ```
 
-Zero overhead when off (nothing is imported), and a broken snapshot can never take your app down — publish errors are swallowed and logged. Flags: `--dir` (spool dir, default `$GRACY_MONITOR_DIR` or the system temp dir), `--fps`, `--window`, `--once` (render one frame and exit, great for CI logs).
+Zero overhead when off (nothing is imported), and a broken snapshot can never take your app down: publish errors are swallowed and logged. Flags: `--dir` (spool dir, default `$GRACY_MONITOR_DIR` or the system temp dir), `--fps`, `--window`, `--once` (render one frame and exit, great for CI logs).
 
-Want to see it shine without writing code? Run [examples/v2_monitor_demo.py](./examples/v2_monitor_demo.py) in one terminal and `python -m gracy.monitor` in another — it spins a local misbehaving API and fires bursty traffic that lights up every tile.
+Want to see it shine without writing code? Run [examples/v2_monitor_demo.py](./examples/v2_monitor_demo.py) in one terminal and `python -m gracy.monitor` in another; it spins a local misbehaving API and fires bursty traffic that lights up every tile.
 
 ### 📚 Generate docs from your client
 
-Your class **is** the spec. Every path, param kind, return type, `on=` status action, retry/throttle policy, and docstring is already declared on your Gracy client — so gracy can generate API documentation from it, statically. No instance is created, nothing is started, no network is touched: it works from the class alone.
+Your class **is** the spec. Every path, param kind, return type, `on=` status action, retry/throttle policy, and docstring is already declared on your Gracy client, so gracy can generate API documentation from it, statically. No instance is created, nothing is started, no network is touched: it works from the class alone.
 
 ```sh
 python -m gracy.docs myapp.api:PokeAPI --format yaml -o openapi.yaml
 ```
 
-That emits **OpenAPI 3.1** — the format we recommend, because it plugs your client straight into the whole ecosystem: Swagger UI, Redoc, Postman imports, client/server codegen, contract testing. Gracy-specific behavior (retry, throttle, per-endpoint overrides) rides along in `x-gracy` extension blocks. `--format json` gives the same document as JSON.
+That emits **OpenAPI 3.1**, the format we recommend, because it plugs your client straight into the whole ecosystem: Swagger UI, Redoc, Postman imports, client/server codegen, contract testing. Gracy-specific behavior (retry, throttle, per-endpoint overrides) rides along in `x-gracy` extension blocks. `--format json` gives the same document as JSON.
 
-Prefer a human-readable page? Render a self-contained static HTML site (zero assets, dark/light theme, copy-able usage snippets) — or serve it right away:
+Prefer a human-readable page? Render a self-contained static HTML site (zero assets, dark/light theme, copy-able usage snippets), or serve it right away:
 
 ```sh
 python -m gracy.docs myapp.api:PokeAPI --format html -o docs.html
@@ -557,7 +557,7 @@ async with PokeAPI() as api:
 
 ### Namespaces
 
-Group endpoints with explicit descriptors — configs merge under the client's, and two clients never share namespace state:
+Group endpoints with explicit descriptors: configs merge under the client's, and two clients never share namespace state:
 
 ```py
 from gracy import GracyNamespace
@@ -578,7 +578,7 @@ async with PokeAPI() as api:
 
 ### Testing helpers
 
-Kill retries/throttling in tests and mock the transport — the whole pipeline still runs:
+Kill retries/throttling in tests and mock the transport, and the whole pipeline still runs:
 
 ```py
 import gracy
@@ -590,7 +590,7 @@ with gracy.testing.retries_off(), gracy.testing.throttle_off():
         assert len(transport.calls) == 1
 ```
 
-Need the httpx ecosystem (respx, pytest-httpx, ASGI transports, mTLS)? Inject `HttpxTransport` — the queue/retry/replay treatment still applies:
+Need the httpx ecosystem (respx, pytest-httpx, ASGI transports, mTLS)? Inject `HttpxTransport`, and the queue/retry/replay treatment still applies:
 
 ```py
 from gracy import HttpxTransport
@@ -609,7 +609,7 @@ GRACY_ENGINE=python  # pure-Python scheduler + httpx transport
 
 ## 🏗️ Architecture
 
-The queue IS the throttle — nothing reaches the wire without a permit:
+The queue IS the throttle: nothing reaches the wire without a permit:
 
 ```
             Python (policy)                        Rust core (gracy._core)
@@ -625,14 +625,15 @@ The queue IS the throttle — nothing reaches the wire without a permit:
                                          └────────────────────────────────────┘
 ```
 
-**Rust** owns the hot primitives: the priority queue with exact sliding-window throttling, concurrency semaphores, pause gates, the reqwest transport, latency histograms, and replay storage. **Python** owns everything you customize: endpoint declarations, config/plan compilation, the per-request pipeline, hooks, validators, and decoders — plain awaited callables, no FFI in sight. Rust is entered exactly twice per attempt (permit, send).
+**Rust** owns the hot primitives: the priority queue with exact sliding-window throttling, concurrency semaphores, pause gates, the reqwest transport, latency histograms, and replay storage. **Python** owns everything you customize: endpoint declarations, config/plan compilation, the per-request pipeline, hooks, validators, and decoders, all plain awaited callables, no FFI in sight. Rust is entered exactly twice per attempt (permit, send).
 
 Design deep-dive: [V2_PLAN.md](./V2_PLAN.md).
 
 ## 🚚 Migrating
 
+- **From Gracy v1:** see [MIGRATING.md](./MIGRATING.md): a before/after cookbook for every breaking change (`class Config` → class attributes, `parser=` → `on=`, `@graceful` → decorator kwargs + `options()`, replay DB migration, and more).
 - **From requests/httpx:** start with [the one-line drop-in](#-one-line-drop-in), then graduate to declared endpoints at your own pace.
-- **Upgrading an existing project:** [MIGRATING.md](./MIGRATING.md) is a before/after cookbook with a migration path for everything.
+- **v1 docs:** the v1 README is preserved in git history (see the `main` branch history / v1 tags).
 
 ## 🛠️ Development
 
@@ -649,7 +650,7 @@ GRACY_ENGINE=python pytest # same suite on the pure-Python reference engine
 GRACY_ENGINE=rust pytest   # force the compiled core
 ```
 
-Eyeball the live dashboard end-to-end: run `python examples/v2_monitor_demo.py` in one terminal and `python -m gracy.monitor` in another (the demo needs no network — it spins its own local server).
+Eyeball the live dashboard end-to-end: run `python examples/v2_monitor_demo.py` in one terminal and `python -m gracy.monitor` in another (the demo needs no network; it spins its own local server).
 
 <!-- ## Contributing -->
 <!-- Thank you for considering making Gracy better for everyone! -->

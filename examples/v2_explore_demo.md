@@ -7,7 +7,7 @@ plus tests that pass offline.
 
 ## 1. Human REPL flow
 
-```console
+```
 $ gracy explore https://pokeapi.co/api/v2
 ⚡ gracy explore · session: pokeapi.gracy.json · base: https://pokeapi.co/api/v2
 type `help` for commands, Ctrl-D to quit
@@ -62,7 +62,7 @@ recorded responses from `pokeapi.cassette.db` — **it passes with no network**.
 
 ## 2. Bodies: POST / PUT / PATCH (httpie-style)
 
-```console
+```
 gracy› post /battle name=pikachu level:=25 moves:='["thunder","quick-attack"]'
 POST .../battle -> 201 (89 ms)
 { "id": 731, "name": "pikachu", "level": 25, ... }
@@ -97,7 +97,7 @@ The same engine, no TTY — every command is one process, state lives in the
 session file, and `--json` prints a machine-readable result. This is how an AI
 agent drives it:
 
-```console
+```
 $ gracy x 'get /pokemon/ditto' --base https://pokeapi.co/api/v2 \
       --session poke.gracy.json --json
 {"step_id": 1, "method": "GET", "url": ".../pokemon/ditto", "status": 200,
