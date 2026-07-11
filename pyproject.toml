@@ -34,6 +34,7 @@ plotly = ["plotly>=5", "pandas>=2"]
 mongo = ["pymongo>=4"]
 
 [project.scripts]
+gracy = "gracy.cli:main"
 gracy-monitor = "gracy.monitor.__main__:main"
 gracy-docs = "gracy.docs.__main__:main"
 

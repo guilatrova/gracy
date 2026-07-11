@@ -34,6 +34,7 @@ Gracy handles failures, retries, throttling, parsing, replaying, and reporting f
 - [🔁 One-line drop-in](#-one-line-drop-in)
   - [Coming from requests](#coming-from-requests)
   - [Coming from httpx](#coming-from-httpx)
+- [🧪 Interactive mode (`gracy -i`)](#-interactive-mode-gracy--i)
 - [⚙️ Feature tour](#️-feature-tour)
   - [Status policies](#status-policies)
   - [Per-status actions: on= and raises()](#per-status-actions-on-and-raises)
@@ -174,6 +175,40 @@ requests.get("https://pokeapi.co/api/v2/berry/cheri")  # now retried + throttled
 ```
 
 Pass `config=GracyConfig(...)` to the client constructor to enable policies (a sync `Client` twin ships too). Semantics follow httpx: non-2xx responses are returned, not raised.
+
+## 🧪 Interactive mode (`gracy -i`)
+
+Exploring or reverse-engineering an API? `gracy -i` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types — then **`save` compiles the whole session into a typed client + tests that pass offline**. Think Postman, except you walk away with production Python instead of a JSON collection.
+
+```console
+$ gracy -i https://pokeapi.co/api/v2
+gracy› get /pokemon/pikachu
+GET .../pokemon/pikachu -> 200 (81 ms)
+{ "id": 25, "name": "pikachu", ... }
+gracy› name get_pokemon
+gracy› get /pokemon/mew          # a 2nd call infers the {param} template
+gracy› name get_pokemon
+endpoint 'get_pokemon': /pokemon/{name}
+gracy› on 404 none               # map 404 -> None (typed as Pokemon | None)
+gracy› model Pokemon             # name the inferred response model
+gracy› save pokeapi.py --tests
+wrote pokeapi.py, test_pokeapi.py, pokeapi.cassette.db
+```
+
+The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses — **green with no network**.
+
+**Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved — secrets never hit disk.
+
+**Agent mode** — same engine, no TTY, machine-readable output (this is how an AI agent drives it):
+
+```console
+$ gracy x 'get /pokemon/ditto' --base https://pokeapi.co/api/v2 --session poke.json --json
+{"step_id": 1, "status": 200, "matched_endpoint": null, "body_preview": {...}}
+$ gracy x 'save pokeapi.py --tests' --session poke.json --json
+{"ok": true, "files": ["pokeapi.py", "test_pokeapi.py", "pokeapi.cassette.db"]}
+```
+
+Full walkthrough (including POST bodies and the agent flow): [examples/v2_explore_demo.md](examples/v2_explore_demo.md).
 
 ## ⚙️ Feature tour
 
