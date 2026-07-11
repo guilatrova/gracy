@@ -39,12 +39,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build extension + install runtime deps
+      - name: Build extension wheel + install runtime deps
         shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install maturin pyinstaller rich prompt_toolkit
-          maturin develop --release
+          maturin build --release --out wheels
+          pip install wheels/*.whl
 
       - name: Build binary
         shell: bash
@@ -55,8 +56,9 @@ jobs:
         shell: bash
         run: |
           BIN="dist/gracy${{ runner.os == 'Windows' && '.exe' || '' }}"
-          "$BIN" --version
-          "$BIN" docs --help
+          # offline checks (binary loads, Rust core imports, commands parse) —
+          # network path is covered by the pytest matrix + the container test.
+          GRACY_SKIP_NET=1 sh packaging/smoke-test.sh "$BIN"
 
       - name: Rename + checksum
         shell: bash
