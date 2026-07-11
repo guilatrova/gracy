@@ -51,7 +51,7 @@ def test_method_completes_seen_paths(monkeypatch: pytest.MonkeyPatch, completer:
 
 def test_show_completes_targets_then_models(monkeypatch: pytest.MonkeyPatch, completer: _Completer) -> None:
     assert [c.strip() for c in _cands(monkeypatch, completer, "show ", "")] == [
-        "last", "model", "class", "endpoints", "history"
+        "last", "model", "class", "endpoints", "history", "captures"
     ]
     assert _cands(monkeypatch, completer, "show model ", "") == ["Pokemon"]
 

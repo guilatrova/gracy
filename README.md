@@ -227,6 +227,17 @@ It also keeps you oriented: a dim **right-prompt** shows the *active endpoint* (
 
 **Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved, so secrets never hit disk.
 
+**Captures** chain requests together: `set <name> <path>` grabs a value from the last response (a dot/bracket path into the JSON), and `{{name}}` reuses it in any later request. It's distinct from `$VAR` (an env var, resolved at send time) and `{param}` (a path-template placeholder): a capture is concrete data pulled from a real response and written to the session file, so use it for ids and names to chain on, not for secrets (use `$VAR` for those).
+
+```
+gracy› get /berry
+GET .../berry -> 200 (60.0 ms)
+gracy› set berry results[0].name            # grab a value from the last response
+captured berry = cheri (from results[0].name)
+gracy› get /berry/{{berry}}                 # {{berry}} expands to cheri before the request
+GET .../berry/cheri -> 200 (58.0 ms)
+```
+
 **Agent mode**: same engine, no TTY, machine-readable output (this is how an AI agent drives it):
 
 ```

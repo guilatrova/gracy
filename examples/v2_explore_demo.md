@@ -98,7 +98,51 @@ Body value syntax:
 **unresolved** in the session - secrets never hit disk (even a value the server
 echoes back is redacted to `***`).
 
-## 3. Agent one-shot mode (`gracy x`)
+## 3. Chaining requests with captures
+
+Real APIs make you thread one response into the next request: list something,
+then fetch a detail by an id or name you only just learned. `set <name> <path>`
+snapshots a value out of the **last** response, and `{{name}}` in any later
+request (path, query, header, or body) expands to it before the request goes
+out. The `<path>` is a dot/bracket walk into the parsed JSON, e.g.
+`results[0].name` or `data.items[2].id`.
+
+```
+gracy› get /berry                            # the paginated list endpoint
+GET .../berry -> 200 (63 ms)
+{ "count": 64, "next": ".../berry?offset=20&limit=20", "results": [
+    { "name": "cheri",  "url": ".../berry/1/" },
+    { "name": "chesto", "url": ".../berry/2/" }, ... ] }
+
+gracy› set berry results[0].name             # grab the first berry's name
+captured berry = cheri (from results[0].name)
+
+gracy› get /berry/{{berry}}                  # {{berry}} -> cheri before the request is sent
+GET .../berry/cheri -> 200 (59 ms)
+{ "id": 1, "name": "cheri", "firmness": { "name": "soft", ... }, ... }
+
+gracy› set firmness firmness.name            # captures compose: grab from THIS response
+captured firmness = soft (from firmness.name)
+
+gracy› get /berry-firmness/{{firmness}}      # chain again, into a different endpoint
+GET .../berry-firmness/soft -> 200 (61 ms)
+
+gracy› show captures                         # everything you've captured this session
+berry = cheri
+firmness = soft
+```
+
+A capture is **concrete data**, resolved the moment you run `set` and written
+into the session file. That is what separates it from the two other placeholder
+syntaxes you'll meet in a request:
+
+| syntax | what it is | resolved | stored as |
+|---|---|---|---|
+| `{{name}}` | a captured response value | at `set` time | the concrete value, in the session |
+| `$VAR` / `${VAR}` | an environment variable | at send time | unresolved (secrets never hit disk) |
+| `{param}` | a path-template placeholder | when you name an endpoint | part of the endpoint template |
+
+## 4. Agent one-shot mode (`gracy x`)
 
 The same engine, no TTY - every command is one process, state lives in the
 session file, and `--json` prints a machine-readable result. This is how an AI
@@ -126,7 +170,7 @@ JSON `error` field under `--json`). An agent can explore an API overnight and
 leave you a reviewed typed client, passing tests, and OpenAPI docs
 (`gracy docs pokeapi:PokeGracy --format yaml`) in the morning.
 
-## 4. Persistent agent loop (`--stdio`)
+## 5. Persistent agent loop (`--stdio`)
 
 For a long session, `gracy explore --stdio` stays alive as one process and speaks
 JSONL both ways: one JSON command per stdin line, one JSON result per stdout line
@@ -152,7 +196,7 @@ A malformed line or bad command yields a `{"error": "..."}` line and the stream
 keeps going; EOF (Ctrl-D) exits 0. Each input line accepts either `{"cmd": "<command>"}`
 or a bare JSON string `"<command>"`.
 
-## 5. Drift detection in CI (`--check`)
+## 6. Drift detection in CI (`--check`)
 
 `gracy explore --check` re-probes every named endpoint against the live API and
 diffs the live response shape against what you recorded. Clean exits `0`; any

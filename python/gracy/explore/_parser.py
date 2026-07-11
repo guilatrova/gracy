@@ -25,7 +25,7 @@ from gracy.explore._session import parse_auth, parse_retry, parse_throttle, vali
 __all__ = ["Command", "ParseError", "parse_command", "HELP_TEXT"]
 
 METHODS: t.Final = ("get", "post", "put", "patch", "delete", "head")
-SHOW_TARGETS: t.Final = ("last", "model", "class", "endpoints", "history")
+SHOW_TARGETS: t.Final = ("last", "model", "class", "endpoints", "history", "captures")
 
 USAGE: t.Final[dict[str, str]] = {
     "request": "get|post|put|patch|delete|head <path> [k==v]... [k=v]... [k:=v]... [@file] [{json}] [-H 'Name: v']...",
@@ -35,13 +35,14 @@ USAGE: t.Final[dict[str, str]] = {
     "list": "list | ls    list named endpoints (alias of 'show endpoints')",
     "on": "on <status> none|raise:<ExcName>|<literal>    e.g. on 404 none",
     "param": "param <index> as <name>",
+    "set": "set <name> <path>    capture a value from the last response, e.g. set berry results[0].name",
     "retry": "retry <n> on <codes> [wait <s>[x<mult>]]    e.g. retry 3 on 429,503 wait 0.5x2",
     "throttle": "throttle <n>/<per>    e.g. throttle 5/1s",
     "timeout": "timeout <seconds>",
     "auth": "auth bearer <token> | auth basic <user> <pass>",
     "header": "header <Name> <value>",
     "base": "base <url>",
-    "show": "show last|model [Name]|class|endpoints|history",
+    "show": "show last|model [Name]|class|endpoints|history|captures",
     "undo": "undo",
     "save": "save <file.py> [--tests]",
     "help": "help",
@@ -55,6 +56,7 @@ HELP_TEXT: t.Final = "\n".join(
         "",
         "request pairs: k==v query · k=v body string · k:=v body json · @file body · {inline json} body",
         "env vars: $VAR / ${VAR} in headers/query/body resolve at request time (never stored resolved)",
+        "captures: `set name <path>` snapshots a last-response value; {{name}} in a request expands to it (stored concrete)",
     )
 )
 
@@ -70,9 +72,9 @@ class ParseError(ValueError):
 
 @dataclass
 class Command:
-    kind: str  # request|endpoint|model|rename|on|param|retry|throttle|timeout|auth|header|base|show|undo|save|help|quit
+    kind: str  # request|endpoint|model|rename|on|param|set|retry|throttle|timeout|auth|header|base|show|undo|save|help|quit
     method: str | None = None
-    path: str | None = None
+    path: str | None = None  # request path (also the capture <path> for kind "set")
     query: dict[str, str] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
     body: str | None = None
@@ -333,6 +335,12 @@ def parse_command(line: str) -> Command:
             raise ParseError("expected 'param <index> as <name>'", "param")
         index = _parse_int(rest[0], "index", "param")
         return Command(kind="param", index=index, name=rest[2])
+
+    if head == "set":
+        if len(tokens) < 3:
+            raise ParseError("set needs a <name> and a <path>", "set")
+        _exactly(tokens, 3, "set")
+        return Command(kind="set", name=rest[0], path=rest[1])
 
     if head == "retry":
         if not rest:

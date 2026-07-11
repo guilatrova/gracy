@@ -6,13 +6,14 @@ helpers so one-shot ``gracy x --json`` works without any optional dependency.
 
 from __future__ import annotations
 
+import json
 import sys
 import typing as t
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from gracy.explore._parser import HELP_TEXT, METHODS, SHOW_TARGETS, USAGE, Command, ParseError, parse_command
-from gracy.explore._session import ExploreSession, StepResult, split_segments
+from gracy.explore._session import _CAPTURE_RE, ExploreSession, StepResult, split_segments
 
 __all__ = ["Outcome", "execute_command", "run_repl"]
 
@@ -22,7 +23,7 @@ PROMPT: t.Final = "gracy› "
 # Top-level command words offered by Tab completion (kept in sync with the parser).
 COMMANDS: t.Final = (
     *METHODS,
-    "endpoint", "model", "rename", "on", "param", "retry", "throttle",
+    "endpoint", "model", "rename", "on", "param", "set", "retry", "throttle",
     "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "save", "help", "quit", "exit",
 )
 
@@ -145,6 +146,16 @@ async def _do_param(session: ExploreSession, cmd: Command) -> Outcome:
     )
 
 
+async def _do_set(session: ExploreSession, cmd: Command) -> Outcome:
+    assert cmd.name is not None and cmd.path is not None
+    value = session.capture(cmd.name, cmd.path)
+    return Outcome(
+        "set",
+        {"ok": True, "name": cmd.name, "value": value, "path": cmd.path},
+        f"captured {cmd.name} = {value} (from {cmd.path})",
+    )
+
+
 async def _do_policy(session: ExploreSession, cmd: Command) -> Outcome:
     kwargs: dict[str, t.Any] = {}
     if cmd.kind == "retry":
@@ -197,6 +208,10 @@ async def _do_show(session: ExploreSession, cmd: Command) -> Outcome:
             for h in history
         ]
         return Outcome("history", {"ok": True, "history": history}, "\n".join(lines) or "(no steps yet)")
+    if cmd.target == "captures":
+        captures = session.captures
+        lines = [f"{name} = {value}" for name, value in captures.items()]
+        return Outcome("captures", {"ok": True, "captures": dict(captures)}, "\n".join(lines) or "(none yet)")
     raise ValueError(f"unknown show target {cmd.target!r}")
 
 
@@ -227,6 +242,7 @@ _HANDLERS: t.Final[dict[str, t.Callable[[ExploreSession, Command], t.Awaitable[O
     "model": _do_model,
     "on": _do_on,
     "param": _do_param,
+    "set": _do_set,
     "retry": _do_policy,
     "throttle": _do_policy,
     "timeout": _do_policy,
@@ -323,6 +339,10 @@ def candidates_for(session: ExploreSession, leading: str, text: str) -> list[str
     completer + autosuggest so all three stay consistent.
     """
     parts = leading.split()
+
+    if text.startswith("{{"):  # a capture ref: complete {{name}} from stored captures
+        inner = text[2:].lstrip()
+        return ["{{" + name + "}}" for name in session.captures if name.startswith(inner)]
 
     if not parts:  # first word -> command names
         return [c + " " for c in COMMANDS if c.startswith(text)]
@@ -466,7 +486,7 @@ def rprompt_text(session: ExploreSession) -> FormattedText:
             ("class:rprompt.ep", ep),
             ("class:rprompt", f" · {steps} step{'s' if steps != 1 else ''}"),
         ]
-    # last request is unnamed: implicit commands have no target — show it plainly
+    # last request is unnamed: implicit commands have no target, show it plainly
     return [
         ("class:rprompt", f"{last.get('method')} {last.get('path')} · "),
         ("class:rprompt.warn", "unnamed"),
@@ -475,6 +495,23 @@ def rprompt_text(session: ExploreSession) -> FormattedText:
 
 def _seg(cls: str, text: str) -> tuple[str, str]:
     return (f"class:{cls}", text)
+
+
+def _capture_refs(cmd: Command) -> list[str]:
+    """Capture names referenced as {{name}} in a request's path / query / headers / body."""
+    parts: list[str] = [cmd.path or ""]
+    parts.extend(str(v) for v in cmd.query.values())
+    parts.extend(str(v) for v in cmd.headers.values())
+    if cmd.body:
+        parts.append(cmd.body)
+    if cmd.body_json is not None:
+        parts.append(json.dumps(cmd.body_json))
+    names: list[str] = []
+    for part in parts:
+        for match in _CAPTURE_RE.finditer(part):
+            if match.group(1) not in names:
+                names.append(match.group(1))
+    return names
 
 
 def _action_desc(action: str) -> str:
@@ -515,7 +552,19 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         match = session._match_endpoint(cmd.method or "", cmd.path or "")  # noqa: SLF001
         if match:
             segs += [_seg("tb.muted", " · matches "), _seg("tb.target", match)]
+        captures = session.captures
+        for name in _capture_refs(cmd):
+            ref = "{{" + name + "}}"
+            if name in captures:
+                segs += [_seg("tb.muted", f" · {ref}="), _seg("tb.value", str(captures[name]))]
+            else:
+                segs += [_seg("tb.warn", f" · {ref} not set")]
         return segs
+    if cmd.kind == "set":
+        return [
+            _seg("tb.verb", "captures "), _seg("tb.value", cmd.path or ""),
+            _seg("tb.verb", " from the last response"),
+        ]
     if cmd.kind == "endpoint":
         last = _last_request(session)
         if cmd.name in session.endpoints():

@@ -35,6 +35,7 @@ MAX_STORED_BODY: t.Final = 256 * 1024  # response bodies are capped in the sessi
 _PREVIEW_CHARS: t.Final = 400
 
 _ENV_RE: t.Final = re.compile(r"\$\{(\w+)\}|\$(\w+)")
+_CAPTURE_RE: t.Final = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 _SCRUBBED_HEADERS: t.Final = frozenset(h.lower() for h in Scrub().headers)
 
 _RETRY_RE: t.Final = re.compile(
@@ -157,6 +158,65 @@ def flatten_keys(obj: t.Any, prefix: str = "") -> set[str]:
             keys.add(path)
             keys |= flatten_keys(v, path)
     return keys
+
+
+# --------------------------------------------------------------------------- capture paths
+
+
+def _tokenize_path(path: str) -> list[str | int]:
+    """Break 'results[0].name' into ['results', 0, 'name'] (bare keys + [int] indices)."""
+    tokens: list[str | int] = []
+    i, n = 0, len(path)
+    while i < n:
+        ch = path[i]
+        if ch == ".":
+            i += 1
+            continue
+        if ch == "[":
+            end = path.find("]", i)
+            if end == -1:
+                raise ValueError(f"unclosed '[' in path {path!r}")
+            inner = path[i + 1 : end]
+            try:
+                tokens.append(int(inner))
+            except ValueError:
+                raise ValueError(f"invalid list index {inner!r} in path {path!r}") from None
+            i = end + 1
+            continue
+        j = i
+        while j < n and path[j] not in ".[":
+            j += 1
+        key = path[i:j]
+        if not key:
+            raise ValueError(f"empty segment in path {path!r}")
+        tokens.append(key)
+        i = j
+    if not tokens:
+        raise ValueError(f"empty path {path!r}")
+    return tokens
+
+
+def resolve_json_path(root: t.Any, path: str) -> t.Any:
+    """Walk a dot/bracket path into parsed JSON; errors name the failing segment."""
+    current = root
+    traversed = ""
+    for token in _tokenize_path(path):
+        if isinstance(token, int):
+            traversed += f"[{token}]"
+            if not isinstance(current, list):
+                raise ValueError(f"cannot index into non-list at {traversed!r}")
+            try:
+                current = current[token]
+            except IndexError:
+                raise ValueError(f"index {token} out of range at {traversed!r}") from None
+        else:
+            traversed = f"{traversed}.{token}" if traversed else token
+            if not isinstance(current, dict):
+                raise ValueError(f"cannot read key {token!r} from non-object at {traversed!r}")
+            if token not in current:
+                raise ValueError(f"no key {token!r} at {traversed!r}")
+            current = current[token]
+    return current
 
 
 # --------------------------------------------------------------------------- policy grammar
@@ -316,6 +376,7 @@ class ExploreSession:
             "steps": [],
             "endpoints": {},
             "models": {},
+            "captures": {},
         }
         if self.session_path.exists():
             loaded = json.loads(self.session_path.read_text("utf-8"))
@@ -347,6 +408,10 @@ class ExploreSession:
     @property
     def steps(self) -> list[dict[str, t.Any]]:
         return self._data["steps"]
+
+    @property
+    def captures(self) -> dict[str, t.Any]:
+        return self._data.setdefault("captures", {})
 
     # ------------------------------------------------------------------ undo bookkeeping
 
@@ -414,6 +479,49 @@ class ExploreSession:
 
     # ------------------------------------------------------------------ execute
 
+    # ------------------------------------------------------------------ captures
+
+    def capture(self, name: str, path: str) -> t.Any:
+        """Snapshot a value from the LAST response into the session (concrete data).
+
+        The value is resolved against the last step's parsed JSON at set-time and
+        stored under ``captures[name]``; later ``{{name}}`` refs expand to it."""
+        if not name.isidentifier():
+            raise ValueError(f"{name!r} is not a valid capture name")
+        steps = self._data["steps"]
+        if not steps:
+            raise ValueError("no request yet - run one first")
+        last = steps[-1]
+        if "response_json" not in last:
+            raise ValueError("the last response is not JSON - nothing to capture")
+        value = resolve_json_path(last["response_json"], path)
+        self._snapshot(f"set {name} = {path}")
+        self.captures[name] = value
+        self.persist()
+        return value
+
+    def _resolve_captures_str(self, value: str) -> str:
+        """Expand ``{{name}}`` refs to str(captured value); unknown -> ValueError."""
+
+        def _sub(m: re.Match[str]) -> str:
+            name = m.group(1)
+            captures = self._data.get("captures", {})
+            if name not in captures:
+                raise ValueError(f"no capture named {name!r} - set it with `set {name} <path>`")
+            return str(captures[name])
+
+        return _CAPTURE_RE.sub(_sub, value)
+
+    def _resolve_captures_any(self, value: t.Any) -> t.Any:
+        """Recursively expand ``{{name}}`` in every string of a JSON-ish tree."""
+        if isinstance(value, str):
+            return self._resolve_captures_str(value)
+        if isinstance(value, dict):
+            return {k: self._resolve_captures_any(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._resolve_captures_any(v) for v in value]
+        return value
+
     def _policy_headers(self, *, resolve: bool) -> dict[str, str]:
         policies = self._data["policies"]
         headers: dict[str, str] = {}
@@ -434,6 +542,19 @@ class ExploreSession:
         body_json: t.Any | None = None,
     ) -> StepResult:
         method = method.upper()
+        # -- {{name}} capture refs expand FIRST, to concrete values. The result is
+        # what gets STORED (captures are exploration data, not secrets); $VAR stays
+        # unresolved in storage and is only resolved for the wire below.
+        path = self._resolve_captures_str(path)
+        if query is not None:
+            query = {k: (self._resolve_captures_str(v) if isinstance(v, str) else v) for k, v in query.items()}
+        if headers is not None:
+            headers = {k: self._resolve_captures_str(v) for k, v in headers.items()}
+        if isinstance(body, str):
+            body = self._resolve_captures_str(body)
+        if body_json is not None:
+            body_json = self._resolve_captures_any(body_json)
+
         if "?" in path:  # tolerate query strings pasted into the path
             from urllib.parse import parse_qsl, urlsplit
 
@@ -446,7 +567,10 @@ class ExploreSession:
         if not path.lower().startswith(("http://", "https://")) and not self._data.get("base_url"):
             raise ValueError("No base_url set - use set_policy(base_url=...) or pass an absolute URL")
 
-        # -- resolved (wire) values vs unresolved (persisted) values
+        # -- resolved (wire) values vs unresolved (persisted) values.
+        # The PATH is env-resolved for the wire too (so `/x/${VAR}` works and
+        # never reaches format_url with a stray `{VAR}`), but stored unresolved.
+        resolved_path = resolve_env(path)
         resolved_query = {k: resolve_env(str(v)) for k, v in (query or {}).items()}
         request_headers = self._policy_headers(resolve=True)
         for k, v in (headers or {}).items():
@@ -464,7 +588,7 @@ class ExploreSession:
         try:
             result = await client.request(
                 method,
-                path,
+                resolved_path,
                 params=resolved_query or None,
                 headers=request_headers or None,
                 content=resolved_body,
