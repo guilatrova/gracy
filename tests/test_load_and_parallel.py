@@ -82,6 +82,33 @@ async def test_thousands_of_pending_submits_all_complete_and_drain_clean(engine:
     await scheduler.aclose()
 
 
+@pytest.mark.parametrize("engine", ["python", "rust"])
+async def test_unlimited_callers_default_never_rejects(engine: str):
+    """THE caller-facing guarantee: with the default on_full='wait', callers
+    can have UNLIMITED requests outstanding — gracy manages the backlog.
+    20,000 concurrent submits through a tiny max_pending=50 admission window:
+    zero failures, everything grants, scheduler drains to zero."""
+    plan = _plan(limit=5_000, per=0.05, max_pending=50)  # default on_full="wait"
+    if engine == "rust":
+        pytest.importorskip("gracy._core")
+        from gracy.engine import RustScheduler
+
+        scheduler = RustScheduler(plan)
+    else:
+        scheduler = PyScheduler(plan)
+
+    results = await asyncio.wait_for(
+        asyncio.gather(*[_grant_one(scheduler) for _ in range(20_000)], return_exceptions=True),
+        timeout=60,
+    )
+    failures = [r for r in results if r is not True]
+    assert not failures, f"{len(failures)} of 20000 submits failed: {failures[:3]}"
+
+    stats = scheduler.stats()
+    assert stats["pending"] == 0 and stats["in_flight"] == 0, stats
+    await scheduler.aclose()
+
+
 async def test_load_shedding_with_on_full_raise_protects_memory():
     """When the queue is full, extra submits fail FAST instead of piling up."""
     scheduler = PyScheduler(_plan(limit=1, per=0.5, max_pending=20, on_full="raise"))

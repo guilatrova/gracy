@@ -198,6 +198,17 @@ class Concurrency:
 
 @dataclass(frozen=True, slots=True)
 class Queue:
+    """Queue admission knobs.
+
+    There is NO cap on how many requests a caller may have outstanding: with
+    the default ``on_full="wait"`` a submit never fails — gracy manages the
+    backlog. ``max_pending`` only bounds how many submits actively contend on
+    the throttle/concurrency machinery at once; everything beyond it parks as
+    a tiny priority-heap entry (no timers, no polling) and is admitted in
+    priority order as capacity frees. Set ``on_full="raise"`` ONLY when you
+    explicitly want load shedding (``GracyQueueFull``).
+    """
+
     max_at_once: int | None = None  # global in-flight cap (implemented as a global concurrency rule)
     max_pending: int = 10_000
     on_full: t.Literal["wait", "raise"] = "wait"
