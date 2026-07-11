@@ -66,13 +66,28 @@ Gracy handles failures, retries, throttling, parsing, replaying, and reporting f
 
 ### Installation
 
-Gracy 2.0 is a pre-release:
+**As a Python library:**
 
 ```
 pip install --pre gracy
 ```
 
 Wheels ship with the compiled Rust core for all major platforms: no toolchain needed. Zero required Python dependencies.
+
+**As a standalone CLI (no Python needed)**, for `gracy explore`, the terminal API client. Grab a single self-contained binary:
+
+```sh
+# macOS / Linux: installs to ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/guilatrova/gracy/main/packaging/install.sh | sh
+```
+
+Or download the binary for your platform straight from [Releases](https://github.com/guilatrova/gracy/releases) (`gracy-macos-arm64`, `gracy-macos-x86_64`, `gracy-linux-x86_64`, `gracy-windows-x86_64.exe`), `chmod +x`, and run. Each ships with a `.sha256` checksum.
+
+Already have Python tooling? Skip the install entirely:
+
+```sh
+uvx gracy explore https://pokeapi.co/api/v2   # or: pipx run gracy explore ...
+```
 
 ### Quickstart
 

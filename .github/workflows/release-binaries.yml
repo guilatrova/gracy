@@ -1,0 +1,87 @@
+name: Release binaries
+
+# Build the standalone `gracy` binary for every desktop platform and attach it
+# to the GitHub Release for the pushed tag (e.g. `v2.0.0a1`). No Python needed
+# on the user's machine — they download one file and run it.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: # manual runs build + upload artifacts (handy for testing)
+
+permissions:
+  contents: write # needed to upload assets to the release
+
+jobs:
+  build:
+    name: ${{ matrix.asset }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            asset: gracy-macos-arm64
+          - os: macos-13
+            asset: gracy-macos-x86_64
+          - os: ubuntu-22.04 # older glibc = broad Linux compatibility
+            asset: gracy-linux-x86_64
+          - os: windows-latest
+            asset: gracy-windows-x86_64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build extension + install runtime deps
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin pyinstaller rich prompt_toolkit
+          maturin develop --release
+
+      - name: Build binary
+        shell: bash
+        working-directory: packaging
+        run: pyinstaller gracy.spec --clean --noconfirm --distpath ../dist --workpath ../build
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          BIN="dist/gracy${{ runner.os == 'Windows' && '.exe' || '' }}"
+          "$BIN" --version
+          "$BIN" docs --help
+
+      - name: Rename + checksum
+        shell: bash
+        run: |
+          SRC="dist/gracy${{ runner.os == 'Windows' && '.exe' || '' }}"
+          mv "$SRC" "${{ matrix.asset }}"
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            shasum -a 256 "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"
+          else
+            sha256sum "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: |
+            ${{ matrix.asset }}
+            ${{ matrix.asset }}.sha256
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ matrix.asset }}
+            ${{ matrix.asset }}.sha256
+          fail_on_unmatched_files: true

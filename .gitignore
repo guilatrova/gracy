@@ -8,3 +8,10 @@ dist/
 target/
 *.so
 __pycache__/
+
+# PyInstaller / packaging build outputs
+dist/
+dist-bin/
+dist-spec/
+build/
+*.egg-info/
