@@ -230,10 +230,25 @@ def auth_header_value(auth: dict[str, t.Any], *, resolve: bool) -> str:
     return "Basic " + base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
 
 
-def validate_on_action(action: str) -> None:
-    """Grammar: "none" | "raise:<ExcName>" | a python literal like "{}"."""
+_BARE_WORD_ACTION: t.Final = re.compile(r"^[A-Za-z][\w\- ]*$")
+
+
+def on_action_value(action: str) -> t.Any:
+    """The value a non-special on-action maps to. A python literal ('{}', '0',
+    '\"hi\"') is eval'd; a bare word/phrase ('unavailable', 'not found') is taken
+    as a plain string, so you don't have to quote simple values."""
     import ast
 
+    try:
+        return ast.literal_eval(action)
+    except (ValueError, SyntaxError):
+        if _BARE_WORD_ACTION.match(action):
+            return action
+        raise
+
+
+def validate_on_action(action: str) -> None:
+    """Grammar: "none" | "raise:<ExcName>" | a python literal ('{}') or a bare word."""
     if action == "none":
         return
     if action.startswith("raise:"):
@@ -242,10 +257,10 @@ def validate_on_action(action: str) -> None:
             raise ValueError(f"Invalid exception name in {action!r}")
         return
     try:
-        ast.literal_eval(action)
+        on_action_value(action)
     except (ValueError, SyntaxError) as exc:
         raise ValueError(
-            f"Invalid on-action {action!r}; use 'none', 'raise:<ExcName>', or a literal like '{{}}'"
+            f"Invalid on-action {action!r}; use 'none', 'raise:<ExcName>', a bare word, or a literal like '{{}}'"
         ) from exc
 
 

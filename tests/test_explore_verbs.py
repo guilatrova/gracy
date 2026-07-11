@@ -124,3 +124,20 @@ async def test_list_lists_endpoints(make_session: t.Callable[..., ExploreSession
     session.name_endpoint("get_echo")
     out = await execute_command(session, parse_command("list"))
     assert "get_echo" in out.human and "/echo/mew" in out.human
+
+
+async def test_on_accepts_bare_words_and_renders_as_strings(
+    make_session: t.Callable[..., ExploreSession], tmp_path: Path
+) -> None:
+    from gracy.explore._parser import parse_command
+
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    # bare word (no quotes needed) maps the status to that string
+    await execute_command(session, parse_command("on 404 unavailable"))
+    await execute_command(session, parse_command("on 500 none"))
+    files = session.save_code(tmp_path / "api.py")
+    src = files[0].read_text()
+    assert "404: 'unavailable'" in src
+    assert "500: None" in src

@@ -237,7 +237,9 @@ def _on_source(plan: EndpointPlan) -> str | None:
         elif action.startswith("raise:"):
             parts.append(f"{code}: raises({action[len('raise:'):]})")
         else:
-            parts.append(f"{code}: {repr(ast.literal_eval(action))}")
+            from gracy.explore._session import on_action_value
+
+            parts.append(f"{code}: {on_action_value(action)!r}")
     return "on={" + ", ".join(parts) + "}"
 
 
