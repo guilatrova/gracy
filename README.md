@@ -205,6 +205,8 @@ wrote pokeapi.py, test_pokeapi.py, pokeapi.cassette.db
 
 The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**.
 
+The REPL has Tab completion that reads your live session: commands, `show` targets, existing endpoint names (`name <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `save`. History persists in `~/.gracy_history`.
+
 **Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved, so secrets never hit disk.
 
 **Agent mode**: same engine, no TTY, machine-readable output (this is how an AI agent drives it):

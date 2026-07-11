@@ -11,13 +11,20 @@ import typing as t
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from gracy.explore._parser import HELP_TEXT, Command, ParseError, parse_command
+from gracy.explore._parser import HELP_TEXT, METHODS, SHOW_TARGETS, Command, ParseError, parse_command
 from gracy.explore._session import ExploreSession, StepResult, split_segments
 
 __all__ = ["Outcome", "execute_command", "run_repl"]
 
 HISTORY_FILE: t.Final = Path.home() / ".gracy_history"
 PROMPT: t.Final = "gracy› "
+
+# Top-level command words offered by Tab completion (kept in sync with the parser).
+COMMANDS: t.Final = (
+    *METHODS,
+    "name", "model", "on", "param", "retry", "throttle",
+    "timeout", "auth", "header", "base", "show", "undo", "save", "help", "quit", "exit",
+)
 
 
 @dataclass
@@ -283,7 +290,67 @@ def render_outcome(console: t.Any, outcome: Outcome) -> None:
 # --------------------------------------------------------------------------- the loop
 
 
-def _setup_readline() -> None:
+class _Completer:
+    """Context-aware Tab completion driven by the current line and live session."""
+
+    def __init__(self, session: ExploreSession) -> None:
+        self.session = session
+        self._matches: list[str] = []
+
+    def complete(self, text: str, state: int) -> str | None:
+        if state == 0:
+            try:
+                self._matches = self._candidates(text)
+            except Exception:  # noqa: BLE001 - completion must never break the prompt
+                self._matches = []
+        return self._matches[state] if state < len(self._matches) else None
+
+    def _candidates(self, text: str) -> list[str]:
+        import readline
+
+        buffer = readline.get_line_buffer()
+        leading = buffer[: readline.get_begidx()]  # everything before the word being typed
+        parts = leading.split()
+
+        if not parts:  # first word -> command names
+            return [c + " " for c in COMMANDS if c.startswith(text)]
+
+        cmd = parts[0].lower()
+        endpoints = list(self.session.endpoints())
+
+        if cmd in METHODS:  # complete against paths already seen this session
+            return [p for p in self._seen_paths() if p.startswith(text)]
+        if cmd == "show":
+            if len(parts) == 1:
+                return [t_ + " " for t_ in SHOW_TARGETS if t_.startswith(text)]
+            if len(parts) == 2 and parts[1] == "model":
+                return [n for n in self._model_names() if n.startswith(text)]
+        if cmd == "name" and len(parts) == 1:  # fold into an existing endpoint
+            return [n for n in endpoints if n.startswith(text)]
+        if cmd == "on" and len(parts) == 2:  # the action position
+            return [a for a in ("none", "raise:") if a.startswith(text)]
+        if cmd == "auth" and len(parts) == 1:
+            return [s + " " for s in ("bearer", "basic") if s.startswith(text)]
+        if cmd == "param" and len(parts) == 2:
+            return ["as "] if "as".startswith(text) else []
+        if cmd == "save":
+            import glob
+
+            files = [p for p in glob.glob(text + "*") if p.endswith(".py") or Path(p).is_dir()]
+            flag = ["--tests"] if "--tests".startswith(text) else []
+            return files + flag
+        return []
+
+    def _seen_paths(self) -> list[str]:
+        seen = {step["path"] for step in self.session.history() if step.get("path")}
+        return sorted(seen)
+
+    def _model_names(self) -> list[str]:
+        names = {ep["response_model"] for ep in self.session.endpoints().values() if ep.get("response_model")}
+        return sorted(n for n in names if n)
+
+
+def _setup_readline(session: ExploreSession) -> None:
     try:
         import atexit
         import readline
@@ -292,6 +359,15 @@ def _setup_readline() -> None:
             readline.read_history_file(str(HISTORY_FILE))
         readline.set_history_length(1000)
         atexit.register(lambda: _write_history(readline))
+
+        completer = _Completer(session)
+        readline.set_completer(completer.complete)
+        readline.set_completer_delims(" ")  # only spaces split words, so "/path" completes whole
+        # libedit (macOS default) vs GNU readline bind syntax differ
+        if "libedit" in (getattr(readline, "__doc__", "") or ""):
+            readline.parse_and_bind("bind ^I rl_complete")
+        else:
+            readline.parse_and_bind("tab: complete")
     except Exception:  # noqa: BLE001 - readline is best-effort (absent on some builds)
         pass
 
@@ -308,7 +384,7 @@ async def run_repl(session: ExploreSession) -> int:
     console = _make_console()
     is_tty = sys.stdin.isatty()
     if is_tty:
-        _setup_readline()
+        _setup_readline(session)
 
     console.print(f"[bold]gracy explorer[/bold] - session [cyan]{session.session_path}[/cyan]")
     base = session.base_url or "(not set - `base <url>`)"
