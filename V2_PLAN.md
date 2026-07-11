@@ -679,7 +679,42 @@ job. Rust unit tests own timing math; the Python suite owns semantics.
 
 ---
 
-## 16. Immediate next steps
+## 16. Drop-in compat adapters + documentation (added scope)
+
+### 16.1 `gracy.compat` — one-line swap from requests/httpx
+
+Goal: a user replaces `import requests` with `from gracy.compat import requests`
+(or `requests = gracy.compat.requests`) and their code keeps working, duck-typed,
+now running through the full gracy pipeline (retry/throttle/queue/reports).
+
+- **`gracy.compat.requests`** (sync duck-type of the `requests` top-level API):
+  `get/post/put/patch/delete/head/options(url, params=, headers=, json=, data=,
+  timeout=, **kw)` returning a requests-shaped `CompatResponse`
+  (`.status_code`, `.ok`, `.text`, `.content`, `.json()`, `.headers`
+  case-insensitive dict, `.url`, `.elapsed`, `.raise_for_status()` raising an
+  `HTTPError`-shaped exception). A `Session()` class with persistent headers
+  and the same verbs. Backed by a lazily-started module-level Gracy sync
+  facade; `gracy.compat.requests.configure(GracyConfig(...))` upgrades the
+  drop-in with retry/throttle policies without touching call sites.
+- **`gracy.compat.httpx`** (async duck-type): `AsyncClient(base_url=,
+  headers=, timeout=)` with `get/post/...` coroutines and httpx-shaped
+  responses; `Client` sync twin. Same `configure()` hook.
+- Both adapters are pure sugar over the public Gracy API — no pipeline forks.
+- Tests: mirror idiomatic requests/httpx snippets (params/json/data/headers/
+  timeout/raise_for_status/session reuse) against the local test server, plus
+  "the swap line" itself (`requests = gracy.compat.requests`).
+
+### 16.2 Documentation deliverables (release gate additions)
+
+- **README.md rewritten for v2**: Rust-core pitch, quickstart (async + sync),
+  feature tour matching the real v2 API, compat one-liner section, dev setup
+  (maturin/uv), badges updated.
+- **MIGRATING.md**: (a) v1 → v2 cookbook — one before/after block for every
+  breaking change in §13; (b) "coming from requests" and "coming from httpx"
+  — the one-line swap, then gradual adoption (declared endpoints, configs);
+  (c) replay DB migration walkthrough (`python -m gracy.replay.migrate`).
+
+## 17. Immediate next steps
 
 1. Phase 0 scaffold: `Cargo.toml` workspace, `crates/gracy-core`,
    `crates/gracy-py`, `python/gracy/`, maturin config in `pyproject.toml`.
