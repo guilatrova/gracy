@@ -48,6 +48,7 @@ Gracy handles failures, retries, throttling, parsing, replaying, and reporting f
   - [Replay requests](#replay-requests)
   - [Reports](#reports)
   - [📟 Live terminal dashboard](#-live-terminal-dashboard)
+  - [📚 Generate docs from your client](#-generate-docs-from-your-client)
   - [Pagination](#pagination)
   - [Namespaces](#namespaces)
   - [Testing helpers](#testing-helpers)
@@ -444,6 +445,34 @@ ctrl+c to quit
 Zero overhead when off (nothing is imported), and a broken snapshot can never take your app down — publish errors are swallowed and logged. Flags: `--dir` (spool dir, default `$GRACY_MONITOR_DIR` or the system temp dir), `--fps`, `--window`, `--once` (render one frame and exit, great for CI logs).
 
 Want to see it shine without writing code? Run [examples/v2_monitor_demo.py](./examples/v2_monitor_demo.py) in one terminal and `python -m gracy.monitor` in another — it spins a local misbehaving API and fires bursty traffic that lights up every tile.
+
+### 📚 Generate docs from your client
+
+Your class **is** the spec. Every path, param kind, return type, `on=` status action, retry/throttle policy, and docstring is already declared on your Gracy client — so gracy can generate API documentation from it, statically. No instance is created, nothing is started, no network is touched: it works from the class alone.
+
+```sh
+python -m gracy.docs myapp.api:PokeAPI --format yaml -o openapi.yaml
+```
+
+That emits **OpenAPI 3.1** — the format we recommend, because it plugs your client straight into the whole ecosystem: Swagger UI, Redoc, Postman imports, client/server codegen, contract testing. Gracy-specific behavior (retry, throttle, per-endpoint overrides) rides along in `x-gracy` extension blocks. `--format json` gives the same document as JSON.
+
+Prefer a human-readable page? Render a self-contained static HTML site (zero assets, dark/light theme, copy-able usage snippets) — or serve it right away:
+
+```sh
+python -m gracy.docs myapp.api:PokeAPI --format html -o docs.html
+python -m gracy.docs myapp.api:PokeAPI --format html --serve 8000
+```
+
+Or do it programmatically:
+
+```py
+from gracy.docs import to_yaml, to_html
+
+open("openapi.yaml", "w").write(to_yaml(PokeAPI))
+open("docs.html", "w").write(to_html(PokeAPI))
+```
+
+Docstrings become descriptions: the class docstring is the API title + overview, and each endpoint method's docstring becomes that operation's summary/description. Document your code, get documented APIs for free.
 
 ### Pagination
 
