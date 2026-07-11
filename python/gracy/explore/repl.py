@@ -290,8 +290,53 @@ def render_outcome(console: t.Any, outcome: Outcome) -> None:
 # --------------------------------------------------------------------------- the loop
 
 
+def _seen_paths(session: ExploreSession) -> list[str]:
+    return sorted({step["path"] for step in session.history() if step.get("path")})
+
+
+def _model_names(session: ExploreSession) -> list[str]:
+    names = {ep["response_model"] for ep in session.endpoints().values() if ep.get("response_model")}
+    return sorted(n for n in names if n)
+
+
+def candidates_for(session: ExploreSession, leading: str, text: str) -> list[str]:
+    """Context-aware completion candidates for the current word.
+
+    ``leading`` is the line up to (not including) the word being typed; ``text``
+    is that word. Shared by the readline completer and the prompt_toolkit
+    completer + autosuggest so all three stay consistent.
+    """
+    parts = leading.split()
+
+    if not parts:  # first word -> command names
+        return [c + " " for c in COMMANDS if c.startswith(text)]
+
+    cmd = parts[0].lower()
+    if cmd in METHODS:  # paths already seen this session
+        return [p for p in _seen_paths(session) if p.startswith(text)]
+    if cmd == "show":
+        if len(parts) == 1:
+            return [t_ + " " for t_ in SHOW_TARGETS if t_.startswith(text)]
+        if len(parts) == 2 and parts[1] == "model":
+            return [n for n in _model_names(session) if n.startswith(text)]
+    if cmd == "name" and len(parts) == 1:  # fold into an existing endpoint
+        return [n for n in session.endpoints() if n.startswith(text)]
+    if cmd == "on" and len(parts) == 2:  # the action position
+        return [a for a in ("none", "raise:") if a.startswith(text)]
+    if cmd == "auth" and len(parts) == 1:
+        return [s + " " for s in ("bearer", "basic") if s.startswith(text)]
+    if cmd == "param" and len(parts) == 2:
+        return ["as "] if "as".startswith(text) else []
+    if cmd == "save":
+        import glob
+
+        files = [p for p in glob.glob(text + "*") if p.endswith(".py") or Path(p).is_dir()]
+        return files + (["--tests"] if "--tests".startswith(text) else [])
+    return []
+
+
 class _Completer:
-    """Context-aware Tab completion driven by the current line and live session."""
+    """readline (fallback) Tab completion adapter over ``candidates_for``."""
 
     def __init__(self, session: ExploreSession) -> None:
         self.session = session
@@ -309,45 +354,7 @@ class _Completer:
         import readline
 
         buffer = readline.get_line_buffer()
-        leading = buffer[: readline.get_begidx()]  # everything before the word being typed
-        parts = leading.split()
-
-        if not parts:  # first word -> command names
-            return [c + " " for c in COMMANDS if c.startswith(text)]
-
-        cmd = parts[0].lower()
-        endpoints = list(self.session.endpoints())
-
-        if cmd in METHODS:  # complete against paths already seen this session
-            return [p for p in self._seen_paths() if p.startswith(text)]
-        if cmd == "show":
-            if len(parts) == 1:
-                return [t_ + " " for t_ in SHOW_TARGETS if t_.startswith(text)]
-            if len(parts) == 2 and parts[1] == "model":
-                return [n for n in self._model_names() if n.startswith(text)]
-        if cmd == "name" and len(parts) == 1:  # fold into an existing endpoint
-            return [n for n in endpoints if n.startswith(text)]
-        if cmd == "on" and len(parts) == 2:  # the action position
-            return [a for a in ("none", "raise:") if a.startswith(text)]
-        if cmd == "auth" and len(parts) == 1:
-            return [s + " " for s in ("bearer", "basic") if s.startswith(text)]
-        if cmd == "param" and len(parts) == 2:
-            return ["as "] if "as".startswith(text) else []
-        if cmd == "save":
-            import glob
-
-            files = [p for p in glob.glob(text + "*") if p.endswith(".py") or Path(p).is_dir()]
-            flag = ["--tests"] if "--tests".startswith(text) else []
-            return files + flag
-        return []
-
-    def _seen_paths(self) -> list[str]:
-        seen = {step["path"] for step in self.session.history() if step.get("path")}
-        return sorted(seen)
-
-    def _model_names(self) -> list[str]:
-        names = {ep["response_model"] for ep in self.session.endpoints().values() if ep.get("response_model")}
-        return sorted(n for n in names if n)
+        return candidates_for(self.session, buffer[: readline.get_begidx()], text)
 
 
 def _setup_readline(session: ExploreSession) -> None:
@@ -379,20 +386,86 @@ def _write_history(readline: t.Any) -> None:
         pass
 
 
+# --------------------------------------------------------------------------- ghost text (prompt_toolkit)
+
+
+def suggest_suffix(session: ExploreSession, text_before: str, history: t.Sequence[str] = ()) -> str:
+    """The inline 'ghost text' to show after the cursor: the completion of the
+    current word (e.g. 'g' -> 'et'), falling back to the most recent matching
+    history line. Returns '' when there is nothing to suggest. Pure/testable."""
+    if not text_before or text_before.endswith(" "):
+        pass  # mid-space: only history can suggest a full-line continuation
+    else:
+        leading, _, word = text_before.rpartition(" ")
+        leading = leading + " " if leading else ""
+        for cand in candidates_for(session, leading, word):
+            cand = cand.rstrip()
+            if cand.startswith(word) and len(cand) > len(word):
+                return cand[len(word):]
+    for past in reversed(history):  # fish-style: newest matching history line
+        if past.startswith(text_before) and len(past) > len(text_before):
+            return past[len(text_before):]
+    return ""
+
+
+def _build_pt_session(session: ExploreSession) -> t.Any:
+    """A prompt_toolkit PromptSession with inline ghost-text suggestions + Tab
+    completion, or None when prompt_toolkit is not installed."""
+    try:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
+        from prompt_toolkit.completion import Completer, Completion
+        from prompt_toolkit.history import FileHistory
+        from prompt_toolkit.styles import Style
+    except ImportError:
+        return None
+
+    class _GhostSuggest(AutoSuggest):
+        def get_suggestion(self, buffer: t.Any, document: t.Any) -> t.Any:
+            past = [s for s in buffer.history.get_strings()] if buffer.history else []
+            suffix = suggest_suffix(session, document.text_before_cursor, past)
+            return Suggestion(suffix) if suffix else None
+
+    class _PTCompleter(Completer):
+        def get_completions(self, document: t.Any, complete_event: t.Any) -> t.Iterator[t.Any]:
+            leading, _, word = document.text_before_cursor.rpartition(" ")
+            leading = leading + " " if leading else ""
+            for cand in candidates_for(session, leading, word):
+                yield Completion(cand.rstrip(), start_position=-len(word))
+
+    style = Style.from_dict({"": "", "prompt": "bold"})
+    try:
+        return PromptSession(
+            message=[("class:prompt", PROMPT)],
+            history=FileHistory(str(HISTORY_FILE)),
+            auto_suggest=_GhostSuggest(),
+            completer=_PTCompleter(),
+            complete_while_typing=False,  # Tab to open the menu; ghost text shows inline
+            style=style,
+        )
+    except Exception:  # noqa: BLE001 - fall back to readline if the terminal rejects it
+        return None
+
+
 async def run_repl(session: ExploreSession) -> int:
     """The `gracy explore` loop; errors are printed, never fatal. Returns exit code."""
     console = _make_console()
     is_tty = sys.stdin.isatty()
-    if is_tty:
-        _setup_readline(session)
+    pt = _build_pt_session(session) if is_tty else None
+    if is_tty and pt is None:
+        _setup_readline(session)  # ghost text needs prompt_toolkit; readline still does Tab
 
     console.print(f"[bold]gracy explorer[/bold] - session [cyan]{session.session_path}[/cyan]")
     base = session.base_url or "(not set - `base <url>`)"
-    console.print(f"base_url: [cyan]{base}[/cyan] · type [bold]help[/bold] for commands · Ctrl-D or quit to leave")
+    hint = "type it or Tab-complete" if pt is None else "type it, → accepts the grey suggestion, Tab lists"
+    console.print(f"base_url: [cyan]{base}[/cyan] · [bold]help[/bold] for commands ({hint}) · Ctrl-D to leave")
 
     while True:
         try:
-            line = input(PROMPT) if is_tty else input()
+            if pt is not None:
+                line = await pt.prompt_async()
+            else:
+                line = input(PROMPT) if is_tty else input()
         except EOFError:
             break
         except KeyboardInterrupt:

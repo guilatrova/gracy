@@ -205,7 +205,7 @@ wrote pokeapi.py, test_pokeapi.py, pokeapi.cassette.db
 
 The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**.
 
-The REPL has Tab completion that reads your live session: commands, `show` targets, existing endpoint names (`name <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `save`. History persists in `~/.gracy_history`.
+The REPL suggests as you type: an inline grey **ghost text** shows the rest of the likely word (type `g`, see `et`), which `→` accepts; **Tab** lists all matches. Both read your live session: commands, `show` targets, endpoint names (`name <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `save`. History persists in `~/.gracy_history`. Ghost text needs `prompt_toolkit` (`pip install 'gracy[explore]'`); without it the REPL falls back to plain Tab completion.
 
 **Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved, so secrets never hit disk.
 

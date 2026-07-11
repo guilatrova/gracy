@@ -32,6 +32,8 @@ msgspec = ["msgspec>=0.18"]
 rich = ["rich>=13"]
 plotly = ["plotly>=5", "pandas>=2"]
 mongo = ["pymongo>=4"]
+# `gracy explore` REPL: rich rendering + prompt_toolkit inline ghost-text suggestions
+explore = ["rich>=13", "prompt_toolkit>=3"]
 
 [project.scripts]
 gracy = "gracy.cli:main"
@@ -52,6 +54,7 @@ features = ["pyo3/extension-module"]
 [dependency-groups]
 dev = [
     "maturin>=1.14",
+    "prompt_toolkit>=3",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
