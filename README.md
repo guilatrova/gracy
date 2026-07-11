@@ -193,19 +193,20 @@ $ gracy explore https://pokeapi.co/api/v2
 gracy› get /pokemon/pikachu
 GET .../pokemon/pikachu -> 200 (81 ms)
 { "id": 25, "name": "pikachu", ... }
-gracy› name get_pokemon
+gracy› endpoint get_pokemon      # turn the last request into an endpoint
 gracy› get /pokemon/mew          # a 2nd call infers the {param} template
-gracy› name get_pokemon
-endpoint 'get_pokemon': /pokemon/{name}
+gracy› endpoint get_pokemon      # repeat to fold it in -> /pokemon/{pokemon}
+gracy› param 1 as name           # rename the template param -> /pokemon/{name}
 gracy› on 404 none               # map 404 -> None (typed as Pokemon | None)
 gracy› model Pokemon             # name the inferred response model
+gracy› list                      # see your endpoints (alias of `show endpoints`)
 gracy› save pokeapi.py --tests
 wrote pokeapi.py, test_pokeapi.py, pokeapi.cassette.db
 ```
 
-The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**.
+The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**. `endpoint` said `created` the first time and `folded into` the second; `rename endpoint <old> <new>` (and `rename model`) fix a name after the fact.
 
-The REPL suggests as you type: an inline grey **ghost text** shows the rest of the likely word (type `g`, see `et`), which `→` accepts; **Tab** lists all matches. Both read your live session: commands, `show` targets, endpoint names (`name <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `save`. History persists in `~/.gracy_history`. Ghost text needs `prompt_toolkit` (`pip install 'gracy[explore]'`); without it the REPL falls back to plain Tab completion.
+The REPL suggests as you type: an inline grey **ghost text** shows the rest of the likely word (type `g`, see `et`), which `→` accepts; **Tab** lists all matches. Both read your live session: commands, `show` targets, endpoint names (`endpoint <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `save`. History persists in `~/.gracy_history`. Ghost text needs `prompt_toolkit` (`pip install 'gracy[explore]'`); without it the REPL falls back to plain Tab completion.
 
 **Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved, so secrets never hit disk.
 

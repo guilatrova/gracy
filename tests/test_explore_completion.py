@@ -57,7 +57,7 @@ def test_show_completes_targets_then_models(monkeypatch: pytest.MonkeyPatch, com
 
 
 def test_name_completes_existing_endpoints(monkeypatch: pytest.MonkeyPatch, completer: _Completer) -> None:
-    assert _cands(monkeypatch, completer, "name get", "get") == ["get_pokemon"]
+    assert _cands(monkeypatch, completer, "endpoint get", "get") == ["get_pokemon"]
 
 
 def test_on_completes_actions(monkeypatch: pytest.MonkeyPatch, completer: _Completer) -> None:

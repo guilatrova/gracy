@@ -79,7 +79,7 @@ def test_stdio_processes_jsonl_stream(test_server: str, tmp_path: Path) -> None:
     session = tmp_path / "stdio.json"
     stdin = (
         json.dumps({"cmd": "get /echo/one"}) + "\n"
-        + json.dumps({"cmd": "name get_echo"}) + "\n"
+        + json.dumps({"cmd": "endpoint get_echo"}) + "\n"
         + json.dumps({"cmd": "get /echo/two"}) + "\n"
     )
     proc = run_cli("explore", "--stdio", "--base", test_server, "--session", str(session), stdin=stdin)
@@ -124,7 +124,7 @@ def test_stdio_accepts_bare_json_string_command(test_server: str, tmp_path: Path
 
 
 def _record_echo_endpoint(test_server: str, session: Path) -> None:
-    stdin = json.dumps({"cmd": "get /echo/mew"}) + "\n" + json.dumps({"cmd": "name get_echo"}) + "\n"
+    stdin = json.dumps({"cmd": "get /echo/mew"}) + "\n" + json.dumps({"cmd": "endpoint get_echo"}) + "\n"
     proc = run_cli("explore", "--stdio", "--base", test_server, "--session", str(session), stdin=stdin)
     assert proc.returncode == 0, proc.stderr
 

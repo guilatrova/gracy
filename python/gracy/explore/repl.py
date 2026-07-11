@@ -22,8 +22,8 @@ PROMPT: t.Final = "gracy› "
 # Top-level command words offered by Tab completion (kept in sync with the parser).
 COMMANDS: t.Final = (
     *METHODS,
-    "name", "model", "on", "param", "retry", "throttle",
-    "timeout", "auth", "header", "base", "show", "undo", "save", "help", "quit", "exit",
+    "endpoint", "model", "rename", "on", "param", "retry", "throttle",
+    "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "save", "help", "quit", "exit",
 )
 
 
@@ -64,11 +64,11 @@ async def _do_request(session: ExploreSession, cmd: Command) -> Outcome:
     if result.template_proposal:
         hints.append(
             f"✨ one segment differs from an existing endpoint - template proposal: "
-            f"{result.template_proposal} (run `name <endpoint>` to fold it in)"
+            f"{result.template_proposal} (run `endpoint <name>` to fold it in)"
         )
     hints.extend(f"✨ {line}" for line in result.model_drift)
     if result.matched_endpoint is None and result.template_proposal is None and result.error is None:
-        hints.append(f"✨ tip: `name {_suggest_name(result.path)}` to save this request as an endpoint")
+        hints.append(f"✨ tip: `endpoint {_suggest_name(result.path)}` to turn this request into an endpoint")
 
     status = str(result.status) if result.status is not None else "ERROR"
     human = f"{result.method} {result.url} -> {status} ({result.elapsed_ms:.1f} ms)"
@@ -84,19 +84,34 @@ def _suggest_name(path: str) -> str:
     return pascal(segments[0]) if segments else "Endpoint"
 
 
-async def _do_name(session: ExploreSession, cmd: Command) -> Outcome:
+async def _do_endpoint(session: ExploreSession, cmd: Command) -> Outcome:
     assert cmd.name is not None
+    existed = cmd.name in session.endpoints()
     template = session.name_endpoint(cmd.name)
+    verb = "folded into" if existed else "created endpoint"
     hints: list[str] = []
     params = session.endpoints()[cmd.name]["params"]
     if params:
         listed = ", ".join(f"{{{p['name']}}} (segment {p['index']})" for p in params)
         hints.append(f"✨ params: {listed} - rename with `param <index> as <name>`")
     return Outcome(
-        "name",
-        {"ok": True, "endpoint": cmd.name, "template": template},
-        f"endpoint '{cmd.name}': {template}",
+        "endpoint",
+        {"ok": True, "endpoint": cmd.name, "template": template, "created": not existed},
+        f"{verb} '{cmd.name}' -> {template}",
         hints=hints,
+    )
+
+
+async def _do_rename(session: ExploreSession, cmd: Command) -> Outcome:
+    assert cmd.target is not None and cmd.name is not None and cmd.value is not None
+    if cmd.target == "endpoint":
+        session.rename_endpoint(cmd.name, cmd.value)
+    else:
+        session.rename_model(cmd.name, cmd.value)
+    return Outcome(
+        "rename",
+        {"ok": True, "target": cmd.target, "old": cmd.name, "new": cmd.value},
+        f"renamed {cmd.target} '{cmd.name}' -> '{cmd.value}'",
     )
 
 
@@ -207,7 +222,8 @@ async def _do_quit(session: ExploreSession, cmd: Command) -> Outcome:
 
 _HANDLERS: t.Final[dict[str, t.Callable[[ExploreSession, Command], t.Awaitable[Outcome]]]] = {
     "request": _do_request,
-    "name": _do_name,
+    "endpoint": _do_endpoint,
+    "rename": _do_rename,
     "model": _do_model,
     "on": _do_on,
     "param": _do_param,
@@ -319,8 +335,15 @@ def candidates_for(session: ExploreSession, leading: str, text: str) -> list[str
             return [t_ + " " for t_ in SHOW_TARGETS if t_.startswith(text)]
         if len(parts) == 2 and parts[1] == "model":
             return [n for n in _model_names(session) if n.startswith(text)]
-    if cmd == "name" and len(parts) == 1:  # fold into an existing endpoint
+    if cmd == "endpoint" and len(parts) == 1:  # a NEW name, or an existing one to fold into
         return [n for n in session.endpoints() if n.startswith(text)]
+    if cmd == "rename":
+        if len(parts) == 1:
+            return [w + " " for w in ("endpoint", "model") if w.startswith(text)]
+        if len(parts) == 2 and parts[1] == "endpoint":  # <old> position
+            return [n for n in session.endpoints() if n.startswith(text)]
+        if len(parts) == 2 and parts[1] == "model":
+            return [n for n in _model_names(session) if n.startswith(text)]
     if cmd == "on" and len(parts) == 2:  # the action position
         return [a for a in ("none", "raise:") if a.startswith(text)]
     if cmd == "auth" and len(parts) == 1:

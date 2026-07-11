@@ -29,8 +29,10 @@ SHOW_TARGETS: t.Final = ("last", "model", "class", "endpoints", "history")
 
 USAGE: t.Final[dict[str, str]] = {
     "request": "get|post|put|patch|delete|head <path> [k==v]... [k=v]... [k:=v]... [@file] [{json}] [-H 'Name: v']...",
-    "name": "name <EndpointName>",
+    "endpoint": "endpoint <EndpointName>    turn the last request into a named endpoint (repeat to fold a 2nd call in)",
     "model": "model <Name>[!request]",
+    "rename": "rename endpoint|model <old> <new>",
+    "list": "list | ls    list named endpoints (alias of 'show endpoints')",
     "on": "on <status> none|raise:<ExcName>|<literal>    e.g. on 404 none",
     "param": "param <index> as <name>",
     "retry": "retry <n> on <codes> [wait <s>[x<mult>]]    e.g. retry 3 on 429,503 wait 0.5x2",
@@ -68,7 +70,7 @@ class ParseError(ValueError):
 
 @dataclass
 class Command:
-    kind: str  # request|name|model|on|param|retry|throttle|timeout|auth|header|base|show|undo|save|help|quit
+    kind: str  # request|endpoint|model|rename|on|param|retry|throttle|timeout|auth|header|base|show|undo|save|help|quit
     method: str | None = None
     path: str | None = None
     query: dict[str, str] = field(default_factory=dict)
@@ -297,9 +299,18 @@ def parse_command(line: str) -> Command:
     if head in METHODS:
         return _parse_request(head, rest, inline_json, json_fields)
 
-    if head == "name":
-        _exactly(tokens, 2, "name")
-        return Command(kind="name", name=rest[0])
+    if head == "endpoint":
+        _exactly(tokens, 2, "endpoint")
+        return Command(kind="endpoint", name=rest[0])
+
+    if head in ("list", "ls"):
+        _exactly(tokens, 1, "list")
+        return Command(kind="show", target="endpoints")
+
+    if head == "rename":
+        if len(rest) != 3 or rest[0].lower() not in ("endpoint", "model"):
+            raise ParseError("expected 'rename endpoint|model <old> <new>'", "rename")
+        return Command(kind="rename", target=rest[0].lower(), name=rest[1], value=rest[2])
 
     if head == "model":
         _exactly(tokens, 2, "model")

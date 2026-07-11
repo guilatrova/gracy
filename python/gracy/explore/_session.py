@@ -726,6 +726,43 @@ class ExploreSession:
         self._data["models"][f"{ep_name}:{'request' if target == 'request_model' else 'response'}"] = name
         self.persist()
 
+    def rename_endpoint(self, old: str, new: str) -> None:
+        endpoints = self._data["endpoints"]
+        if old not in endpoints:
+            raise ValueError(f"no endpoint named {old!r}")
+        if new in endpoints:
+            raise ValueError(f"endpoint {new!r} already exists")
+        if not new.isidentifier():
+            raise ValueError(f"{new!r} is not a valid endpoint name")
+        self._snapshot(f"rename endpoint {old} -> {new}")
+        endpoints[new] = endpoints.pop(old)
+        for step in self._data["steps"]:
+            if step.get("endpoint") == old:
+                step["endpoint"] = new
+        for key in (f"{old}:response", f"{old}:request"):
+            if key in self._data["models"]:
+                self._data["models"][key.replace(old + ":", new + ":", 1)] = self._data["models"].pop(key)
+        self.persist()
+
+    def rename_model(self, old: str, new: str) -> None:
+        if not new.isidentifier():
+            raise ValueError(f"{new!r} is not a valid model name")
+        targets = [
+            (ep, f)
+            for ep in self._data["endpoints"].values()
+            for f in ("response_model", "request_model")
+            if ep.get(f) == old
+        ]
+        if not targets:
+            raise ValueError(f"no model named {old!r}")
+        self._snapshot(f"rename model {old} -> {new}")
+        for ep, field_name in targets:
+            ep[field_name] = new
+        for key, value in list(self._data["models"].items()):
+            if value == old:
+                self._data["models"][key] = new
+        self.persist()
+
     def _default_model_name(self, endpoint: str) -> str:
         from gracy.explore._infer import pascal
 

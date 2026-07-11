@@ -92,7 +92,7 @@ def test_parse_request_errors() -> None:
 
 
 def test_parse_name_model_on_param() -> None:
-    assert parse_command("name GetPokemon").name == "GetPokemon"
+    assert parse_command("endpoint GetPokemon").name == "GetPokemon"
     assert parse_command("model Pokemon").name == "Pokemon"
     assert parse_command("model CreateUser!request").name == "CreateUser!request"
 
@@ -198,7 +198,7 @@ def test_x_agent_sequence_and_save(test_server: str, tmp_path: Path) -> None:
     first = run_cli("x", "get /echo/mew", "--base", test_server, "--session", session, "--json")
     assert first.returncode == 0, first.stderr
 
-    named = run_cli("x", "name Echo", "--session", session, "--json")
+    named = run_cli("x", "endpoint Echo", "--session", session, "--json")
     assert named.returncode == 0, named.stderr
     assert json.loads(named.stdout)["endpoint"] == "Echo"
 
@@ -249,7 +249,7 @@ def test_x_connection_refused_exit_1_json(tmp_path: Path) -> None:
 
 
 def test_x_execution_error_exit_1(tmp_path: Path) -> None:
-    proc = run_cli("x", "name Echo", "--session", str(tmp_path / "empty.json"), "--json")
+    proc = run_cli("x", "endpoint Echo", "--session", str(tmp_path / "empty.json"), "--json")
     assert proc.returncode == 1
     assert "No steps recorded" in json.loads(proc.stdout)["error"]
 
@@ -295,7 +295,7 @@ def test_repl_smoke_pipe(test_server: str, tmp_path: Path) -> None:
         test_server,
         "--session",
         str(tmp_path / "repl.json"),
-        stdin=f"get /echo/hi\nname Echo\nsave {out}\nquit\n",
+        stdin=f"get /echo/hi\nendpoint Echo\nsave {out}\nquit\n",
         cwd=tmp_path,
     )
     assert proc.returncode == 0, proc.stderr
@@ -331,7 +331,7 @@ def test_repl_banner_and_hints(test_server: str, tmp_path: Path) -> None:
     assert "gracy explorer" in proc.stdout
     assert test_server in proc.stdout  # banner shows base_url
     assert "help" in proc.stdout
-    assert "name Echo" in proc.stdout  # auto-name hint
+    assert "endpoint Echo" in proc.stdout  # auto-name hint
 
 
 def test_explore_alias(test_server: str, tmp_path: Path) -> None:

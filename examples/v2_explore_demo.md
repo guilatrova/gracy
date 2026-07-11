@@ -15,30 +15,37 @@ type `help` for commands, Ctrl-D to quit
 gracy› get /pokemon/pikachu
 GET https://pokeapi.co/api/v2/pokemon/pikachu -> 200 (81 ms)
 { "id": 25, "name": "pikachu", "height": 4, "weight": 60, ... }
-✨ tip: `name <endpoint>` to save this request as an endpoint
+✨ tip: `endpoint Pokemon` to turn this request into an endpoint
 
-gracy› name get_pokemon
-endpoint 'get_pokemon': /pokemon/pikachu
+gracy› endpoint get_pokemon                 # turn the last request into an endpoint
+created endpoint 'get_pokemon' -> /pokemon/pikachu
 
 gracy› get /pokemon/mew
 GET .../pokemon/mew -> 200 (78 ms)
 
-gracy› name get_pokemon
-endpoint 'get_pokemon': /pokemon/{pokemon}
+gracy› endpoint get_pokemon                 # repeat to fold the 2nd call in -> a {param} template
+folded into 'get_pokemon' -> /pokemon/{pokemon}
 ✨ params: {pokemon} (segment 1) - rename with `param <index> as <name>`
 
-gracy› param 1 as name
-get_pokemon: param 1 -> {name}
+gracy› param 1 as name                      # rename the template param
+get_pokemon: /pokemon/{name}
 
 gracy› get /pokemon/notreal999
 GET .../pokemon/notreal999 -> 404 (120 ms)
-✨ one segment differs from get_pokemon - folds into /pokemon/{name}
 
-gracy› on 404 none
+gracy› on 404 none                          # echoes which endpoint it changed
 get_pokemon: on 404 -> none
 
-gracy› model Pokemon
+gracy› model Pokemon                        # name the inferred response model
 response model named 'Pokemon'
+
+gracy› rename endpoint get_pokemon fetch    # fix a name after the fact
+renamed endpoint 'get_pokemon' -> 'fetch'
+gracy› rename endpoint fetch get_pokemon    # (renaming it back)
+renamed endpoint 'fetch' -> 'get_pokemon'
+
+gracy› list                                 # alias of `show endpoints`
+GET    /pokemon/{name}  -> get_pokemon (steps=2, on={'404': 'none'}, response=Pokemon)
 
 gracy› show class
 class PokeGracy(Gracy):
@@ -68,7 +75,7 @@ POST .../battle -> 201 (89 ms)
 { "id": 731, "name": "pikachu", "level": 25, ... }
 ✨ body inferred -> model CreateBattleRequest
 
-gracy› name create_battle
+gracy› endpoint create_battle
 gracy› on 422 raise InvalidBattle
 
 gracy› put  /battle/731 @battle.json          # body read from a file
@@ -103,7 +110,7 @@ $ gracy x 'get /pokemon/ditto' --base https://pokeapi.co/api/v2 \
 {"step_id": 1, "method": "GET", "url": ".../pokemon/ditto", "status": 200,
  "elapsed_ms": 74.1, "matched_endpoint": null, "body_preview": {...}}
 
-$ gracy x 'name get_pokemon' --session poke.gracy.json --json
+$ gracy x 'endpoint get_pokemon' --session poke.gracy.json --json
 {"ok": true, "endpoint": "get_pokemon", "template": "/pokemon/ditto"}
 
 $ gracy x 'get /pokemon/mew' --session poke.gracy.json --json
@@ -133,7 +140,7 @@ $ gracy explore --stdio --base https://pokeapi.co/api/v2 --session poke.gracy.js
 ```
 → {"cmd": "get /pokemon/pikachu"}
 ← {"step_id": 1, "status": 200, "matched_endpoint": null, "body_preview": {...}}
-→ {"cmd": "name get_pokemon"}
+→ {"cmd": "endpoint get_pokemon"}
 ← {"ok": true, "endpoint": "get_pokemon", "template": "/pokemon/pikachu"}
 → {"cmd": "get /pokemon/mew"}
 ← {"step_id": 2, "status": 200, "matched_endpoint": null, "template_proposal": "/pokemon/{pokemon}", "model_drift": []}

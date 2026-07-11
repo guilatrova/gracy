@@ -35,7 +35,7 @@ def test_ghost_completes_command_word(session: ExploreSession) -> None:
 
 def test_ghost_completes_paths_and_endpoints(session: ExploreSession) -> None:
     assert suggest_suffix(session, "get /pok") == "emon/pikachu"
-    assert suggest_suffix(session, "name get") == "_pokemon"
+    assert suggest_suffix(session, "endpoint get") == "_pokemon"
     assert suggest_suffix(session, "on 404 no") == "ne"
     assert suggest_suffix(session, "auth be") == "arer"
 
