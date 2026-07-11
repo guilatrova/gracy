@@ -18,6 +18,7 @@ transports.py re-exports RustTransport from here (import cycle).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import typing as t
@@ -105,6 +106,14 @@ class RustPermit:
         self._permit.release()
 
 
+def _release_raced_grant(fut: asyncio.Future) -> None:
+    """A cancelled submit whose grant raced in anyway must give it back."""
+    if fut.cancelled():
+        return
+    if fut.exception() is None:
+        fut.result().release()
+
+
 class RustScheduler:
     """Scheduler protocol over ``gracy._core.CoreScheduler``.
 
@@ -135,8 +144,20 @@ class RustScheduler:
         no_throttle: bool = False,
         conc_extra: str = "",
     ) -> RustPermit:
+        # shield() mediates cancellation: the pyo3-bridged future's own cancel
+        # machinery must never touch the caller task's cancellation bookkeeping,
+        # or asyncio.wait_for() can re-raise CancelledError instead of
+        # TimeoutError. On cancel we abort the core future ourselves and, if
+        # the grant raced in anyway, release it so no capacity leaks.
+        core_fut = asyncio.ensure_future(
+            self._core.submit(uurl, url, priority, from_hook, no_throttle, conc_extra)
+        )
         try:
-            permit = await self._core.submit(uurl, url, priority, from_hook, no_throttle, conc_extra)
+            permit = await asyncio.shield(core_fut)
+        except asyncio.CancelledError:
+            core_fut.cancel()
+            core_fut.add_done_callback(_release_raced_grant)
+            raise
         except RuntimeError as e:
             message = str(e)
             if "GRACY_QUEUE_FULL" in message:

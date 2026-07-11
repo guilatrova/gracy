@@ -33,6 +33,9 @@ rich = ["rich>=13"]
 plotly = ["plotly>=5", "pandas>=2"]
 mongo = ["pymongo>=4"]
 
+[project.scripts]
+gracy-monitor = "gracy.monitor.__main__:main"
+
 [project.urls]
 Homepage = "https://github.com/guilatrova/gracy"
 Repository = "https://github.com/guilatrova/gracy"

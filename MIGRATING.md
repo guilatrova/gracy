@@ -23,6 +23,11 @@ Gracy 2.0 is a ground-up rewrite of the request machinery:
 - **Replay is pickle-free.** v1 cassettes stored pickled `httpx.Response`
   objects (arbitrary-code-execution risk + httpx version trap). v2 uses a
   plain-bytes SQLite schema, with a one-shot migration CLI for old databases.
+- **New in 2.0: live monitor.** Pass `Gracy(monitor=True)` (or set
+  `GRACY_MONITOR=1`) and every built client streams lightweight snapshots to a
+  spool file; `python -m gracy.monitor` (or `gracy-monitor`) renders them as a
+  live terminal dashboard — queue depth, in-flight, throttles, pauses, retries
+  and per-endpoint stats, across all running processes. Zero overhead when off.
 
 Requirements and install:
 

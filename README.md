@@ -47,6 +47,7 @@ Gracy handles failures, retries, throttling, parsing, replaying, and reporting f
   - [Decoders](#decoders)
   - [Replay requests](#replay-requests)
   - [Reports](#reports)
+  - [📟 Live terminal dashboard](#-live-terminal-dashboard)
   - [Pagination](#pagination)
   - [Namespaces](#namespaces)
   - [Testing helpers](#testing-helpers)
@@ -396,6 +397,54 @@ fig.show()
 
 Columns cover totals, success rate, per-status counts, retries, throttles, replays, and latency avg/max/**p95/p99** per endpoint template.
 
+### 📟 Live terminal dashboard
+
+Reports tell you what happened; the monitor shows what's happening **right now**. Every monitored client publishes ~4 snapshots/s to a tiny spool file, and `python -m gracy.monitor` renders them as a live dashboard — queue depth, in-flight requests, throttle waits, pauses, retries, and per-endpoint stats, aggregated across every running client (and process) on the machine.
+
+Enable it per client or globally via env var:
+
+```py
+async with PokeAPI(monitor=True) as api: ...   # per client
+```
+
+```sh
+GRACY_MONITOR=1 python my_app.py               # any client, no code change
+```
+
+Then watch from any other terminal (requires `pip install gracy[rich]`):
+
+```sh
+python -m gracy.monitor        # or the installed alias: gracy-monitor
+```
+
+```
+╭──────────────────────────────────────────────────────────────────────────╮
+│ ⚡ GRACY MONITOR                       1 source   rust   up 42s  7.9 req/s│
+╰──────────────────────────────────────────────────────────────────────────╯
+╭─────────╮╭─────────╮╭─────────╮╭────────╮╭────────╮╭─────────╮╭─────────╮
+│    4    ││   25    ││   19    ││  2.0s  ││   0    ││    3    ││    0    │
+│IN-FLIGHT││ ON HOLD ││THROTTLES││ PAUSED ││ ABORTS ││ RETRIES ││ REPLAYS │
+╰─────────╯╰─────────╯╰─────────╯╰────────╯╰────────╯╰─────────╯╰─────────╯
+╭─ activity — last 60s ────────────────────────────────────────────────────╮
+│ in-flight  ▁▁▂▄██▅▃▂▁▁▁▃▅███▆▄▂▁▁▁▂▄▆██▇▅▃▂▁▁▁▂▄▆███▅▃▂▁▁▂▄▆██        4  │
+│ on hold    ▁▁▅███▇▅▃▂▁▁▁▄▇██▆▄▂▁▁▁▃▆███▆▄▂▁▁▁▃▅███▇▅▃▁▁▁▃▅███        25  │
+│ req/s      ▁▂▄▆▇███▇▆▅▄▄▅▆▇██▇▆▅▄▄▅▆▇███▇▆▅▄▄▅▆▇██▇▆▅▄▄▅▆▇██        7.9  │
+╰──────────────────────────────────────────────────────────────────────────╯
+╭─ endpoints ──────────────────────────────────────────────────────────────╮
+│ endpoint                    reqs    ok%  retries   thr  aborts p95 ms req/s│
+│ ────────────────────────────────────────────────────────────────────────  │
+│ http://127.0.0.1:6060/ok     121  100.0        0    11       0    210  3.1│
+│ http://127.0.0.1:6060/slow    64  100.0        0     5       0   1264  1.7│
+│ http://127.0.0.1:6060/flaky   58   74.1        9     7       2    952  1.5│
+╰──────────────────────────────────────────────────────────────────────────╯
+● LIVE  DemoAPI pid 25562 (rust)
+ctrl+c to quit
+```
+
+Zero overhead when off (nothing is imported), and a broken snapshot can never take your app down — publish errors are swallowed and logged. Flags: `--dir` (spool dir, default `$GRACY_MONITOR_DIR` or the system temp dir), `--fps`, `--window`, `--once` (render one frame and exit, great for CI logs).
+
+Want to see it shine without writing code? Run [examples/v2_monitor_demo.py](./examples/v2_monitor_demo.py) in one terminal and `python -m gracy.monitor` in another — it spins a local misbehaving API and fires bursty traffic that lights up every tile.
+
 ### Pagination
 
 ```py
@@ -516,6 +565,8 @@ pytest                     # full Python suite on the default (rust) engine
 GRACY_ENGINE=python pytest # same suite on the pure-Python reference engine
 GRACY_ENGINE=rust pytest   # force the compiled core
 ```
+
+Eyeball the live dashboard end-to-end: run `python examples/v2_monitor_demo.py` in one terminal and `python -m gracy.monitor` in another (the demo needs no network — it spins its own local server).
 
 <!-- ## Contributing -->
 <!-- Thank you for considering making Gracy better for everyone! -->

@@ -100,6 +100,55 @@ class MetricsCollector:
         """Drop every tracked metric (replaces v1's dangerously_reset_report)."""
         self._by_uurl.clear()
 
+    # ------------------------------------------------------------------ monitor
+
+    def monitor_rows(
+        self, throttled_by_uurl: t.Mapping[str, int] | None = None
+    ) -> list[dict[str, t.Any]]:
+        """Cheap per-uurl dicts for the live monitor publisher (~4Hz).
+
+        Skips the frozen GracyReport machinery: only the columns the monitor
+        schema needs, plain dicts, JSON-ready.
+        """
+        throttled = throttled_by_uurl or {}
+        rows: list[dict[str, t.Any]] = []
+        for uurl, stats in self._by_uurl.items():
+            total = stats.total
+            successes = sum(
+                count for status_code, count in stats.status_counts.items()
+                if 200 <= status_code < 400
+            )
+            latencies = list(stats.latencies)
+            if latencies:
+                avg_latency = statistics.fmean(latencies)
+                if len(latencies) < 2:
+                    p95_latency = latencies[0]
+                else:
+                    p95_latency = statistics.quantiles(latencies, n=100, method="inclusive")[94]
+            else:
+                avg_latency = p95_latency = 0.0
+            if stats.first_ts is not None and stats.last_ts is not None:
+                window = max(stats.last_ts - stats.first_ts, _MIN_ELAPSED_S)
+                req_rate = min(total / window, float(total))
+            else:  # pragma: no cover - a tracked uurl always has timestamps
+                req_rate = 0.0
+            rows.append(
+                {
+                    "uurl": uurl,
+                    "total": total,
+                    "success_rate": (successes / total) * 100.0 if total else 0.0,
+                    "retries": stats.retries,
+                    "throttles": int(throttled.get(uurl, 0)),
+                    "replays": stats.replays,
+                    "aborts": stats.aborts,
+                    "avg_latency": avg_latency,
+                    "p95_latency": p95_latency,
+                    "req_rate_per_sec": req_rate,
+                }
+            )
+        rows.sort(key=lambda row: row["total"], reverse=True)
+        return rows
+
     # ------------------------------------------------------------------ internals
 
     @staticmethod

@@ -46,7 +46,7 @@ from gracy.exceptions import (
 from gracy.logging_events import make_emitter
 from gracy.pipeline import Pipeline, decode_result
 from gracy.plan import CompiledPlan, CompiledRoute, compile_plan
-from gracy.engine import default_scheduler, default_transport
+from gracy.engine import current_engine, default_scheduler, default_transport
 from gracy.reports.collector import MetricsCollector
 from gracy.testing import apply_test_overrides
 from gracy.validators import normalize_validators
@@ -188,6 +188,7 @@ class Gracy:
         transport: Transport | None = None,
         scheduler: Scheduler | None = None,
         debug: bool = False,
+        monitor: bool | None = None,
     ) -> None:
         # v1 migration guard: nested `class Config` is gone in v2.
         for klass in type(self).__mro__:
@@ -204,6 +205,7 @@ class Gracy:
         self._injected_transport = transport
         self._injected_scheduler = scheduler
         self._debug = debug
+        self._monitor = monitor  # None = read GRACY_MONITOR env at build()
 
         self._built = False
         self._closed = False
@@ -214,6 +216,7 @@ class Gracy:
         self._transport: Transport | None = None
         self._pipeline: Pipeline | None = None
         self._metrics: MetricsCollector | None = None
+        self._monitor_publisher: t.Any = None  # gracy.monitor.MonitorPublisher when enabled
         self._hooks: list[t.Any] = []
         self._routes: dict[tuple[str | None, str], CompiledRoute] = {}
 
@@ -307,6 +310,9 @@ class Gracy:
         self._hooks = hooks
         self._routes = routes
         self._built = True
+
+        if self._monitor_enabled():
+            await self._start_monitor(scheduler, metrics)
         return self
 
     async def aclose(self) -> None:
@@ -315,12 +321,51 @@ class Gracy:
             return
         self._closed = True
         try:
+            if self._monitor_publisher is not None:
+                publisher, self._monitor_publisher = self._monitor_publisher, None
+                await publisher.aclose()  # final closed=true snapshot before teardown
             if self._replay is not None:
                 await self._replay.flush()
         finally:
             assert self._scheduler is not None and self._transport is not None
             await self._scheduler.aclose()
             await self._transport.aclose()
+
+    # ------------------------------------------------------------------ live monitor
+
+    def _monitor_enabled(self) -> bool:
+        """monitor kwarg wins; None falls back to the GRACY_MONITOR env var."""
+        if self._monitor is not None:
+            return self._monitor
+        return os.environ.get("GRACY_MONITOR", "").strip().lower() in ("1", "true")
+
+    async def _start_monitor(self, scheduler: Scheduler, metrics: MetricsCollector) -> None:
+        """Spawn the MonitorPublisher (lazy import: zero overhead when disabled)."""
+        import time as _time
+
+        from gracy.monitor import MonitorPublisher
+
+        publisher = MonitorPublisher(type(self).__name__, current_engine())
+
+        def get_snapshot() -> dict[str, t.Any]:
+            queue = dict(scheduler.stats())
+            rows = metrics.monitor_rows(queue.get("throttled_by_uurl") or {})
+            requests = sum(row["total"] for row in rows)
+            elapsed = max(_time.time() - publisher.started_at, 0.001)
+            return {
+                "queue": queue,
+                "totals": {
+                    "requests": requests,
+                    "aborts": sum(row["aborts"] for row in rows),
+                    "retries": sum(row["retries"] for row in rows),
+                    "replays": sum(row["replays"] for row in rows),
+                    "req_per_sec": requests / elapsed,
+                },
+                "rows": rows,
+            }
+
+        await publisher.start(get_snapshot)
+        self._monitor_publisher = publisher
 
     async def __aenter__(self: TGracy) -> TGracy:
         return await self.build()
