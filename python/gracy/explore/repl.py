@@ -1,4 +1,4 @@
-"""The `gracy -i` REPL and the shared command dispatcher (`gracy x` uses it too).
+"""The `gracy explore` REPL and the shared command dispatcher (`gracy x` uses it too).
 
 The module imports only the stdlib; rich is pulled in lazily inside the render
 helpers so one-shot ``gracy x --json`` works without any optional dependency.
@@ -226,7 +226,7 @@ def _make_console() -> t.Any:
         from rich.console import Console
     except ImportError:  # pragma: no cover - venvs in this repo have rich
         raise RuntimeError(
-            "gracy -i needs the optional 'rich' package — install it with: pip install 'gracy[rich]'"
+            "gracy explore needs the optional 'rich' package — install it with: pip install 'gracy[rich]'"
         ) from None
     console = Console()
     if not console.is_terminal:  # stable layout for pipes / tests
@@ -304,7 +304,7 @@ def _write_history(readline: t.Any) -> None:
 
 
 async def run_repl(session: ExploreSession) -> int:
-    """The `gracy -i` loop; errors are printed, never fatal. Returns exit code."""
+    """The `gracy explore` loop; errors are printed, never fatal. Returns exit code."""
     console = _make_console()
     is_tty = sys.stdin.isatty()
     if is_tty:

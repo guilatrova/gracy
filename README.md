@@ -34,7 +34,7 @@ Gracy handles failures, retries, throttling, parsing, replaying, and reporting f
 - [🔁 One-line drop-in](#-one-line-drop-in)
   - [Coming from requests](#coming-from-requests)
   - [Coming from httpx](#coming-from-httpx)
-- [🧪 Interactive mode (`gracy -i`)](#-interactive-mode-gracy--i)
+- [🧪 Interactive mode (`gracy explore`)](#-interactive-mode-gracy-explore)
   - [vs Postman](#vs-postman)
 - [⚙️ Feature tour](#️-feature-tour)
   - [Status policies](#status-policies)
@@ -177,9 +177,9 @@ requests.get("https://pokeapi.co/api/v2/berry/cheri")  # now retried + throttled
 
 Pass `config=GracyConfig(...)` to the client constructor to enable policies (a sync `Client` twin ships too). Semantics follow httpx: non-2xx responses are returned, not raised.
 
-## 🧪 Interactive mode (`gracy -i`)
+## 🧪 Interactive mode (`gracy explore`)
 
-Exploring or reverse-engineering an API? `gracy -i` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types — then **`save` compiles the whole session into a typed client + tests that pass offline**. It's a terminal-native Postman that hands you production Python instead of a JSON collection.
+Exploring or reverse-engineering an API? `gracy explore` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types — then **`save` compiles the whole session into a typed client + tests that pass offline**. It's a terminal-native Postman that hands you production Python instead of a JSON collection.
 
 **Reach for it when you're:**
 
@@ -189,7 +189,7 @@ Exploring or reverse-engineering an API? `gracy -i` is a REPL where every reques
 - **Driving it from an AI agent** — `gracy x '<cmd>' --json` is scriptable and stateful; an agent can map an API overnight and leave you a reviewed client, passing tests, and OpenAPI docs.
 
 ```console
-$ gracy -i https://pokeapi.co/api/v2
+$ gracy explore https://pokeapi.co/api/v2
 gracy› get /pokemon/pikachu
 GET .../pokemon/pikachu -> 200 (81 ms)
 { "id": 25, "name": "pikachu", ... }
@@ -218,7 +218,7 @@ $ gracy x 'save pokeapi.py --tests' --session poke.json --json
 
 ### vs Postman
 
-| | Postman | `gracy -i` |
+| | Postman | `gracy explore` |
 |---|---|---|
 | Where it lives | GUI + cloud account | Your terminal, offline |
 | Saved work | Proprietary collection (JSON) | A session file **and typed Python** — both diff in git |

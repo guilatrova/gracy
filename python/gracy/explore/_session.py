@@ -1,4 +1,4 @@
-"""ExploreSession — the `gracy -i` engine (no REPL in here).
+"""ExploreSession — the `gracy explore` engine (no REPL in here).
 
 Every request runs through a real, lazily-built internal :class:`gracy.Gracy`
 client, so retry/throttle/timeout policies behave exactly like production.

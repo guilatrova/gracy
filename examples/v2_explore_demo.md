@@ -1,4 +1,4 @@
-# `gracy -i` — explore an API, walk away with a typed client
+# `gracy explore` — explore an API, walk away with a typed client
 
 A hands-on walkthrough of the interactive explorer. Every request you fire is
 executed through the real gracy pipeline, recorded into a session file, and
@@ -8,7 +8,7 @@ plus tests that pass offline.
 ## 1. Human REPL flow
 
 ```console
-$ gracy -i https://pokeapi.co/api/v2
+$ gracy explore https://pokeapi.co/api/v2
 ⚡ gracy explore · session: pokeapi.gracy.json · base: https://pokeapi.co/api/v2
 type `help` for commands, Ctrl-D to quit
 

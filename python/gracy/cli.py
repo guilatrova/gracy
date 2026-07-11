@@ -1,10 +1,10 @@
 """``gracy`` — the umbrella CLI.
 
-    gracy -i [BASE_URL] [--session f.json]     interactive API explorer (alias: gracy explore)
+    gracy explore [BASE_URL] [--session f.json]  interactive API explorer
     gracy x '<command>' [--session f.json] [--base URL] [--json]
-                                               one-shot agent mode (exit 0 ok / 2 parse / 1 exec)
-    gracy monitor ...                          live dashboard (delegates to gracy.monitor)
-    gracy docs ...                             docs generator (delegates to gracy.docs)
+                                                 one-shot agent mode (exit 0 ok / 2 parse / 1 exec)
+    gracy monitor ...                            live dashboard (delegates to gracy.monitor)
+    gracy docs ...                               docs generator (delegates to gracy.docs)
     gracy --version
 
 Everything heavy (explore engine, rich, monitor, docs) is imported lazily so
@@ -23,7 +23,8 @@ __all__ = ["main"]
 _USAGE = """\
 usage: gracy <command> [...]
 
-  gracy -i [BASE_URL] [--session f.json]   interactive API explorer (alias: explore)
+  gracy explore [BASE_URL] [--session f.json]
+                                           interactive API explorer
   gracy x '<command>' [--session f.json] [--base URL] [--json]
                                            run ONE explorer command (agent mode)
   gracy monitor [...]                      live terminal dashboard
@@ -47,7 +48,7 @@ def main(argv: t.Sequence[str] | None = None) -> int:
     if head in ("-h", "--help", "help"):
         print(_USAGE)
         return 0
-    if head in ("-i", "explore"):
+    if head == "explore":
         return _cmd_interactive(rest)
     if head == "x":
         return _cmd_one_shot(rest)
@@ -65,11 +66,11 @@ def main(argv: t.Sequence[str] | None = None) -> int:
     return 2
 
 
-# --------------------------------------------------------------------------- gracy -i
+# --------------------------------------------------------------------------- gracy explore
 
 
 def _cmd_interactive(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="gracy -i", description="interactive API explorer")
+    parser = argparse.ArgumentParser(prog="gracy explore", description="interactive API explorer")
     parser.add_argument("base_url", nargs="?", default=None, help="API base URL (or set later with `base <url>`)")
     parser.add_argument("--session", default="gracy_explore.json", help="session file (default: gracy_explore.json)")
     ns = parser.parse_args(argv)
@@ -78,7 +79,7 @@ def _cmd_interactive(argv: list[str]) -> int:
         import rich  # noqa: F401
     except ImportError:
         print(
-            "gracy -i needs the optional 'rich' package — install it with: pip install 'gracy[rich]'",
+            "gracy explore needs the optional 'rich' package — install it with: pip install 'gracy[rich]'",
             file=sys.stderr,
         )
         return 1

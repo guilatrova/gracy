@@ -1,4 +1,4 @@
-"""gracy explore — the `gracy -i` interactive API explorer engine.
+"""gracy explore — the `gracy explore` interactive API explorer engine.
 
 :class:`ExploreSession` records real requests (full gracy pipeline), names
 endpoints, infers pydantic models, and generates a typed Gracy client

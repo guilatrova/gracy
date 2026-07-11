@@ -1,4 +1,4 @@
-"""Command grammar for the gracy explorer (`gracy -i` REPL and `gracy x` one-shot).
+"""Command grammar for the gracy explorer (`gracy explore` REPL and `gracy x` one-shot).
 
 httpie-flavoured request pairs:
     k==v        query parameter

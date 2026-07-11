@@ -291,7 +291,7 @@ def test_x_show_history_json(test_server: str, tmp_path: Path) -> None:
 def test_repl_smoke_pipe(test_server: str, tmp_path: Path) -> None:
     out = tmp_path / "out.py"
     proc = run_cli(
-        "-i",
+        "explore",
         test_server,
         "--session",
         str(tmp_path / "repl.json"),
@@ -306,7 +306,7 @@ def test_repl_smoke_pipe(test_server: str, tmp_path: Path) -> None:
 
 def test_repl_survives_errors_and_eof(test_server: str, tmp_path: Path) -> None:
     proc = run_cli(
-        "-i",
+        "explore",
         test_server,
         "--session",
         str(tmp_path / "repl.json"),
@@ -320,7 +320,7 @@ def test_repl_survives_errors_and_eof(test_server: str, tmp_path: Path) -> None:
 
 def test_repl_banner_and_hints(test_server: str, tmp_path: Path) -> None:
     proc = run_cli(
-        "-i",
+        "explore",
         test_server,
         "--session",
         str(tmp_path / "banner.json"),
