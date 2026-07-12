@@ -481,6 +481,17 @@ class ExploreSession:
 
     # ------------------------------------------------------------------ captures
 
+    def peek(self, path: str) -> t.Any:
+        """Resolve a dot/bracket path against the LAST response, without storing.
+        Used to preview a value before `set` and by the `peek` command."""
+        steps = self._data["steps"]
+        if not steps:
+            raise ValueError("no request yet - run one first")
+        last = steps[-1]
+        if "response_json" not in last:
+            raise ValueError("the last response is not JSON - nothing to read")
+        return resolve_json_path(last["response_json"], path)
+
     def capture(self, name: str, path: str) -> t.Any:
         """Snapshot a value from the LAST response into the session (concrete data).
 
@@ -488,13 +499,7 @@ class ExploreSession:
         stored under ``captures[name]``; later ``{{name}}`` refs expand to it."""
         if not name.isidentifier():
             raise ValueError(f"{name!r} is not a valid capture name")
-        steps = self._data["steps"]
-        if not steps:
-            raise ValueError("no request yet - run one first")
-        last = steps[-1]
-        if "response_json" not in last:
-            raise ValueError("the last response is not JSON - nothing to capture")
-        value = resolve_json_path(last["response_json"], path)
+        value = self.peek(path)
         self._snapshot(f"set {name} = {path}")
         self.captures[name] = value
         self.persist()

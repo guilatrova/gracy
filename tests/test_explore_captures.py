@@ -264,10 +264,29 @@ async def test_codegen_bakes_concrete_path_no_capture_leak(
 
 
 def test_describe_impact_set_preview(tmp_path: Path) -> None:
-    session = _hand_session(tmp_path)
-    text = _impact_text(session, "set berry results[0].name")
-    assert "captures" in text
-    assert "results[0].name" in text
+    body = {"results": [{"name": "cheri"}]}
+    session = _hand_session(tmp_path, steps=[{"id": 1, "method": "GET", "path": "/berry", "response_json": body}])
+    # the toolbar previews the REAL value that will be captured
+    assert _impact_text(session, "set berry results[0].name") == "captures results[0].name = 'cheri'"
+    assert _impact_text(session, "peek results[0].name") == "shows results[0].name = 'cheri'"
+    assert _impact_text(session, "set x nope.field") == "nope.field not found in the last response"
+
+
+def test_peek_command_reads_without_capturing(tmp_path: Path) -> None:
+    body = {"results": [{"name": "cheri", "id": 1}]}
+    session = _hand_session(tmp_path, steps=[{"id": 1, "method": "GET", "path": "/berry", "response_json": body}])
+    assert session.peek("results[0].name") == "cheri"
+    assert session.peek("results[0]") == {"name": "cheri", "id": 1}
+    assert session.captures == {}  # peek never stores
+    with pytest.raises(ValueError, match="no key"):
+        session.peek("nope")
+
+
+def test_bare_json_path_suggests_peek() -> None:
+    with pytest.raises(ParseError, match=r"did you mean `peek results\[0\]`"):
+        parse_command("results[0]")
+    with pytest.raises(ParseError, match="type 'help'"):
+        parse_command("bogus")
 
 
 def test_describe_impact_request_capture_set_vs_unset(tmp_path: Path) -> None:
@@ -327,3 +346,4 @@ async def test_captures_and_env_and_curly_do_not_conflict(tmp_path, test_server)
         assert "{keepme}" in base64.b64decode(step["body_b64"]).decode()
     finally:
         await s.aclose()
+

@@ -23,7 +23,7 @@ PROMPT: t.Final = "gracy› "
 # Top-level command words offered by Tab completion (kept in sync with the parser).
 COMMANDS: t.Final = (
     *METHODS,
-    "endpoint", "model", "rename", "on", "param", "set", "retry", "throttle",
+    "endpoint", "model", "rename", "on", "param", "set", "peek", "retry", "throttle",
     "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "save", "help", "quit", "exit",
 )
 
@@ -156,6 +156,16 @@ async def _do_set(session: ExploreSession, cmd: Command) -> Outcome:
     )
 
 
+async def _do_peek(session: ExploreSession, cmd: Command) -> Outcome:
+    assert cmd.path is not None
+    value = session.peek(cmd.path)  # resolve-only, no capture
+    return Outcome(
+        "peek",
+        {"ok": True, "path": cmd.path, "value": value},
+        f"{cmd.path} = {value!r}",
+    )
+
+
 async def _do_policy(session: ExploreSession, cmd: Command) -> Outcome:
     kwargs: dict[str, t.Any] = {}
     if cmd.kind == "retry":
@@ -243,6 +253,7 @@ _HANDLERS: t.Final[dict[str, t.Callable[[ExploreSession, Command], t.Awaitable[O
     "on": _do_on,
     "param": _do_param,
     "set": _do_set,
+    "peek": _do_peek,
     "retry": _do_policy,
     "throttle": _do_policy,
     "timeout": _do_policy,
@@ -313,6 +324,10 @@ def render_outcome(console: t.Any, outcome: Outcome) -> None:
 
         title, source = outcome.panel
         console.print(Panel(Syntax(source, "python", background_color="default"), title=title, expand=False))
+    elif outcome.kind == "peek":
+        # pretty-print the resolved value so nested structures stay readable
+        console.print(f"[dim]{outcome.data['path']} =[/dim]")
+        console.print(Pretty(outcome.data["value"], max_depth=4, max_length=24, max_string=200, indent_size=2))
     else:
         console.print(outcome.human)
     for hint in outcome.hints:
@@ -522,6 +537,25 @@ def _action_desc(action: str) -> str:
     return f"returns {action}"
 
 
+_UNRESOLVED: t.Final = object()
+
+
+def _short_repr(value: t.Any, limit: int = 60) -> str:
+    r = repr(value)
+    return r if len(r) <= limit else r[: limit - 3] + "..."
+
+
+def _resolve_preview(session: ExploreSession, path: str) -> t.Any:
+    """A short repr of what <path> resolves to in the last response, or the
+    _UNRESOLVED sentinel when it can't be read. Used to preview set/peek live."""
+    if not path:
+        return ""
+    try:
+        return _short_repr(session.peek(path))
+    except Exception:  # noqa: BLE001 - the toolbar must never break
+        return _UNRESOLVED
+
+
 def describe_impact(session: ExploreSession, line: str) -> FormattedText:
     """Live 'what will this command do' preview for the bottom toolbar. Pure:
     inspects session state, never mutates. Assembled as styled segments."""
@@ -560,10 +594,14 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
             else:
                 segs += [_seg("tb.warn", f" · {ref} not set")]
         return segs
-    if cmd.kind == "set":
+    if cmd.kind in ("set", "peek"):
+        verb = "captures" if cmd.kind == "set" else "shows"
+        resolved = _resolve_preview(session, cmd.path or "")
+        if resolved is _UNRESOLVED:
+            return [_seg("tb.warn", f"{cmd.path} not found in the last response")]
         return [
-            _seg("tb.verb", "captures "), _seg("tb.value", cmd.path or ""),
-            _seg("tb.verb", " from the last response"),
+            _seg("tb.verb", f"{verb} "), _seg("tb.muted", cmd.path or ""),
+            _seg("tb.muted", " = "), _seg("tb.value", resolved),
         ]
     if cmd.kind == "endpoint":
         last = _last_request(session)

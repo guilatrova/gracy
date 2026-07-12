@@ -35,6 +35,7 @@ USAGE: t.Final[dict[str, str]] = {
     "list": "list | ls    list named endpoints (alias of 'show endpoints')",
     "on": "on <status> none|raise:<ExcName>|<literal>    e.g. on 404 none",
     "param": "param <index> as <name>",
+    "peek": "peek <path>    show a value from the last response, e.g. peek results[0].name",
     "set": "set <name> <path>    capture a value from the last response, e.g. set berry results[0].name",
     "retry": "retry <n> on <codes> [wait <s>[x<mult>]]    e.g. retry 3 on 429,503 wait 0.5x2",
     "throttle": "throttle <n>/<per>    e.g. throttle 5/1s",
@@ -342,6 +343,10 @@ def parse_command(line: str) -> Command:
         _exactly(tokens, 3, "set")
         return Command(kind="set", name=rest[0], path=rest[1])
 
+    if head == "peek":
+        _exactly(tokens, 2, "peek")
+        return Command(kind="peek", path=rest[0])
+
     if head == "retry":
         if not rest:
             raise ParseError("retry needs a spec", "retry")
@@ -422,4 +427,7 @@ def parse_command(line: str) -> Command:
     if head in ("quit", "exit"):
         return Command(kind="quit")
 
+    if len(tokens) == 1 and ("[" in head or "." in head) and head[:1].isalpha():
+        # a bare json-path like `results[0].name` -> they probably want to peek it
+        raise ParseError(f"unknown command {head!r}; did you mean `peek {head}`?")
     raise ParseError(f"unknown command {head!r}; type 'help' for the command list")
