@@ -25,7 +25,7 @@ PROMPT: t.Final = "gracy› "
 COMMANDS: t.Final = (
     *METHODS,
     "endpoint", "ep", "model", "rename", "on", "param", "set", "peek", "retry", "throttle",
-    "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "save", "help", "quit", "exit",
+    "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "export", "help", "quit", "exit",
 )
 
 
@@ -231,11 +231,11 @@ async def _do_undo(session: ExploreSession, cmd: Command) -> Outcome:
     return Outcome("undo", {"ok": True, "undo": line}, line)
 
 
-async def _do_save(session: ExploreSession, cmd: Command) -> Outcome:
+async def _do_export(session: ExploreSession, cmd: Command) -> Outcome:
     assert cmd.path is not None
     paths = session.save_code(cmd.path, tests=cmd.tests)
     written = [str(p) for p in paths]
-    return Outcome("save", {"ok": True, "written": written}, "wrote " + ", ".join(written))
+    return Outcome("export", {"ok": True, "written": written}, "wrote " + ", ".join(written))
 
 
 async def _do_help(session: ExploreSession, cmd: Command) -> Outcome:
@@ -263,7 +263,7 @@ _HANDLERS: t.Final[dict[str, t.Callable[[ExploreSession, Command], t.Awaitable[O
     "base": _do_policy,
     "show": _do_show,
     "undo": _do_undo,
-    "save": _do_save,
+    "export": _do_export,
     "help": _do_help,
     "quit": _do_quit,
 }
@@ -388,7 +388,7 @@ def candidates_for(session: ExploreSession, leading: str, text: str) -> list[str
         return [s + " " for s in ("bearer", "basic") if s.startswith(text)]
     if cmd == "param" and len(parts) == 2:
         return ["as "] if "as".startswith(text) else []
-    if cmd == "save":
+    if cmd in ("export", "save"):
         import glob
 
         files = [p for p in glob.glob(text + "*") if p.endswith(".py") or Path(p).is_dir()]
@@ -569,7 +569,7 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         cmd = parse_command(line)
     except ParseError:
         head = line.split()[0].lower()
-        hint = USAGE.get({"ls": "list", "ep": "endpoint"}.get(head, head))
+        hint = USAGE.get({"ls": "list", "ep": "endpoint", "save": "export"}.get(head, head))
         return [_seg("tb.muted", hint or "keep typing…")]
 
     ep = active_endpoint(session)
@@ -652,7 +652,7 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         detail = cmd.spec or cmd.value or (f"{cmd.name}={cmd.value}" if cmd.name else "")
         label = {"base": "base_url"}.get(cmd.kind, cmd.kind)
         return [_seg("tb.verb", f"sets {label} "), arrow, _seg("tb.value", str(detail))]
-    if cmd.kind == "save":
+    if cmd.kind == "export":
         n_ep = len(session.endpoints())
         extra = " + tests + cassette" if cmd.tests else ""
         return [

@@ -131,9 +131,11 @@ def test_parse_show_save_and_singletons() -> None:
     assert (show_model.target, show_model.name) == ("model", "Pokemon")
     assert parse_command("show model").name is None
 
-    save = parse_command("save api.py --tests")
-    assert (save.path, save.tests) == ("api.py", True)
-    assert parse_command("save api.py").tests is False
+    export = parse_command("export api.py --tests")
+    assert (export.kind, export.path, export.tests) == ("export", "api.py", True)
+    assert parse_command("export api.py").tests is False
+    # `save` is a hidden back-compat alias that resolves to the same command
+    assert parse_command("save api.py --tests").kind == "export"
 
     assert parse_command("undo").kind == "undo"
     assert parse_command("help").kind == "help"
@@ -191,8 +193,8 @@ def test_x_human_line(test_server: str, tmp_path: Path) -> None:
     assert "GET" in proc.stdout and "200" in proc.stdout
 
 
-def test_x_agent_sequence_and_save(test_server: str, tmp_path: Path) -> None:
-    """get -> name -> on -> save across separate invocations sharing the session file."""
+def test_x_agent_sequence_and_export(test_server: str, tmp_path: Path) -> None:
+    """get -> endpoint -> on -> export across separate invocations sharing the session file."""
     session = str(tmp_path / "seq.json")
 
     first = run_cli("x", "get /echo/mew", "--base", test_server, "--session", session, "--json")
@@ -211,9 +213,9 @@ def test_x_agent_sequence_and_save(test_server: str, tmp_path: Path) -> None:
     assert ep["on"] == {"404": "none"}
 
     out = tmp_path / "echo_api.py"
-    saved = run_cli("x", f"save {out}", "--session", session, "--json")
-    assert saved.returncode == 0, saved.stderr
-    assert str(out) in json.loads(saved.stdout)["written"]
+    exported = run_cli("x", f"export {out}", "--session", session, "--json")
+    assert exported.returncode == 0, exported.stderr
+    assert str(out) in json.loads(exported.stdout)["written"]
     assert out.exists()
 
     module_name = f"gen_{uuid.uuid4().hex}"

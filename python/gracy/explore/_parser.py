@@ -45,7 +45,7 @@ USAGE: t.Final[dict[str, str]] = {
     "base": "base <url>",
     "show": "show last|model [Name]|class|endpoints|history|captures",
     "undo": "undo",
-    "save": "save <file.py> [--tests]",
+    "export": "export <file.py> [--tests]    compile the session into a typed client (+ tests)",
     "help": "help",
     "quit": "quit | exit",
 }
@@ -73,7 +73,7 @@ class ParseError(ValueError):
 
 @dataclass
 class Command:
-    kind: str  # request|endpoint|model|rename|on|param|set|retry|throttle|timeout|auth|header|base|show|undo|save|help|quit
+    kind: str  # request|endpoint|model|rename|on|param|set|retry|throttle|timeout|auth|header|base|show|undo|export|help|quit
     method: str | None = None
     path: str | None = None  # request path (also the capture <path> for kind "set")
     query: dict[str, str] = field(default_factory=dict)
@@ -405,9 +405,9 @@ def parse_command(line: str) -> Command:
         _exactly(tokens, 1, "undo")
         return Command(kind="undo")
 
-    if head == "save":
+    if head in ("export", "save"):  # `save` is a hidden back-compat alias
         if not rest:
-            raise ParseError("save needs an output file", "save")
+            raise ParseError("export needs an output file", "export")
         tests = False
         path: str | None = None
         for token in rest:
@@ -416,10 +416,10 @@ def parse_command(line: str) -> Command:
             elif path is None and not token.startswith("-"):
                 path = token
             else:
-                raise ParseError(f"unexpected save argument {token!r}", "save")
+                raise ParseError(f"unexpected export argument {token!r}", "export")
         if path is None:
-            raise ParseError("save needs an output file", "save")
-        return Command(kind="save", path=path, tests=tests)
+            raise ParseError("export needs an output file", "export")
+        return Command(kind="export", path=path, tests=tests)
 
     if head == "help":
         return Command(kind="help")

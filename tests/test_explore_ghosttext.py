@@ -30,7 +30,7 @@ def session(tmp_path: Path) -> ExploreSession:
 def test_ghost_completes_command_word(session: ExploreSession) -> None:
     assert suggest_suffix(session, "g") == "et"  # the requested behavior
     assert suggest_suffix(session, "ge") == "t"
-    assert suggest_suffix(session, "sav") == "e"
+    assert suggest_suffix(session, "exp") == "ort"
 
 
 def test_ghost_completes_paths_and_endpoints(session: ExploreSession) -> None:
@@ -47,8 +47,8 @@ def test_ghost_empty_when_no_match(session: ExploreSession) -> None:
 
 def test_ghost_falls_back_to_history(session: ExploreSession) -> None:
     # no completion candidate for a full path, but a past line matches
-    hist = ["get /berry/cheri", "save out.py --tests"]
-    assert suggest_suffix(session, "save out.py --te", hist) == "sts"
+    hist = ["get /berry/cheri", "export out.py --tests"]
+    assert suggest_suffix(session, "export out.py --te", hist) == "sts"
     # history only kicks in when no word-completion wins; newest-first
     assert suggest_suffix(session, "get /berry/cher", hist) == "i"
 

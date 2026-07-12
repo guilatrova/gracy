@@ -194,13 +194,13 @@ Pass `config=GracyConfig(...)` to the client constructor to enable policies (a s
 
 ## 🧪 Interactive mode (`gracy explore`)
 
-Exploring or reverse-engineering an API? `gracy explore` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types, then **`save` compiles the whole session into a typed client + tests that pass offline**. It's a terminal-native Postman that hands you production Python instead of a JSON collection.
+Exploring or reverse-engineering an API? `gracy explore` is a REPL where every request runs through the real pipeline, gets recorded, and is mined for types, then **`export` compiles the whole session into a typed client + tests that pass offline**. It's a terminal-native Postman that hands you production Python instead of a JSON collection. (The session itself auto-saves after every command, so `export` is about emitting reusable code, not persistence.)
 
 **Reach for it when you're:**
 
 - **Poking at an unfamiliar API**: fire requests, see responses, and let gracy infer the models and `{param}` templates as you go.
-- **Bootstrapping a client**: walk the endpoints once, `save`, and ship the typed `Gracy` class you'd otherwise hand-write.
-- **Locking down behavior**: `save --tests` gives you replay-backed tests that run in CI with zero network.
+- **Bootstrapping a client**: walk the endpoints once, `export`, and ship the typed `Gracy` class you'd otherwise hand-write.
+- **Locking down behavior**: `export --tests` gives you replay-backed tests that run in CI with zero network.
 - **Driving it from an AI agent**: `gracy x '<cmd>' --json` is scriptable and stateful; an agent can map an API overnight and leave you a reviewed client, passing tests, and OpenAPI docs.
 
 ```
@@ -215,15 +215,15 @@ gracy› param 1 as name           # rename the template param -> /pokemon/{name
 gracy› on 404 none               # map 404 -> None (typed as Pokemon | None)
 gracy› model Pokemon             # name the inferred response model
 gracy› list                      # see your endpoints (alias of `show endpoints`)
-gracy› save pokeapi.py --tests
+gracy› export pokeapi.py --tests
 wrote pokeapi.py, test_pokeapi.py, pokeapi.cassette.db
 ```
 
 The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**. `endpoint` said `created` the first time and `folded into` the second; `rename endpoint <old> <new>` (and `rename model`) fix a name after the fact.
 
-The REPL suggests as you type: an inline grey **ghost text** shows the rest of the likely word (type `g`, see `et`), which `→` accepts; **Tab** lists all matches. Both read your live session: commands, `show` targets, endpoint names (`endpoint <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `save`. History persists in `~/.gracy_history`. Ghost text needs `prompt_toolkit` (`pip install 'gracy[explore]'`); without it the REPL falls back to plain Tab completion.
+The REPL suggests as you type: an inline grey **ghost text** shows the rest of the likely word (type `g`, see `et`), which `→` accepts; **Tab** lists all matches. Both read your live session: commands, `show` targets, endpoint names (`endpoint <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `export`. History persists in `~/.gracy_history`. Ghost text needs `prompt_toolkit` (`pip install 'gracy[explore]'`); without it the REPL falls back to plain Tab completion.
 
-It also keeps you oriented: a dim **right-prompt** shows the *active endpoint* (the one `model`/`on`/`param` will change), and a **bottom bar** previews the impact of the line you're typing before you run it: `model Pokemon` shows `names the response model of get_pokemon → Pokemon`, `save api.py --tests` shows `writes api.py + tests + cassette · 2 endpoints`. No more guessing what a command will do.
+It also keeps you oriented: a dim **right-prompt** shows the *active endpoint* (the one `model`/`on`/`param` will change), and a **bottom bar** previews the impact of the line you're typing before you run it: `model Pokemon` shows `names the response model of get_pokemon → Pokemon`, `export api.py --tests` shows `writes api.py + tests + cassette · 2 endpoints`. No more guessing what a command will do.
 
 **Bodies** use httpie syntax on `post`/`put`/`patch`: `k==v` query · `k=v` string field · `k:=v` raw JSON · `@file` · `{...}` inline · `-H 'K: v'` header. `$VAR` resolves at send time but is stored unresolved, so secrets never hit disk.
 
@@ -243,7 +243,7 @@ GET .../berry/cheri -> 200 (58.0 ms)
 ```
 $ gracy x 'get /pokemon/ditto' --base https://pokeapi.co/api/v2 --session poke.json --json
 {"step_id": 1, "status": 200, "matched_endpoint": null, "body_preview": {...}}
-$ gracy x 'save pokeapi.py --tests' --session poke.json --json
+$ gracy x 'export pokeapi.py --tests' --session poke.json --json
 {"ok": true, "files": ["pokeapi.py", "test_pokeapi.py", "pokeapi.cassette.db"]}
 ```
 
@@ -252,7 +252,7 @@ For a long agent run, `gracy explore --stdio` keeps **one live process**: it rea
 ```
 → {"cmd": "get /pokemon/pikachu"}
 ← {"step_id": 1, "status": 200, "matched_endpoint": null, "body_preview": {...}}
-→ {"cmd": "save pokeapi.py --tests"}
+→ {"cmd": "export pokeapi.py --tests"}
 ← {"ok": true, "files": ["pokeapi.py", "test_pokeapi.py", "pokeapi.cassette.db"]}
 ```
 

@@ -109,8 +109,10 @@ def test_impact_request_matches_existing(session: ExploreSession) -> None:
     assert _plain(describe_impact(session, "get /pokemon/mew")) == "send GET /pokemon/mew · matches get_pokemon"
 
 
-def test_impact_save_reports_files_and_counts(session: ExploreSession) -> None:
-    assert _plain(describe_impact(session, "save api.py --tests")) == "writes api.py + tests + cassette · 2 endpoints"
+def test_impact_export_reports_files_and_counts(session: ExploreSession) -> None:
+    assert _plain(describe_impact(session, "export api.py --tests")) == "writes api.py + tests + cassette · 2 endpoints"
+    assert _plain(describe_impact(session, "export api.py")) == "writes api.py · 2 endpoints"
+    # the hidden `save` alias resolves to the same impact preview
     assert _plain(describe_impact(session, "save api.py")) == "writes api.py · 2 endpoints"
 
 
@@ -127,7 +129,7 @@ def test_impact_empty_and_partial(session: ExploreSession) -> None:
 
 
 def test_impact_never_has_em_dash(session: ExploreSession) -> None:
-    for line in ["model X", "on 404 none", "no such", "save a.py", "endpoint E", "rename endpoint a b"]:
+    for line in ["model X", "on 404 none", "no such", "export a.py", "endpoint E", "rename endpoint a b"]:
         assert "—" not in _plain(describe_impact(session, line))
 
 

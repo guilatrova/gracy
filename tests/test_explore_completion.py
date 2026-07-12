@@ -41,7 +41,7 @@ def test_first_word_completes_commands(monkeypatch: pytest.MonkeyPatch, complete
     got = _cands(monkeypatch, completer, "", "")
     assert [c.strip() for c in got] == list(COMMANDS)
     assert _cands(monkeypatch, completer, "ge", "ge") == ["get "]
-    assert _cands(monkeypatch, completer, "sav", "sav") == ["save "]
+    assert _cands(monkeypatch, completer, "exp", "exp") == ["export "]
 
 
 def test_method_completes_seen_paths(monkeypatch: pytest.MonkeyPatch, completer: _Completer) -> None:
@@ -69,14 +69,16 @@ def test_auth_completes_schemes(monkeypatch: pytest.MonkeyPatch, completer: _Com
     assert [c.strip() for c in _cands(monkeypatch, completer, "auth ", "")] == ["bearer", "basic"]
 
 
-def test_save_completes_files_and_tests_flag(
+def test_export_completes_files_and_tests_flag(
     monkeypatch: pytest.MonkeyPatch, completer: _Completer, tmp_path: Path
 ) -> None:
     (tmp_path / "myapi.py").write_text("")
     (tmp_path / "notes.txt").write_text("")
-    files = _cands(monkeypatch, completer, f"save {tmp_path}/", f"{tmp_path}/")
+    files = _cands(monkeypatch, completer, f"export {tmp_path}/", f"{tmp_path}/")
     assert any(f.endswith("myapi.py") for f in files)
     assert not any(f.endswith("notes.txt") for f in files)  # only .py (or dirs) offered
+    assert _cands(monkeypatch, completer, "export x --t", "--t") == ["--tests"]
+    # the hidden `save` alias still completes files + flags for muscle memory
     assert _cands(monkeypatch, completer, "save x --t", "--t") == ["--tests"]
 
 
