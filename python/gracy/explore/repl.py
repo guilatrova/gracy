@@ -325,6 +325,8 @@ def render_outcome(console: t.Any, outcome: Outcome) -> None:
         title, source = outcome.panel
         console.print(Panel(Syntax(source, "python", background_color="default"), title=title, expand=False))
     elif outcome.kind == "peek":
+        from rich.pretty import Pretty
+
         # pretty-print the resolved value so nested structures stay readable
         console.print(f"[dim]{outcome.data['path']} =[/dim]")
         console.print(Pretty(outcome.data["value"], max_depth=4, max_length=24, max_string=200, indent_size=2))
