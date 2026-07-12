@@ -36,6 +36,15 @@ def test_parse_endpoint_replaces_name() -> None:
         parse_command("name get_pokemon")
 
 
+def test_parse_ep_is_alias_of_endpoint() -> None:
+    cmd = parse_command("ep get_pokemon")
+    assert cmd.kind == "endpoint" and cmd.name == "get_pokemon"
+    # same arity rules as the long form
+    for bad in ("ep", "ep a b"):
+        with pytest.raises(ParseError):
+            parse_command(bad)
+
+
 def test_parse_rename() -> None:
     c = parse_command("rename endpoint old new")
     assert (c.kind, c.target, c.name, c.value) == ("rename", "endpoint", "old", "new")
@@ -67,6 +76,34 @@ async def test_endpoint_echo_created_then_folded(make_session: t.Callable[..., E
     assert folded.data["created"] is False
     assert "folded into" in folded.human
     assert folded.data["template"] == "/echo/{echo}"
+
+
+async def test_ep_alias_creates_and_folds_like_endpoint(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/one")
+    created = await execute_command(session, parse_command("ep get_echo"))
+    assert created.data["created"] is True and "get_echo" in session.endpoints()
+
+    await session.execute("get", "/echo/two")
+    folded = await execute_command(session, parse_command("ep get_echo"))
+    assert folded.data["created"] is False
+    assert folded.data["template"] == "/echo/{echo}"
+
+
+async def test_ep_completion_and_toolbar(make_session: t.Callable[..., ExploreSession]) -> None:
+    from gracy.explore.repl import COMMANDS, candidates_for, describe_impact
+
+    assert "ep" in COMMANDS  # Tab surfaces the alias at the top level
+    session = make_session()
+    await session.execute("get", "/echo/one")
+    session.name_endpoint("get_echo")
+    # `ep <TAB>` offers existing endpoint names to fold into, same as `endpoint`
+    assert candidates_for(session, "ep ", "get") == ["get_echo"]
+    # the impact toolbar reads the alias through the parser (kind == endpoint)
+    plain = "".join(seg[1] for seg in describe_impact(session, "ep NewThing"))
+    assert "creates endpoint" in plain and "NewThing" in plain
 
 
 async def test_echo_has_no_rich_markup(make_session: t.Callable[..., ExploreSession]) -> None:

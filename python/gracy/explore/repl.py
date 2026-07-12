@@ -21,9 +21,10 @@ HISTORY_FILE: t.Final = Path.home() / ".gracy_history"
 PROMPT: t.Final = "gracy› "
 
 # Top-level command words offered by Tab completion (kept in sync with the parser).
+# `endpoint` before `ep` so the ghost hint prefers the full, clearer word.
 COMMANDS: t.Final = (
     *METHODS,
-    "endpoint", "model", "rename", "on", "param", "set", "peek", "retry", "throttle",
+    "endpoint", "ep", "model", "rename", "on", "param", "set", "peek", "retry", "throttle",
     "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "save", "help", "quit", "exit",
 )
 
@@ -372,7 +373,7 @@ def candidates_for(session: ExploreSession, leading: str, text: str) -> list[str
             return [t_ + " " for t_ in SHOW_TARGETS if t_.startswith(text)]
         if len(parts) == 2 and parts[1] == "model":
             return [n for n in _model_names(session) if n.startswith(text)]
-    if cmd == "endpoint" and len(parts) == 1:  # a NEW name, or an existing one to fold into
+    if cmd in ("endpoint", "ep") and len(parts) == 1:  # a NEW name, or an existing one to fold into
         return [n for n in session.endpoints() if n.startswith(text)]
     if cmd == "rename":
         if len(parts) == 1:
@@ -568,7 +569,7 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         cmd = parse_command(line)
     except ParseError:
         head = line.split()[0].lower()
-        hint = USAGE.get(head if head not in ("ls",) else "list")
+        hint = USAGE.get({"ls": "list", "ep": "endpoint"}.get(head, head))
         return [_seg("tb.muted", hint or "keep typing…")]
 
     ep = active_endpoint(session)

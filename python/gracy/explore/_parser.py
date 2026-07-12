@@ -29,7 +29,7 @@ SHOW_TARGETS: t.Final = ("last", "model", "class", "endpoints", "history", "capt
 
 USAGE: t.Final[dict[str, str]] = {
     "request": "get|post|put|patch|delete|head <path> [k==v]... [k=v]... [k:=v]... [@file] [{json}] [-H 'Name: v']...",
-    "endpoint": "endpoint <EndpointName>    turn the last request into a named endpoint (repeat to fold a 2nd call in)",
+    "endpoint": "endpoint | ep <EndpointName>    turn the last request into a named endpoint (repeat to fold a 2nd call in)",
     "model": "model <Name>[!request]",
     "rename": "rename endpoint|model <old> <new>",
     "list": "list | ls    list named endpoints (alias of 'show endpoints')",
@@ -302,7 +302,7 @@ def parse_command(line: str) -> Command:
     if head in METHODS:
         return _parse_request(head, rest, inline_json, json_fields)
 
-    if head == "endpoint":
+    if head in ("endpoint", "ep"):
         _exactly(tokens, 2, "endpoint")
         return Command(kind="endpoint", name=rest[0])
 
