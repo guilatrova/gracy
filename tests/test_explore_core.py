@@ -211,6 +211,33 @@ async def test_name_endpoint_templates_three_levels(make_session: t.Callable[...
     assert template == "/echo/{echo}/{team}"
 
 
+async def test_fold_with_mismatched_depth_errors_helpfully_and_is_atomic(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """Folding a path of a different depth into an endpoint can't template; the
+    error names both depths with examples, and the failed fold must NOT poison
+    the endpoint (regression: it used to leave the step assigned + step count bumped)."""
+    session = make_session()
+    await session.execute("get", "/echo/mew")  # 2-segment, step 1
+    await session.execute("get", "/echo/ditto")  # 2-segment, step 2
+    session.name_endpoint("get_echo", 1)
+    assert session.name_endpoint("get_echo", 2) == "/echo/{echo}"
+
+    await session.execute("get", "/health")  # 1-segment, step 3 (404 is fine)
+
+    with pytest.raises(ValueError) as exc:
+        session.name_endpoint("get_echo", 3)  # fold the shallow path -> clash
+    msg = str(exc.value)
+    assert "don't share a path depth" in msg
+    assert "1 segment (/health)" in msg and "2 segments (/echo/mew)" in msg
+
+    # atomic: the endpoint is untouched, the shallow step stayed unassigned
+    summary = session.endpoints()["get_echo"]
+    assert summary["steps"] == 2 and summary["template"] == "/echo/{echo}"
+    step3 = next(s for s in session.history() if s["path"] == "/health")
+    assert step3["matched_endpoint"] is None
+
+
 async def test_set_param_name(make_session: t.Callable[..., ExploreSession]) -> None:
     session = make_session()
     await session.execute("get", "/echo/mew")

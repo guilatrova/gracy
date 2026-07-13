@@ -420,6 +420,15 @@ class ExploreSession:
         if len(self._undo_stack) > 100:
             self._undo_stack.pop(0)
 
+    def _rollback(self) -> None:
+        """Revert the most recent _snapshot in memory (no persist). Lets an
+        operation stay atomic: if a mutation half-applies and then fails, we
+        undo it so a failed command never leaves the session poisoned."""
+        if self._undo_stack:
+            _, snapshot = self._undo_stack.pop()
+            self._data = snapshot
+            self._client_dirty = True
+
     def undo(self) -> str:
         """Drop the last step / last mutation. Returns a human line."""
         if not self._undo_stack:
@@ -765,17 +774,23 @@ class ExploreSession:
                 f"Endpoint {name!r} is {existing['method']}, step {step['id']} is {step['method']}"
             )
         self._snapshot(f"name_endpoint {name}")
-        step["endpoint"] = name
-        if existing is None:
-            endpoints[name] = {
-                "method": step["method"],
-                "template": step["path"],
-                "params": [],
-                "on": {},
-                "response_model": None,
-                "request_model": None,
-            }
-        template = self._recompute_template(name)
+        try:
+            step["endpoint"] = name
+            if existing is None:
+                endpoints[name] = {
+                    "method": step["method"],
+                    "template": step["path"],
+                    "params": [],
+                    "on": {},
+                    "response_model": None,
+                    "request_model": None,
+                }
+            template = self._recompute_template(name)
+        except Exception:
+            # a failed fold (e.g. a path-depth clash) must not poison the
+            # endpoint: undo the half-applied assignment before re-raising
+            self._rollback()
+            raise
         self.persist()
         return template
 
@@ -797,7 +812,17 @@ class ExploreSession:
             return ep["template"]
         length = len(paths[0])
         if any(len(p) != length for p in paths):
-            raise ValueError(f"Endpoint {name!r}: steps have different path depths; cannot template")
+            example: dict[int, str] = {}
+            for s in self._endpoint_steps(name):
+                example.setdefault(len(split_segments(s["path"])), s["path"])
+            detail = ", ".join(
+                f"{d} segment{'' if d == 1 else 's'} ({example[d]})" for d in sorted(example)
+            )
+            raise ValueError(
+                f"Endpoint {name!r}: its requests don't share a path depth ({detail}), "
+                f"so they can't collapse into one URL template. Keep the odd one on its "
+                f"own endpoint (or `undo` this fold)."
+            )
         by_index = {p["index"]: p["name"] for p in ep.get("params", [])}
         params: list[dict[str, t.Any]] = []
         segments: list[str] = []
