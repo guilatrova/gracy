@@ -144,7 +144,8 @@ BANNER = """
 
   Watch for: IN-FLIGHT (capped at 4), ON HOLD (burst backlog), THROTTLES
   (8 req/s ceiling), PAUSED (429 + Retry-After freezes the client),
-  RETRIES (flaky 503s) and ABORTS (retries exhausted).
+  RETRIES (flaky 503s), ABORTS (retries exhausted) and the MESSAGES panel
+  (one api.message() per wave - scroll the history with the arrow keys).
 
   Ctrl+C stops the demo cleanly.
 =========================================================================
@@ -160,6 +161,7 @@ async def main() -> None:
     api = DemoAPI(monitor=True)
     try:
         await api.build()
+        api.message(f"demo API up at {base_url}, hammering it for {RUN_FOR_S:.0f}s")
         deadline = time.monotonic() + RUN_FOR_S
         wave = 0
         while time.monotonic() < deadline:
@@ -167,7 +169,12 @@ async def main() -> None:
             results = await asyncio.gather(*_mixed_wave(api), return_exceptions=True)
             failed = sum(1 for r in results if isinstance(r, BaseException))
             print(f"wave {wave:>2}: {len(results) - failed:>2} ok / {failed} aborted", flush=True)
+            api.message(
+                f"wave {wave} done: {len(results) - failed} ok / {failed} aborted",
+                level="warn" if failed else "info",
+            )
             await asyncio.sleep(LULL_S)  # short lull so the sparklines breathe
+        api.message("demo finished - source will grey out and be reaped")
         print("demo finished - the dashboard greys this source out, then reaps it")
     except KeyboardInterrupt:
         print("\ninterrupted - shutting down cleanly")

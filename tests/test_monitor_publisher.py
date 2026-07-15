@@ -168,6 +168,39 @@ async def test_env_var_enables_monitor(spool: Path, monkeypatch: pytest.MonkeyPa
     assert read_snapshot(spool)["closed"] is True
 
 
+# --------------------------------------------------------------------- messages
+
+
+async def test_messages_land_in_snapshot(spool: Path):
+    api = MonitoredAPI(transport=ok_transport(), monitor=True)
+    api.message("queued before build")  # pre-build works (inert buffer)
+    async with api:
+        api.message("base resources fetched")
+        api.message("rate limit near ceiling", level="warn")
+        api.message("kaboom", level="bogus")  # unknown level falls back to info
+
+        await wait_for(lambda: bool(spool_files(spool)) and len(read_snapshot(spool).get("messages", [])) == 4)
+        msgs = read_snapshot(spool)["messages"]
+
+        assert [m["text"] for m in msgs] == [
+            "queued before build",
+            "base resources fetched",
+            "rate limit near ceiling",
+            "kaboom",
+        ]
+        assert [m["level"] for m in msgs] == ["info", "info", "warn", "info"]
+        assert [m["id"] for m in msgs] == [1, 2, 3, 4]  # per-client monotonic ids
+        assert all(isinstance(m["ts"], float) for m in msgs)
+
+    api.message("after close never raises")  # fire-and-forget even when closed
+
+
+async def test_no_messages_key_is_empty_list(spool: Path):
+    async with MonitoredAPI(transport=ok_transport(), monitor=True):
+        await wait_for(lambda: bool(spool_files(spool)), timeout=0.6)
+        assert read_snapshot(spool)["messages"] == []
+
+
 # --------------------------------------------------------------------- resilience
 
 

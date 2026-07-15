@@ -15,7 +15,7 @@ import time
 import typing as t
 from pathlib import Path
 
-from gracy.monitor.viewer import spark
+from gracy.monitor.viewer import MessageLog, Source, decode_keys, scroll_offset, spark
 
 # ---------------------------------------------------------------- helpers
 
@@ -30,8 +30,10 @@ def _snapshot(
     rows: list[dict[str, t.Any]] | None = None,
     queue: dict[str, t.Any] | None = None,
     totals: dict[str, t.Any] | None = None,
+    messages: list[dict[str, t.Any]] | None = None,
 ) -> dict[str, t.Any]:
     return {
+        "messages": messages or [],
         "schema": 1,
         "ts": ts,
         "started_at": ts - 120.0,
@@ -186,6 +188,142 @@ def test_once_empty_dir_shows_how_to_enable(tmp_path: Path) -> None:
     # so only check the label and the path's tail component)
     assert "watching" in out
     assert tmp_path.name[-12:] in out.replace("\n", "").replace("│", "").replace(" ", "")
+
+
+# ---------------------------------------------------------------- MessageLog
+
+
+def _msg_source(path: str, client: str, msgs: list[dict[str, t.Any]]) -> Source:
+    return Source(path=path, data={"client": client, "messages": msgs}, age=0.0)
+
+
+def _msg(mid: int, text: str, *, ts: float = 0.0, level: str = "info") -> dict[str, t.Any]:
+    return {"id": mid, "ts": ts or float(mid), "level": level, "text": text}
+
+
+def test_messagelog_dedupes_resent_buffers() -> None:
+    log = MessageLog()
+    src = _msg_source("a.json", "API", [_msg(1, "one"), _msg(2, "two")])
+    log.ingest([src])
+    log.ingest([src])  # snapshots re-send the whole buffer every frame
+    assert len(log) == 2
+
+
+def test_messagelog_retains_entries_beyond_client_buffer_rotation() -> None:
+    log = MessageLog()
+    log.ingest([_msg_source("a.json", "API", [_msg(1, "one"), _msg(2, "two")])])
+    # client buffer rotated: id 1 is gone from the snapshot, ids 3-4 are new
+    log.ingest([_msg_source("a.json", "API", [_msg(2, "two"), _msg(3, "three"), _msg(4, "four")])])
+    entries, start, total = log.window(0, 3)
+    assert total == 4  # "one" was never lost
+    assert [e["text"] for e in entries] == ["two", "three", "four"]
+    assert start == 1
+
+
+def test_messagelog_window_clamps_offset_and_shrinks_below_rows() -> None:
+    log = MessageLog()
+    log.ingest([_msg_source("a.json", "API", [_msg(i, f"m{i}") for i in range(1, 6)])])
+    entries, start, total = log.window(99, 3)  # over-scrolled: clamp to oldest window
+    assert (start, total) == (0, 5)
+    assert [e["text"] for e in entries] == ["m1", "m2", "m3"]
+
+    small = MessageLog()
+    small.ingest([_msg_source("a.json", "API", [_msg(1, "only")])])
+    entries, start, total = small.window(0, 3)
+    assert [e["text"] for e in entries] == ["only"]  # 1 line, not padded to 3
+    assert (start, total) == (0, 1)
+
+
+def test_messagelog_interleaves_sources_by_ts_and_caps_history() -> None:
+    log = MessageLog(maxlen=3)
+    log.ingest(
+        [
+            _msg_source("a.json", "A", [_msg(1, "a-late", ts=20.0)]),
+            _msg_source("b.json", "B", [_msg(1, "b-early", ts=10.0)]),
+        ]
+    )
+    entries, _, _ = log.window(0, 3)
+    assert [e["text"] for e in entries] == ["b-early", "a-late"]
+    assert log.multi_client
+
+    log.ingest([_msg_source("a.json", "A", [_msg(2, "x", ts=30.0), _msg(3, "y", ts=40.0)])])
+    entries, _, total = log.window(0, 3)
+    assert total == 3  # capped: oldest evicted
+    assert [e["text"] for e in entries] == ["a-late", "x", "y"]
+
+
+def test_messagelog_skips_malformed_entries() -> None:
+    log = MessageLog()
+    log.ingest(
+        [
+            _msg_source(
+                "a.json",
+                "API",
+                [{"text": "no id"}, {"id": "NaN", "text": "bad id"}, "not-a-dict", _msg(7, "ok")],  # type: ignore[list-item]
+            )
+        ]
+    )
+    entries, _, total = log.window(0, 3)
+    assert total == 1
+    assert entries[0]["text"] == "ok"
+
+
+# ---------------------------------------------------------------- keyboard
+
+
+def test_decode_keys_arrows_pages_and_vi() -> None:
+    assert decode_keys(b"\x1b[A\x1b[B") == ["up", "down"]
+    assert decode_keys(b"\x1b[5~\x1b[6~") == ["pgup", "pgdn"]
+    assert decode_keys(b"\x1b[H\x1b[F\x1bOF") == ["home", "end", "end"]
+    assert decode_keys(b"kj") == ["up", "down"]
+    assert decode_keys(b"\x1b") == ["esc"]
+    assert decode_keys(b"zzz") == []
+
+
+def test_scroll_offset_clamps_and_resets() -> None:
+    total = 10  # top offset = 7 (window of 3)
+    assert scroll_offset("up", 0, total) == 1
+    assert scroll_offset("up", 7, total) == 7  # already at the oldest window
+    assert scroll_offset("down", 1, total) == 0
+    assert scroll_offset("down", 0, total) == 0
+    assert scroll_offset("pgup", 0, total) == 3
+    assert scroll_offset("home", 0, total) == 7
+    assert scroll_offset("end", 5, total) == 0
+    assert scroll_offset("esc", 5, total) == 0
+    assert scroll_offset("up", 0, 2) == 0  # fewer messages than the window: no scrolling
+
+
+# ---------------------------------------------------------------- messages panel (--once)
+
+
+def test_once_renders_messages_panel_when_present(tmp_path: Path) -> None:
+    now = time.time()
+    _write(
+        tmp_path,
+        "555-MsgAPI-aaaa1111.json",
+        _snapshot(
+            client="MsgAPI",
+            pid=555,
+            ts=now,
+            messages=[
+                {"id": 1, "ts": now - 5, "level": "info", "text": "base resources fetched"},
+                {"id": 2, "ts": now - 1, "level": "warn", "text": "rate limit near ceiling"},
+            ],
+        ),
+    )
+    result = _render_once(tmp_path)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "messages · 2" in out
+    assert "base resources fetched" in out
+    assert "rate limit near ceiling" in out
+
+
+def test_once_hides_messages_panel_when_empty(tmp_path: Path) -> None:
+    _write(tmp_path, "666-QuietAPI-bbbb2222.json", _snapshot(client="QuietAPI", pid=666, ts=time.time()))
+    result = _render_once(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "messages" not in result.stdout
 
 
 def test_once_skips_corrupt_files(tmp_path: Path) -> None:

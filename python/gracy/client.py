@@ -25,7 +25,9 @@ import json as jsonlib
 import logging
 import os
 import threading
+import time
 import typing as t
+from collections import deque
 from contextvars import ContextVar
 
 from gracy._types import UNSET, RequestContext, RequestSpec, Unset
@@ -61,6 +63,11 @@ __all__ = ["Gracy", "GracyNamespace", "SyncGracy"]
 TGracy = t.TypeVar("TGracy", bound="Gracy")
 
 _DEFAULT_TIMEOUT: t.Final = 30.0
+
+# Per-client message buffer republished in every monitor snapshot; the viewer
+# accumulates its own (larger) history, so rotation here never loses messages.
+_MONITOR_MESSAGE_BUFFER: t.Final = 200
+_MESSAGE_LEVELS: t.Final = ("info", "warn", "error")
 
 # Overlay set by api.options(): (partial config or None, priority or None).
 _options_overlay: ContextVar[tuple[GracyConfig | None, int | None] | None] = ContextVar(
@@ -223,6 +230,9 @@ class Gracy:
         self._pipeline: Pipeline | None = None
         self._metrics: MetricsCollector | None = None
         self._monitor_publisher: t.Any = None  # gracy.monitor.MonitorPublisher when enabled
+        # Inert data container (fork-safe): message() may be called pre-build.
+        self._monitor_messages: deque[dict[str, t.Any]] = deque(maxlen=_MONITOR_MESSAGE_BUFFER)
+        self._monitor_message_seq = 0
         self._hooks: list[t.Any] = []
         self._routes: dict[tuple[str | None, str], CompiledRoute] = {}
 
@@ -347,17 +357,16 @@ class Gracy:
 
     async def _start_monitor(self, scheduler: Scheduler, metrics: MetricsCollector) -> None:
         """Spawn the MonitorPublisher (lazy import: zero overhead when disabled)."""
-        import time as _time
-
         from gracy.monitor import MonitorPublisher
 
         publisher = MonitorPublisher(type(self).__name__, current_engine())
+        messages = self._monitor_messages
 
         def get_snapshot() -> dict[str, t.Any]:
             queue = dict(scheduler.stats())
             rows = metrics.monitor_rows(queue.get("throttled_by_uurl") or {})
             requests = sum(row["total"] for row in rows)
-            elapsed = max(_time.time() - publisher.started_at, 0.001)
+            elapsed = max(time.time() - publisher.started_at, 0.001)
             return {
                 "queue": queue,
                 "totals": {
@@ -368,6 +377,7 @@ class Gracy:
                     "req_per_sec": requests / elapsed,
                 },
                 "rows": rows,
+                "messages": list(messages),
             }
 
         await publisher.start(get_snapshot)
@@ -624,6 +634,25 @@ class Gracy:
         if not self._built or self._scheduler is None:
             return {}
         return dict(self._scheduler.stats())
+
+    def message(self, text: str, *, level: str = "info") -> None:
+        """Emit a progress message to the live monitor's messages panel.
+
+        Fire-and-forget: works before build() and after aclose(), never raises,
+        and costs one deque append when monitoring is disabled. Levels are
+        "info" | "warn" | "error" (anything else falls back to "info").
+        """
+        if level not in _MESSAGE_LEVELS:
+            level = "info"
+        self._monitor_message_seq += 1
+        self._monitor_messages.append(
+            {
+                "id": self._monitor_message_seq,
+                "ts": time.time(),
+                "level": level,
+                "text": str(text),
+            }
+        )
 
     # ------------------------------------------------------------------ sync facade
 
