@@ -49,6 +49,9 @@ jobs:
       - name: Install
         run: |
           python -m venv .venv
+          # maturin >=1.14 installs [dependency-groups] via `pip install --group`,
+          # which needs pip >=25.1 (the venv ships whatever ensurepip bundles)
+          .venv/bin/pip install --upgrade pip
           .venv/bin/pip install maturin pytest pytest-asyncio httpx pydantic rich requests
           .venv/bin/maturin develop
       - name: pytest (GRACY_ENGINE=${{ matrix.engine }})
