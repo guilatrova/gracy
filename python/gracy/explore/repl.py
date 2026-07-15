@@ -129,7 +129,7 @@ async def _do_drop(session: ExploreSession, cmd: Command) -> Outcome:
         )
     assert cmd.index is not None
     info = session.drop_step(cmd.index)
-    tail = f" (was in {info['endpoint']})" if info["endpoint"] else ""
+    tail = f" (was in {info['endpoint']})" if info["endpoint"] else " (unnamed)"
     return Outcome(
         "drop",
         {"ok": True, "target": "step", **info},
@@ -676,17 +676,23 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         return segs
     if cmd.kind == "drop":
         if cmd.target == "endpoint":
-            if cmd.name not in session.endpoints():
+            ep = session.endpoints().get(cmd.name or "")
+            if ep is None:
                 return [_seg("tb.warn", f"no endpoint named '{cmd.name}'")]
-            n = len(session._endpoint_steps(cmd.name))  # noqa: SLF001 - same package
+            n = ep["steps"]
             return [
                 _seg("tb.verb", "removes endpoint "), _seg("tb.target", cmd.name or ""),
-                _seg("tb.muted", f" · frees {n} step{'' if n == 1 else 's'} (kept in history)"),
+                _seg("tb.muted", f" ({ep['template']}) · frees {n} step{'' if n == 1 else 's'} (kept in history)"),
             ]
-        ids = {s["id"] for s in session.history()}
-        if cmd.index not in ids:
+        step = next((s for s in session.history() if s["step_id"] == cmd.index), None)
+        if step is None:
             return [_seg("tb.warn", f"no step with id {cmd.index}")]
-        return [_seg("tb.verb", "removes step "), _seg("tb.value", str(cmd.index))]
+        where = step["matched_endpoint"] or "unnamed"
+        return [
+            _seg("tb.verb", "removes step "), _seg("tb.value", str(cmd.index)),
+            _seg("tb.muted", " · "), _seg("tb.target", f"{step['method']} {step['path']}"),
+            _seg("tb.muted", f" · {where}"),
+        ]
     if cmd.kind in ("retry", "throttle", "timeout", "auth", "header", "base"):
         detail = cmd.spec or cmd.value or (f"{cmd.name}={cmd.value}" if cmd.name else "")
         label = {"base": "base_url"}.get(cmd.kind, cmd.kind)

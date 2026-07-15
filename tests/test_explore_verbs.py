@@ -235,13 +235,27 @@ async def test_drop_is_undoable(make_session: t.Callable[..., ExploreSession]) -
 async def test_drop_impact_and_completion(make_session: t.Callable[..., ExploreSession]) -> None:
     from gracy.explore.repl import candidates_for, describe_impact
 
+    def _tb(line: str) -> str:
+        return "".join(seg[1] for seg in describe_impact(session, line))
+
     session = make_session()
-    await session.execute("get", "/echo/mew")
+    await session.execute("get", "/echo/mew")  # step 1, named
     session.name_endpoint("get_echo")
-    plain = "".join(seg[1] for seg in describe_impact(session, "drop endpoint get_echo"))
-    assert "removes endpoint" in plain and "frees 1 step" in plain
-    warn = "".join(seg[1] for seg in describe_impact(session, "drop endpoint ghost"))
-    assert "no endpoint named 'ghost'" in warn
+    await session.execute("get", "/echo/orphan")  # step 2, unnamed
+
+    # endpoint preview shows the template + freed-step count
+    ep = _tb("drop endpoint get_echo")
+    assert "removes endpoint" in ep and "/echo/mew" in ep and "frees 1 step" in ep
+    assert "no endpoint named 'ghost'" in _tb("drop endpoint ghost")
+
+    # step preview shows method + path + which endpoint (regression: this branch
+    # used the wrong key and crashed, so the footer silently showed nothing)
+    named = _tb("drop step 1")
+    assert "removes step 1" in named and "GET /echo/mew" in named and "get_echo" in named
+    orphan = _tb("drop step 2")
+    assert "GET /echo/orphan" in orphan and "unnamed" in orphan
+    assert "no step with id 99" in _tb("drop step 99")
+
     assert candidates_for(session, "drop ", "") == ["endpoint ", "step "]
     assert candidates_for(session, "drop endpoint ", "get") == ["get_echo"]
 
