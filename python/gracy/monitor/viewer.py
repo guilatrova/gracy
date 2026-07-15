@@ -3,7 +3,8 @@
 Reads the snapshot files published by running Gracy clients (schema 1, one
 JSON file per client instance in the monitor spool dir) and renders a
 full-screen rich dashboard: header, big-number tiles, sparkline activity
-chart, per-endpoint table and a per-source footer.
+chart, per-endpoint table, client-emitted messages (scrollable with ↑/↓,
+shown only once a client calls ``message()``) and a per-source footer.
 
 Run it with ``python -m gracy.monitor``. Requires the ``rich`` extra.
 """
@@ -29,6 +30,8 @@ LIVE_MAX_AGE_S: t.Final = 3.0  # newer than this (and not closed) -> LIVE
 STALE_MAX_AGE_S: t.Final = 30.0  # older than this -> ignored + cleaned up
 CLOSED_TILE_GRACE_S: t.Final = 5.0  # closed sources leave the tiles after this
 MAX_TABLE_ROWS: t.Final = 12
+MAX_MESSAGES: t.Final = 1000  # viewer-side history (outlives the clients' own buffers)
+MESSAGE_TAIL_ROWS: t.Final = 3  # visible window; panel shrinks below this when fewer exist
 
 _BLOCKS: t.Final = "▁▂▃▄▅▆▇█"
 
@@ -41,6 +44,7 @@ _C_ABORT: t.Final = "red"
 _C_RETRY: t.Final = "dark_orange"
 _C_REPLAY: t.Final = "blue"
 _C_RATE: t.Final = "green"
+_C_MESSAGE_LEVELS: t.Final = {"info": "white", "warn": "yellow", "error": "red"}
 
 
 def default_spool_dir() -> str:
@@ -99,6 +103,11 @@ class Source:
     @property
     def totals(self) -> dict[str, t.Any]:
         return self.data.get("totals") or {}
+
+    @property
+    def messages(self) -> list[dict[str, t.Any]]:
+        raw = self.data.get("messages")
+        return raw if isinstance(raw, list) else []
 
 
 def read_sources(directory: str, now: float | None = None) -> list[Source]:
@@ -243,6 +252,90 @@ def aggregate_rows(sources: list[Source]) -> list[dict[str, t.Any]]:
         row["p95_latency"] = row.pop("_p95_weight") / total
     rows.sort(key=lambda r: (-r["total"], r["uurl"]))
     return rows
+
+
+# ------------------------------------------------------------------ messages
+
+
+def _safe_float(value: t.Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+class MessageLog:
+    """Cross-frame accumulator for messages emitted via ``client.message()``.
+
+    Every snapshot re-sends the client's current (rotating) message buffer, so
+    entries are deduped by (spool file, per-client message id) and retained
+    here even after they rotate out of the client's own buffer: scrolling back
+    never loses history, up to MAX_MESSAGES.
+
+    Keyed messages (``client.message(..., key=...)``) are live gauges instead:
+    deduped by (spool file, key), a changed id replaces the old text and moves
+    the single entry to the tail - updates never pile up in the history.
+    """
+
+    def __init__(self, maxlen: int = MAX_MESSAGES) -> None:
+        self._maxlen = maxlen
+        self._entries: dict[tuple[str, str], dict[str, t.Any]] = {}
+        self._clients: set[str] = set()
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    @property
+    def multi_client(self) -> bool:
+        return len(self._clients) > 1
+
+    def ingest(self, sources: list[Source]) -> None:
+        fresh: list[tuple[tuple[str, str], dict[str, t.Any]]] = []
+        for src in sources:
+            for msg in src.messages:
+                if not isinstance(msg, dict):
+                    continue
+                try:
+                    msg_id = int(msg["id"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                gauge = msg.get("key")
+                key = (src.path, f"k:{gauge}" if gauge else f"i:{msg_id}")
+                existing = self._entries.get(key)
+                if existing is not None:
+                    if existing["id"] == msg_id:
+                        continue  # plain re-send of a known entry
+                    del self._entries[key]  # keyed gauge update: re-append at the tail
+                fresh.append(
+                    (
+                        key,
+                        {
+                            "id": msg_id,
+                            "ts": _safe_float(msg.get("ts")),
+                            "level": str(msg.get("level", "info")),
+                            "text": str(msg.get("text", "")),
+                            "client": src.client,
+                        },
+                    )
+                )
+        fresh.sort(key=lambda item: item[1]["ts"])  # interleave multi-source bursts by time
+        for key, entry in fresh:
+            self._entries[key] = entry
+            self._clients.add(entry["client"])
+        while len(self._entries) > self._maxlen:
+            del self._entries[next(iter(self._entries))]
+
+    def window(self, offset: int, rows: int) -> tuple[list[dict[str, t.Any]], int, int]:
+        """The `rows` entries ending `offset` back from the tail.
+
+        Returns (entries, start_index, total); offset is clamped so the window
+        never runs past either end.
+        """
+        entries = list(self._entries.values())
+        total = len(entries)
+        offset = max(0, min(offset, total - rows)) if total > rows else 0
+        end = total - offset
+        return entries[max(0, end - rows) : end], max(0, end - rows), total
 
 
 # ------------------------------------------------------------------ rendering
@@ -443,6 +536,52 @@ def _count_text(value: t.Any, color: str) -> RenderableType:
     return Text(str(count), style=color if count else "dim")
 
 
+def _messages_panel(log: MessageLog, offset: int) -> RenderableType | None:
+    """Client-emitted messages: hidden until the first one arrives, then grows
+    one line per message up to MESSAGE_TAIL_ROWS and follows the tail unless
+    scrolled back (offset > 0)."""
+    from rich import box
+    from rich.console import Group
+    from rich.panel import Panel
+    from rich.text import Text
+
+    entries, start, total = log.window(offset, MESSAGE_TAIL_ROWS)
+    if not entries:
+        return None
+
+    lines: list[Text] = []
+    for entry in entries:
+        level = entry["level"]
+        color = _C_MESSAGE_LEVELS.get(level, _C_MESSAGE_LEVELS["info"])
+        line = Text(no_wrap=True, overflow="ellipsis")
+        ts = entry["ts"]
+        stamp = time.strftime("%H:%M:%S", time.localtime(ts)) if ts > 0 else "--:--:--"
+        line.append(f"{stamp} ", style="dim")
+        line.append("• ", style=color)
+        if log.multi_client:
+            line.append(f"{entry['client']} ", style="dim")
+        line.append(entry["text"], style="" if level == "info" else color)
+        lines.append(line)
+
+    scrolled = start + len(entries) < total
+    if scrolled:
+        title = f"messages · {start + 1}–{start + len(entries)}/{total}"
+        subtitle = "↑/↓ scroll · esc live"
+    else:
+        title = f"messages · {total}"
+        subtitle = "↑ older" if total > MESSAGE_TAIL_ROWS else None
+    return Panel(
+        Group(*lines),
+        title=title,
+        title_align="left",
+        subtitle=Text(subtitle, style="dim") if subtitle else None,
+        subtitle_align="right",
+        box=box.ROUNDED,
+        border_style="dim",
+        padding=(0, 1),
+    )
+
+
 def _sources_footer(sources: list[Source]) -> RenderableType:
     from rich.console import Group
     from rich.text import Text
@@ -497,6 +636,8 @@ def _empty_state(directory: str) -> RenderableType:
 def build_dashboard(
     directory: str,
     history: t.MutableSequence[HistoryPoint],
+    messages: MessageLog,
+    msg_offset: int,
     window: int,
     width: int,
 ) -> RenderableType:
@@ -512,14 +653,121 @@ def build_dashboard(
     agg = aggregate(sources)
     history.append((now, agg.in_flight, agg.pending, agg.req_per_sec))
     rows = aggregate_rows(sources)
+    messages.ingest(sources)
 
-    return Group(
+    panels = [
         _header(sources, agg, now),
         _tiles_row(agg),
         _chart(history, window, width, agg),
         _endpoint_table(rows, width),
-        _sources_footer(sources),
-    )
+    ]
+    messages_panel = _messages_panel(messages, msg_offset)
+    if messages_panel is not None:
+        panels.append(messages_panel)
+    panels.append(_sources_footer(sources))
+    return Group(*panels)
+
+
+# ------------------------------------------------------------------ keyboard
+
+_KEY_SEQUENCES: t.Final = {
+    b"[A": "up",
+    b"[B": "down",
+    b"[5~": "pgup",
+    b"[6~": "pgdn",
+    b"[H": "home",
+    b"[F": "end",
+    b"OH": "home",
+    b"OF": "end",
+}
+
+
+def decode_keys(data: bytes) -> list[str]:
+    """Map raw terminal input to key names ('up', 'down', 'pgup', 'pgdn',
+    'home', 'end', 'esc'); vi keys j/k work too. Unknown bytes are ignored."""
+    keys: list[str] = []
+    i = 0
+    while i < len(data):
+        byte = data[i : i + 1]
+        if byte == b"\x1b":
+            for seq, name in _KEY_SEQUENCES.items():
+                if data.startswith(seq, i + 1):
+                    keys.append(name)
+                    i += 1 + len(seq)
+                    break
+            else:
+                keys.append("esc")
+                i += 1
+            continue
+        if byte == b"k":
+            keys.append("up")
+        elif byte == b"j":
+            keys.append("down")
+        i += 1
+    return keys
+
+
+def scroll_offset(key: str, offset: int, total: int) -> int:
+    """Next messages-panel scroll offset (0 = follow the tail live)."""
+    top = max(0, total - MESSAGE_TAIL_ROWS)
+    if key == "up":
+        offset += 1
+    elif key == "down":
+        offset -= 1
+    elif key == "pgup":
+        offset += MESSAGE_TAIL_ROWS
+    elif key == "pgdn":
+        offset -= MESSAGE_TAIL_ROWS
+    elif key == "home":
+        offset = top
+    elif key in ("end", "esc"):
+        offset = 0
+    return max(0, min(offset, top))
+
+
+class _KeyPoller:
+    """Non-blocking key reader for message scrolling (POSIX terminals only).
+
+    Inside the context stdin sits in cbreak mode (ISIG stays on, so ctrl+c
+    still quits); ``wait(timeout)`` doubles as the frame sleep and returns any
+    keys pressed. On Windows or without a TTY it degrades to a plain sleep -
+    the dashboard renders normally, only scrolling is unavailable.
+    """
+
+    def __init__(self) -> None:
+        self._fd: int | None = None
+        self._saved: t.Any = None
+
+    def __enter__(self) -> _KeyPoller:
+        try:
+            import sys
+            import termios
+            import tty
+
+            if sys.stdin.isatty():
+                self._fd = sys.stdin.fileno()
+                self._saved = termios.tcgetattr(self._fd)
+                tty.setcbreak(self._fd)
+        except Exception:
+            self._fd = None
+        return self
+
+    def __exit__(self, *exc_info: t.Any) -> None:
+        if self._fd is not None and self._saved is not None:
+            import termios
+
+            termios.tcsetattr(self._fd, termios.TCSADRAIN, self._saved)
+
+    def wait(self, timeout: float) -> list[str]:
+        if self._fd is None:
+            time.sleep(timeout)
+            return []
+        import select
+
+        ready, _, _ = select.select([self._fd], [], [], timeout)
+        if not ready:
+            return []
+        return decode_keys(os.read(self._fd, 64))
 
 
 # ------------------------------------------------------------------ entrypoint
@@ -542,16 +790,21 @@ def run(directory: str, fps: float, window: int, once: bool) -> int:
     fps = max(0.2, fps)
     max_points = max(int(window * fps) + 8, 64)
     history: deque[HistoryPoint] = deque(maxlen=max_points)
+    messages = MessageLog()
 
     if once:
-        console.print(build_dashboard(directory, history, window, console.width))
+        console.print(build_dashboard(directory, history, messages, 0, window, console.width))
         return 0
 
+    msg_offset = 0
     try:
-        with Live(console=console, screen=True, refresh_per_second=fps) as live:
+        with _KeyPoller() as keys, Live(console=console, screen=True, refresh_per_second=fps) as live:
             while True:
-                live.update(build_dashboard(directory, history, window, console.width))
-                time.sleep(1.0 / fps)
+                live.update(
+                    build_dashboard(directory, history, messages, msg_offset, window, console.width)
+                )
+                for key in keys.wait(1.0 / fps):
+                    msg_offset = scroll_offset(key, msg_offset, len(messages))
     except KeyboardInterrupt:
         pass
     return 0

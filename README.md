@@ -552,6 +552,56 @@ Zero overhead when off (nothing is imported), and a broken snapshot can never ta
 
 Want to see it shine without writing code? Run [examples/v2_monitor_demo.py](./examples/v2_monitor_demo.py) in one terminal and `python -m gracy.monitor` in another; it spins a local misbehaving API and fires bursty traffic that lights up every tile.
 
+#### 💬 Messages: your code talks on the dashboard
+
+The tiles show what Gracy *infers*; `message()` lets your code mark business context on the same timeline - no separate logger fighting the TUI for the terminal:
+
+```py
+api.message("base resources fetched")                  # plain progress marker
+api.message("rate limit near ceiling", level="warn")   # info | warn | error
+```
+
+Messages appear in a dedicated panel (hidden until the first one arrives, then growing one line per message up to 3) that always follows the latest 3. Nothing is lost: the viewer keeps up to 1,000 messages - scroll the history with **↑/↓**, **PgUp/PgDn**, **Home** (vi `j`/`k` work too); **End**/**Esc** snaps back to the live tail. Like everything monitor-related it's fire-and-forget: never raises, works before `build()` and after `aclose()`, and is a no-op cost when monitoring is off.
+
+```
+╭─ messages · 12 ──────────────────────────────────────────────────────────╮
+│ 14:03:41 • base resources fetched                                        │
+│ 14:03:52 • rate limit near ceiling                                       │
+│ 14:03:58 • starting phase 2                                              │
+╰─────────────────────────────────────────────────────────────── ↑ older ─╯
+```
+
+**Live gauges with `key=`.** Pass a `key` and each call *replaces* the previous message with the same key instead of appending - one panel line, updated in place, that never floods the history. That's the tool for aggregates recomputed on every request, typically from an [after-hook](#hooks). The classic: track how much an LLM session is costing you, straight from real `usage` payloads:
+
+```py
+class OpenAIChat(Gracy):
+    base_url = "https://api.openai.com"
+    prompt_tokens = completion_tokens = 0
+
+    @post("/v1/chat/completions")
+    async def chat(self, payload: Annotated[dict, Body]) -> dict: ...
+
+    async def after(self, context, result, retry_state) -> None:
+        if not (isinstance(result, gracy.Response) and result.is_success):
+            return
+        usage = result.json().get("usage") or {}
+        cls = type(self)
+        cls.prompt_tokens += usage.get("prompt_tokens", 0)
+        cls.completion_tokens += usage.get("completion_tokens", 0)
+        cost = (cls.prompt_tokens * 2.50 + cls.completion_tokens * 10.00) / 1_000_000
+        self.message(
+            f"openai: {cls.prompt_tokens:,} in / {cls.completion_tokens:,} out tok · est. ${cost:.4f}",
+            level="warn" if cost >= 0.05 else "info",
+            key="openai-cost",  # <- one line, updated in place
+        )
+```
+
+```
+│ 14:07:12 • openai: 10,752 in / 6,816 out tok · est. $0.0950              │
+```
+
+Try it without spending a cent: [examples/v2_openai_cost_demo.py](./examples/v2_openai_cost_demo.py) mocks the OpenAI API with real-shape `chat.completion` payloads and drives the cost gauge live (the wave-by-wave `message()` flow is in [examples/v2_monitor_demo.py](./examples/v2_monitor_demo.py)).
+
 ### 📚 Generate docs from your client
 
 Your class **is** the spec. Every path, param kind, return type, `on=` status action, retry/throttle policy, and docstring is already declared on your Gracy client, so gracy can generate API documentation from it, statically. No instance is created, nothing is started, no network is touched: it works from the class alone.
