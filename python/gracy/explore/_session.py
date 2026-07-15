@@ -945,24 +945,35 @@ class ExploreSession:
                 self._data["models"][key] = new
         self.persist()
 
-    def drop_endpoint(self, name: str) -> int:
-        """Remove a named endpoint. Its steps stay in history but become
-        unnamed (endpoint=None), so a redundant/mistaken endpoint can go away
-        without losing the recorded requests. Returns how many steps it freed."""
+    def drop_endpoint(self, name: str) -> dict[str, t.Any]:
+        """Remove a named endpoint. Each of its steps is re-homed into another
+        endpoint whose template already covers it (so dropping a redundant
+        endpoint like /pokemon/pikachu folds its step into /pokemon/{pokemon}),
+        or left unnamed if nothing covers it. Returns {'freed': n, 'absorbed':
+        {endpoint: count}}."""
         endpoints = self._data["endpoints"]
         if name not in endpoints:
             raise ValueError(f"no endpoint named {name!r}; known: {sorted(endpoints)}")
         self._snapshot(f"drop endpoint {name}")
-        freed = 0
-        for step in self._data["steps"]:
-            if step.get("endpoint") == name:
-                step["endpoint"] = None
-                freed += 1
-        del endpoints[name]
+        del endpoints[name]  # remove first so its steps never re-match itself
         for key in (f"{name}:response", f"{name}:request"):
             self._data["models"].pop(key, None)
+        freed = 0
+        absorbed: dict[str, int] = {}
+        for step in self._data["steps"]:
+            if step.get("endpoint") == name:
+                freed += 1
+                new = self._match_endpoint(step["method"], step["path"])
+                step["endpoint"] = new
+                if new:
+                    absorbed[new] = absorbed.get(new, 0) + 1
+        for ep_name in absorbed:
+            try:
+                self._recompute_template(ep_name)
+            except ValueError:
+                pass  # newly-absorbed steps clash; keep the existing template
         self.persist()
-        return freed
+        return {"freed": freed, "absorbed": absorbed}
 
     def drop_step(self, step_id: int) -> dict[str, t.Any]:
         """Remove one recorded request. If it belonged to an endpoint, the

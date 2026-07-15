@@ -181,7 +181,8 @@ async def test_drop_endpoint_removes_it_and_frees_steps(
     session.name_endpoint("get_berry")
 
     out = await execute_command(session, parse_command("drop endpoint get_echo"))
-    assert out.data == {"ok": True, "target": "endpoint", "name": "get_echo", "freed": 1}
+    # nothing else covers /echo/mew, so its step is freed (not re-absorbed)
+    assert out.data == {"ok": True, "target": "endpoint", "name": "get_echo", "freed": 1, "absorbed": {}}
     assert "get_echo" not in session.endpoints() and "get_berry" in session.endpoints()
     # the step survives in history but is no longer named
     echo_step = next(s for s in session.history() if s["path"] == "/echo/mew")
@@ -190,12 +191,12 @@ async def test_drop_endpoint_removes_it_and_frees_steps(
         session.drop_endpoint("get_echo")
 
 
-async def test_drop_redundant_overlapping_endpoint(
+async def test_drop_redundant_endpoint_reabsorbs_step(
     make_session: t.Callable[..., ExploreSession],
 ) -> None:
     """The reported scenario: a separately-named endpoint whose literal path is
-    subsumed by another's template (its own distinct step) can be dropped,
-    leaving the templated one, which is untouched."""
+    subsumed by another's template. Dropping it folds its step into the covering
+    endpoint (no orphan left behind), leaving a single endpoint."""
     session = make_session()
     await session.execute("get", "/echo/mew")  # step 1
     await session.execute("get", "/echo/ditto")  # step 2
@@ -204,10 +205,17 @@ async def test_drop_redundant_overlapping_endpoint(
     await session.execute("get", "/echo/pika")  # step 3, its own distinct step
     session.name_endpoint("just_pika", 3)  # a redundant literal endpoint that overlaps
 
-    await execute_command(session, parse_command("drop endpoint just_pika"))
+    from gracy.explore.repl import describe_impact
+
+    preview = "".join(seg[1] for seg in describe_impact(session, "drop endpoint just_pika"))
+    assert "folds 1 into many" in preview
+
+    out = await execute_command(session, parse_command("drop endpoint just_pika"))
+    assert out.data["absorbed"] == {"many": 1}  # its step folded into `many`
     assert list(session.endpoints()) == ["many"]
     assert session.endpoints()["many"]["template"] == "/echo/{echo}"
-    assert session.endpoints()["many"]["steps"] == 2  # the templated one is untouched
+    assert session.endpoints()["many"]["steps"] == 3  # /echo/pika re-homed here
+    assert [s["matched_endpoint"] for s in session.history()] == ["many", "many", "many"]
 
 
 async def test_drop_step_re_templates_endpoint(
@@ -394,6 +402,42 @@ async def test_list_lists_endpoints(make_session: t.Callable[..., ExploreSession
     session.name_endpoint("get_echo")
     out = await execute_command(session, parse_command("list"))
     assert "get_echo" in out.human and "/echo/mew" in out.human
+
+
+async def test_list_flags_redundant_endpoint(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """A literal endpoint covered by another's template is marked redundant in
+    `list`, so seeing it next to the {param} one is no longer a surprise."""
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    await session.execute("get", "/echo/ditto")
+    session.name_endpoint("many", 1)
+    session.name_endpoint("many", 2)  # -> /echo/{echo}
+    await session.execute("get", "/echo/pika")
+    session.name_endpoint("just_pika", 3)  # /echo/pika, covered by many
+
+    out = await execute_command(session, parse_command("list"))
+    # the redundant one is flagged and points at the fix; the general one is not
+    lines = {ln.split("->")[1].split("(")[0].strip(): ln for ln in out.human.splitlines() if "->" in ln}
+    assert "redundant: covered by many" in lines["just_pika"]
+    assert "drop endpoint just_pika" in lines["just_pika"]
+    assert "redundant" not in lines["many"]
+
+
+async def test_list_footnotes_unnamed_steps(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/orphan")  # recorded before any endpoint
+    await session.execute("get", "/berry/a")
+    session.name_endpoint("berry")  # /berry/a - does not cover /echo/orphan
+    out = await execute_command(session, parse_command("ls"))
+    assert "1 unnamed step not in any endpoint" in out.human
+    assert out.data["unnamed_steps"] == 1
+    # once nothing is orphaned, the footnote is gone
+    await execute_command(session, parse_command("prune"))
+    assert "unnamed step" not in (await execute_command(session, parse_command("ls"))).human
 
 
 async def test_on_accepts_bare_words_and_renders_as_strings(

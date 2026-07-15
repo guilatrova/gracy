@@ -120,11 +120,17 @@ async def _do_rename(session: ExploreSession, cmd: Command) -> Outcome:
 async def _do_drop(session: ExploreSession, cmd: Command) -> Outcome:
     if cmd.target == "endpoint":
         assert cmd.name is not None
-        freed = session.drop_endpoint(cmd.name)
-        note = f" ({freed} step{'' if freed == 1 else 's'} now unnamed)" if freed else ""
+        info = session.drop_endpoint(cmd.name)
+        freed, absorbed = info["freed"], info["absorbed"]
+        if absorbed:
+            note = " (" + ", ".join(f"{n} step -> {ep}" for ep, n in absorbed.items()) + ")"
+        elif freed:
+            note = f" ({freed} step{'' if freed == 1 else 's'} now unnamed)"
+        else:
+            note = ""
         return Outcome(
             "drop",
-            {"ok": True, "target": "endpoint", "name": cmd.name, "freed": freed},
+            {"ok": True, "target": "endpoint", "name": cmd.name, **info},
             f"dropped endpoint '{cmd.name}'{note}",
         )
     assert cmd.index is not None
@@ -229,14 +235,40 @@ async def _do_show(session: ExploreSession, cmd: Command) -> Outcome:
         source = session.class_preview()
         return Outcome("show_class", {"ok": True, "source": source}, source, panel=("class", source))
     if cmd.target == "endpoints":
+        from gracy.explore._session import template_matches
+
         endpoints = session.endpoints()
-        lines = [
-            f"{ep['method']:6} {ep['template']}  -> {name}"
-            f" (steps={ep['steps']}, on={ep['on'] or '{}'},"
-            f" response={ep['response_model'] or '(auto)'})"
-            for name, ep in endpoints.items()
-        ]
-        return Outcome("endpoints", {"ok": True, "endpoints": endpoints}, "\n".join(lines) or "(no endpoints yet)")
+
+        def _shadowed_by(name: str, ep: dict[str, t.Any]) -> str | None:
+            # another endpoint whose template already covers this one's path
+            # (e.g. /pokemon/{pokemon} covers the literal /pokemon/pikachu)
+            for other, o in endpoints.items():
+                if (
+                    other != name
+                    and o["method"] == ep["method"]
+                    and o["template"] != ep["template"]
+                    and template_matches(o["template"], ep["template"])
+                ):
+                    return other
+            return None
+
+        lines = []
+        for name, ep in endpoints.items():
+            shadow = _shadowed_by(name, ep)
+            note = f"  (redundant: covered by {shadow}, `drop endpoint {name}`)" if shadow else ""
+            lines.append(
+                f"{ep['method']:6} {ep['template']}  -> {name}"
+                f" (steps={ep['steps']}, on={ep['on'] or '{}'},"
+                f" response={ep['response_model'] or '(auto)'}){note}"
+            )
+        unnamed = sum(1 for s in session.history() if s["matched_endpoint"] is None)
+        body = "\n".join(lines) or "(no endpoints yet)"
+        if unnamed:
+            body += (
+                f"\n+ {unnamed} unnamed step{'' if unnamed == 1 else 's'} not in any endpoint"
+                " (`show history` to see, `prune` to clear)"
+            )
+        return Outcome("endpoints", {"ok": True, "endpoints": endpoints, "unnamed_steps": unnamed}, body)
     if cmd.target == "history":
         history = session.history()
         lines = [
@@ -684,14 +716,37 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         return segs
     if cmd.kind == "drop":
         if cmd.target == "endpoint":
-            ep = session.endpoints().get(cmd.name or "")
+            from gracy.explore._session import template_matches
+
+            eps = session.endpoints()
+            ep = eps.get(cmd.name or "")
             if ep is None:
                 return [_seg("tb.warn", f"no endpoint named '{cmd.name}'")]
-            n = ep["steps"]
-            return [
+            absorb: dict[str, int] = {}
+            orphan = 0
+            for s in (h for h in session.history() if h["matched_endpoint"] == cmd.name):
+                home = next(
+                    (o for o, oe in eps.items()
+                     if o != cmd.name and oe["method"] == s["method"]
+                     and template_matches(oe["template"], s["path"])),
+                    None,
+                )
+                if home:
+                    absorb[home] = absorb.get(home, 0) + 1
+                else:
+                    orphan += 1
+            segs = [
                 _seg("tb.verb", "removes endpoint "), _seg("tb.target", cmd.name or ""),
-                _seg("tb.muted", f" ({ep['template']}) · frees {n} step{'' if n == 1 else 's'} (kept in history)"),
+                _seg("tb.muted", f" ({ep['template']})"),
             ]
+            if absorb:
+                moved = ", ".join(f"{n} into {o}" for o, n in absorb.items())
+                segs.append(_seg("tb.muted", f" · folds {moved}"))
+            if orphan:
+                segs.append(_seg("tb.muted", f" · frees {orphan} step{'' if orphan == 1 else 's'} (kept in history)"))
+            if not absorb and not orphan:
+                segs.append(_seg("tb.muted", " · no steps"))
+            return segs
         step = next((s for s in session.history() if s["step_id"] == cmd.index), None)
         if step is None:
             return [_seg("tb.warn", f"no step with id {cmd.index}")]
