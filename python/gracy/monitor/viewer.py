@@ -271,11 +271,15 @@ class MessageLog:
     entries are deduped by (spool file, per-client message id) and retained
     here even after they rotate out of the client's own buffer: scrolling back
     never loses history, up to MAX_MESSAGES.
+
+    Keyed messages (``client.message(..., key=...)``) are live gauges instead:
+    deduped by (spool file, key), a changed id replaces the old text and moves
+    the single entry to the tail - updates never pile up in the history.
     """
 
     def __init__(self, maxlen: int = MAX_MESSAGES) -> None:
         self._maxlen = maxlen
-        self._entries: dict[tuple[str, int], dict[str, t.Any]] = {}
+        self._entries: dict[tuple[str, str], dict[str, t.Any]] = {}
         self._clients: set[str] = set()
 
     def __len__(self) -> int:
@@ -286,21 +290,27 @@ class MessageLog:
         return len(self._clients) > 1
 
     def ingest(self, sources: list[Source]) -> None:
-        fresh: list[tuple[tuple[str, int], dict[str, t.Any]]] = []
+        fresh: list[tuple[tuple[str, str], dict[str, t.Any]]] = []
         for src in sources:
             for msg in src.messages:
                 if not isinstance(msg, dict):
                     continue
                 try:
-                    key = (src.path, int(msg["id"]))
+                    msg_id = int(msg["id"])
                 except (KeyError, TypeError, ValueError):
                     continue
-                if key in self._entries:
-                    continue
+                gauge = msg.get("key")
+                key = (src.path, f"k:{gauge}" if gauge else f"i:{msg_id}")
+                existing = self._entries.get(key)
+                if existing is not None:
+                    if existing["id"] == msg_id:
+                        continue  # plain re-send of a known entry
+                    del self._entries[key]  # keyed gauge update: re-append at the tail
                 fresh.append(
                     (
                         key,
                         {
+                            "id": msg_id,
                             "ts": _safe_float(msg.get("ts")),
                             "level": str(msg.get("level", "info")),
                             "text": str(msg.get("text", "")),

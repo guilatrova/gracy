@@ -635,24 +635,34 @@ class Gracy:
             return {}
         return dict(self._scheduler.stats())
 
-    def message(self, text: str, *, level: str = "info") -> None:
+    def message(self, text: str, *, level: str = "info", key: str | None = None) -> None:
         """Emit a progress message to the live monitor's messages panel.
 
         Fire-and-forget: works before build() and after aclose(), never raises,
         and costs one deque append when monitoring is disabled. Levels are
         "info" | "warn" | "error" (anything else falls back to "info").
+
+        A ``key`` turns the message into a live gauge: each call REPLACES the
+        previous message with the same key (one panel line updated in place at
+        the tail) instead of appending - made for aggregates recomputed per
+        request, e.g. total payload bytes summed in an after-hook.
         """
         if level not in _MESSAGE_LEVELS:
             level = "info"
+        entry: dict[str, t.Any] = {
+            "id": self._monitor_message_seq + 1,
+            "ts": time.time(),
+            "level": level,
+            "text": str(text),
+        }
+        if key is not None:
+            entry["key"] = str(key)
+            for old in self._monitor_messages:
+                if old.get("key") == entry["key"]:
+                    self._monitor_messages.remove(old)
+                    break
         self._monitor_message_seq += 1
-        self._monitor_messages.append(
-            {
-                "id": self._monitor_message_seq,
-                "ts": time.time(),
-                "level": level,
-                "text": str(text),
-            }
-        )
+        self._monitor_messages.append(entry)
 
     # ------------------------------------------------------------------ sync facade
 

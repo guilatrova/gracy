@@ -195,6 +195,76 @@ async def test_messages_land_in_snapshot(spool: Path):
     api.message("after close never raises")  # fire-and-forget even when closed
 
 
+async def test_keyed_message_replaces_previous_in_buffer(spool: Path):
+    async with MonitoredAPI(transport=ok_transport(), monitor=True) as api:
+        api.message("start")
+        api.message("payload: 1 KiB", key="payload")
+        api.message("middle")
+        api.message("payload: 2 KiB", key="payload")  # replaces, re-appended at the tail
+
+        await wait_for(lambda: bool(spool_files(spool)) and len(read_snapshot(spool).get("messages", [])) == 3)
+        msgs = read_snapshot(spool)["messages"]
+
+        assert [m["text"] for m in msgs] == ["start", "middle", "payload: 2 KiB"]
+        assert msgs[-1]["key"] == "payload"
+        assert msgs[-1]["id"] == 4  # ids keep advancing so the viewer sees the update
+        assert "key" not in msgs[0]  # plain messages stay lean
+
+
+async def test_after_hook_aggregates_usage_into_one_keyed_gauge(spool: Path):
+    """The docs use case: an after-hook sums token usage from real-shape
+    OpenAI chat.completion payloads and keeps ONE cost line on the monitor."""
+
+    completion = {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hi"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 40, "total_tokens": 140},
+    }
+
+    class CostTrackedAPI(Gracy):
+        base_url = BASE
+        prompt_tokens = 0
+        completion_tokens = 0
+
+        @get("/thing/{name}")
+        async def get_thing(self, name: str) -> dict: ...
+
+        async def after(self, context: t.Any, result: t.Any, retry_state: t.Any) -> None:
+            from gracy import Response
+
+            if not (isinstance(result, Response) and result.is_success):
+                return
+            usage = result.json().get("usage") or {}
+            cls = type(self)
+            cls.prompt_tokens += int(usage.get("prompt_tokens", 0))
+            cls.completion_tokens += int(usage.get("completion_tokens", 0))
+            self.message(
+                f"{cls.prompt_tokens} in / {cls.completion_tokens} out",
+                key="cost",
+            )
+
+    transport = MockTransport({f"GET {BASE}/thing/*": completion})
+    async with CostTrackedAPI(transport=transport, monitor=True) as api:
+        for name in ("a", "b", "c"):
+            await api.get_thing(name)
+
+        await wait_for(
+            lambda: bool(spool_files(spool))
+            and [m["text"] for m in read_snapshot(spool).get("messages", [])] == ["300 in / 120 out"]
+        )
+        msgs = read_snapshot(spool)["messages"]
+        assert len(msgs) == 1  # 3 requests -> ONE aggregated line, not three
+        assert msgs[0]["key"] == "cost"
+
+
 async def test_no_messages_key_is_empty_list(spool: Path):
     async with MonitoredAPI(transport=ok_transport(), monitor=True):
         await wait_for(lambda: bool(spool_files(spool)), timeout=0.6)

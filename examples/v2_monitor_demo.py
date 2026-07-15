@@ -94,6 +94,15 @@ def start_server() -> tuple[ThreadingHTTPServer, str]:
 
 class DemoAPI(Gracy):
     # base_url is stamped in main() once the local server picks its port.
+    payload_bytes = 0  # aggregated by the after-hook below (one instance per demo run)
+
+    async def after(self, context: t.Any, result: t.Any, retry_state: t.Any) -> None:
+        """Sum every response payload and surface the total as a live gauge:
+        the key makes each call REPLACE the previous line instead of appending."""
+        if isinstance(result, gracy.Response):
+            type(self).payload_bytes += len(result.body)
+            self.message(f"payload so far: {type(self).payload_bytes / 1024:,.1f} KiB", key="payload")
+
     config = GracyConfig(
         retry=Retry(on=gracy.status(503, 429), attempts=3, wait=0.3),
         throttle=Throttle(rules=[Rate(8, per="1s")]),
@@ -144,8 +153,9 @@ BANNER = """
 
   Watch for: IN-FLIGHT (capped at 4), ON HOLD (burst backlog), THROTTLES
   (8 req/s ceiling), PAUSED (429 + Retry-After freezes the client),
-  RETRIES (flaky 503s), ABORTS (retries exhausted) and the MESSAGES panel
-  (one api.message() per wave - scroll the history with the arrow keys).
+  RETRIES (flaky 503s), ABORTS (retries exhausted) and the MESSAGES panel:
+  one api.message() per wave (scroll the history with the arrow keys) plus
+  a live payload-size gauge aggregated by an after-hook (keyed message).
 
   Ctrl+C stops the demo cleanly.
 =========================================================================

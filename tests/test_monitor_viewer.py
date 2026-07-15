@@ -197,8 +197,13 @@ def _msg_source(path: str, client: str, msgs: list[dict[str, t.Any]]) -> Source:
     return Source(path=path, data={"client": client, "messages": msgs}, age=0.0)
 
 
-def _msg(mid: int, text: str, *, ts: float = 0.0, level: str = "info") -> dict[str, t.Any]:
-    return {"id": mid, "ts": ts or float(mid), "level": level, "text": text}
+def _msg(
+    mid: int, text: str, *, ts: float = 0.0, level: str = "info", key: str | None = None
+) -> dict[str, t.Any]:
+    msg: dict[str, t.Any] = {"id": mid, "ts": ts or float(mid), "level": level, "text": text}
+    if key is not None:
+        msg["key"] = key
+    return msg
 
 
 def test_messagelog_dedupes_resent_buffers() -> None:
@@ -250,6 +255,50 @@ def test_messagelog_interleaves_sources_by_ts_and_caps_history() -> None:
     entries, _, total = log.window(0, 3)
     assert total == 3  # capped: oldest evicted
     assert [e["text"] for e in entries] == ["a-late", "x", "y"]
+
+
+def test_messagelog_keyed_gauge_updates_in_place_at_the_tail() -> None:
+    log = MessageLog()
+    log.ingest(
+        [_msg_source("a.json", "API", [_msg(1, "start"), _msg(2, "1 KiB", key="payload")])]
+    )
+    # next snapshot: gauge updated (new id, same key) + one new plain message
+    log.ingest(
+        [
+            _msg_source(
+                "a.json",
+                "API",
+                [_msg(1, "start"), _msg(3, "mid"), _msg(4, "2 KiB", key="payload")],
+            )
+        ]
+    )
+    entries, _, total = log.window(0, 5)
+    assert total == 2 + 1  # the gauge never piles up in the history
+    assert [e["text"] for e in entries] == ["start", "mid", "2 KiB"]
+
+    # a re-send with no change keeps order and count stable
+    log.ingest(
+        [
+            _msg_source(
+                "a.json",
+                "API",
+                [_msg(1, "start"), _msg(3, "mid"), _msg(4, "2 KiB", key="payload")],
+            )
+        ]
+    )
+    entries, _, total = log.window(0, 5)
+    assert total == 3
+    assert [e["text"] for e in entries] == ["start", "mid", "2 KiB"]
+
+
+def test_messagelog_key_and_id_namespaces_never_collide() -> None:
+    log = MessageLog()
+    log.ingest(
+        [_msg_source("a.json", "API", [_msg(5, "plain five"), _msg(6, "gauge", key="5")])]
+    )
+    entries, _, total = log.window(0, 5)
+    assert total == 2  # key "5" does not clash with id 5
+    assert [e["text"] for e in entries] == ["plain five", "gauge"]
 
 
 def test_messagelog_skips_malformed_entries() -> None:
