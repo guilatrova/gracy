@@ -386,6 +386,10 @@ class ExploreSession:
                     f"this gracy understands schema {SCHEMA_VERSION}"
                 )
             self._data.update(loaded)
+            # normalise step ids to a contiguous 1..N (older sessions may carry
+            # gaps left by drops before ids were kept contiguous)
+            for i, step in enumerate(self._data.get("steps", []), start=1):
+                step["id"] = i
         if base_url is not None:
             self._data["base_url"] = base_url
 
@@ -972,6 +976,10 @@ class ExploreSession:
         self._snapshot(f"drop step {step_id}")
         endpoint = target.get("endpoint")
         steps.remove(target)
+        # keep ids a contiguous 1..N list (what `show history` shows and what
+        # `drop step <n>` expects); a gap after a drop just confuses the numbering
+        for i, s in enumerate(steps, start=1):
+            s["id"] = i
         if endpoint and endpoint in self._data["endpoints"] and self._endpoint_steps(endpoint):
             try:
                 self._recompute_template(endpoint)

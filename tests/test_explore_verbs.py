@@ -260,6 +260,69 @@ async def test_drop_impact_and_completion(make_session: t.Callable[..., ExploreS
     assert candidates_for(session, "drop endpoint ", "get") == ["get_echo"]
 
 
+async def test_drop_step_keeps_ids_contiguous(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """Regression: dropping a step used to leave a gap (ids 1,3,4), so `drop
+    step 2` on the next attempt hit nothing. Ids must stay a contiguous 1..N."""
+    session = make_session()
+    for p in ("/echo/a", "/echo/b", "/echo/c", "/echo/d"):
+        await session.execute("get", p)
+    assert [s["step_id"] for s in session.history()] == [1, 2, 3, 4]
+
+    out = await execute_command(session, parse_command("drop step 2"))
+    assert out.data["path"] == "/echo/b"  # the 2nd request went
+
+    hist = session.history()
+    assert [s["step_id"] for s in hist] == [1, 2, 3]  # no gap
+    assert [s["path"] for s in hist] == ["/echo/a", "/echo/c", "/echo/d"]
+
+    # a fresh request continues contiguously, never reviving a gapped id
+    await session.execute("get", "/echo/e")
+    assert [s["step_id"] for s in session.history()] == [1, 2, 3, 4]
+
+
+async def test_drop_step_rejects_zero_and_out_of_range(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/only")  # the only step, id 1
+    for bad in (0, 2, -1):
+        with pytest.raises(ValueError, match="no step with id"):
+            session.drop_step(bad)
+    # the error names the recorded ids so you are not left guessing
+    with pytest.raises(ValueError, match="recorded: 1"):
+        session.drop_step(0)
+
+
+def test_session_normalises_gappy_step_ids_on_load(tmp_path: Path) -> None:
+    """An older session file with gappy ids (left by a pre-fix drop) is
+    renumbered to a contiguous 1..N the moment it is reopened."""
+    import json
+
+    from gracy.explore._session import SCHEMA_VERSION
+
+    path = tmp_path / "legacy.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": SCHEMA_VERSION,
+                "base_url": None,
+                "policies": {},
+                "endpoints": {},
+                "models": {},
+                "captures": {},
+                "steps": [
+                    {"id": 1, "method": "GET", "path": "/x", "endpoint": None, "status": 200},
+                    {"id": 7, "method": "GET", "path": "/y", "endpoint": None, "status": 200},
+                ],
+            }
+        )
+    )
+    session = ExploreSession(path)
+    assert [s["step_id"] for s in session.history()] == [1, 2]
+
+
 # --------------------------------------------------------------------------- list
 
 
