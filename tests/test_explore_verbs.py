@@ -55,6 +55,16 @@ def test_parse_rename() -> None:
             parse_command(bad)
 
 
+def test_parse_drop() -> None:
+    ep = parse_command("drop endpoint pikachu")
+    assert (ep.kind, ep.target, ep.name) == ("drop", "endpoint", "pikachu")
+    st = parse_command("drop step 3")
+    assert (st.kind, st.target, st.index) == ("drop", "step", 3)
+    for bad in ("drop", "drop endpoint", "drop widget x", "drop step abc", "drop step"):
+        with pytest.raises(ParseError):
+            parse_command(bad)
+
+
 def test_parse_list_and_ls_alias_show_endpoints() -> None:
     for text in ("list", "ls"):
         cmd = parse_command(text)
@@ -150,6 +160,90 @@ async def test_rename_model(make_session: t.Callable[..., ExploreSession]) -> No
     assert session.endpoints()["get_echo"]["response_model"] == "Echo"
     with pytest.raises(ValueError, match="no model named"):
         session.rename_model("Ghost", "X")
+
+
+# --------------------------------------------------------------------------- drop
+
+
+async def test_drop_endpoint_removes_it_and_frees_steps(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    await session.execute("get", "/berry/cheri")
+    session.name_endpoint("get_berry")
+
+    out = await execute_command(session, parse_command("drop endpoint get_echo"))
+    assert out.data == {"ok": True, "target": "endpoint", "name": "get_echo", "freed": 1}
+    assert "get_echo" not in session.endpoints() and "get_berry" in session.endpoints()
+    # the step survives in history but is no longer named
+    echo_step = next(s for s in session.history() if s["path"] == "/echo/mew")
+    assert echo_step["matched_endpoint"] is None
+    with pytest.raises(ValueError, match="no endpoint named"):
+        session.drop_endpoint("get_echo")
+
+
+async def test_drop_redundant_overlapping_endpoint(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """The reported scenario: a separately-named endpoint whose literal path is
+    subsumed by another's template (its own distinct step) can be dropped,
+    leaving the templated one, which is untouched."""
+    session = make_session()
+    await session.execute("get", "/echo/mew")  # step 1
+    await session.execute("get", "/echo/ditto")  # step 2
+    session.name_endpoint("many", 1)
+    assert session.name_endpoint("many", 2) == "/echo/{echo}"  # templates
+    await session.execute("get", "/echo/pika")  # step 3, its own distinct step
+    session.name_endpoint("just_pika", 3)  # a redundant literal endpoint that overlaps
+
+    await execute_command(session, parse_command("drop endpoint just_pika"))
+    assert list(session.endpoints()) == ["many"]
+    assert session.endpoints()["many"]["template"] == "/echo/{echo}"
+    assert session.endpoints()["many"]["steps"] == 2  # the templated one is untouched
+
+
+async def test_drop_step_re_templates_endpoint(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")  # step 1
+    await session.execute("get", "/echo/ditto")  # step 2
+    session.name_endpoint("get_echo", 1)
+    session.name_endpoint("get_echo", 2)
+    assert session.endpoints()["get_echo"]["steps"] == 2
+
+    out = await execute_command(session, parse_command("drop step 2"))
+    assert out.data["target"] == "step" and out.data["endpoint"] == "get_echo"
+    assert session.endpoints()["get_echo"]["steps"] == 1
+    assert not any(s["step_id"] == 2 for s in session.history())
+    with pytest.raises(ValueError, match="no step with id"):
+        session.drop_step(999)
+
+
+async def test_drop_is_undoable(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    await execute_command(session, parse_command("drop endpoint get_echo"))
+    assert "get_echo" not in session.endpoints()
+    session.undo()
+    assert "get_echo" in session.endpoints()
+
+
+async def test_drop_impact_and_completion(make_session: t.Callable[..., ExploreSession]) -> None:
+    from gracy.explore.repl import candidates_for, describe_impact
+
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    plain = "".join(seg[1] for seg in describe_impact(session, "drop endpoint get_echo"))
+    assert "removes endpoint" in plain and "frees 1 step" in plain
+    warn = "".join(seg[1] for seg in describe_impact(session, "drop endpoint ghost"))
+    assert "no endpoint named 'ghost'" in warn
+    assert candidates_for(session, "drop ", "") == ["endpoint ", "step "]
+    assert candidates_for(session, "drop endpoint ", "get") == ["get_echo"]
 
 
 # --------------------------------------------------------------------------- list

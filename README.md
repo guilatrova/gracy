@@ -219,7 +219,7 @@ gracy› export pokeapi.py --tests
 wrote pokeapi.py, test_pokeapi.py, pokeapi.cassette.db
 ```
 
-The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**. `endpoint` said `created` the first time and `folded into` the second; `rename endpoint <old> <new>` (and `rename model`) fix a name after the fact.
+The generated `pokeapi.py` is exactly the typed client you'd hand-write (`@get("/pokemon/{name}", on={404: None}) async def get_pokemon(...) -> Pokemon | None: ...`), and `test_pokeapi.py` replays the recorded responses, so it's **green with no network**. `endpoint` said `created` the first time and `folded into` the second; `rename endpoint <old> <new>` (and `rename model`) fix a name after the fact, and `drop endpoint <name>` / `drop step <id>` remove a redundant endpoint or a stray request (its steps stay in history, and `undo` brings it back).
 
 The REPL suggests as you type: an inline grey **ghost text** shows the rest of the likely word (type `g`, see `et`), which `→` accepts; **Tab** lists all matches. Both read your live session: commands, `show` targets, endpoint names (`endpoint <Tab>`), `on` actions, paths you've already hit (`get <Tab>`), and files for `export`. History persists in `~/.gracy_history`. Ghost text needs `prompt_toolkit` (`pip install 'gracy[explore]'`); without it the REPL falls back to plain Tab completion.
 

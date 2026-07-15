@@ -941,6 +941,45 @@ class ExploreSession:
                 self._data["models"][key] = new
         self.persist()
 
+    def drop_endpoint(self, name: str) -> int:
+        """Remove a named endpoint. Its steps stay in history but become
+        unnamed (endpoint=None), so a redundant/mistaken endpoint can go away
+        without losing the recorded requests. Returns how many steps it freed."""
+        endpoints = self._data["endpoints"]
+        if name not in endpoints:
+            raise ValueError(f"no endpoint named {name!r}; known: {sorted(endpoints)}")
+        self._snapshot(f"drop endpoint {name}")
+        freed = 0
+        for step in self._data["steps"]:
+            if step.get("endpoint") == name:
+                step["endpoint"] = None
+                freed += 1
+        del endpoints[name]
+        for key in (f"{name}:response", f"{name}:request"):
+            self._data["models"].pop(key, None)
+        self.persist()
+        return freed
+
+    def drop_step(self, step_id: int) -> dict[str, t.Any]:
+        """Remove one recorded request. If it belonged to an endpoint, the
+        endpoint is re-templated over its remaining steps (dropping the odd
+        one out can even repair a path-depth clash). Returns a small summary."""
+        steps = self._data["steps"]
+        target = next((s for s in steps if s["id"] == step_id), None)
+        if target is None:
+            known = ", ".join(str(s["id"]) for s in steps) or "(none)"
+            raise ValueError(f"no step with id {step_id}; recorded: {known}")
+        self._snapshot(f"drop step {step_id}")
+        endpoint = target.get("endpoint")
+        steps.remove(target)
+        if endpoint and endpoint in self._data["endpoints"] and self._endpoint_steps(endpoint):
+            try:
+                self._recompute_template(endpoint)
+            except ValueError:
+                pass  # the leftover steps still clash; leave the template as-is
+        self.persist()
+        return {"step_id": step_id, "path": target["path"], "endpoint": endpoint}
+
     def _default_model_name(self, endpoint: str) -> str:
         from gracy.explore._infer import pascal
 

@@ -24,7 +24,7 @@ PROMPT: t.Final = "gracy› "
 # `endpoint` before `ep` so the ghost hint prefers the full, clearer word.
 COMMANDS: t.Final = (
     *METHODS,
-    "endpoint", "ep", "model", "rename", "on", "param", "set", "peek", "retry", "throttle",
+    "endpoint", "ep", "model", "rename", "drop", "on", "param", "set", "peek", "retry", "throttle",
     "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "export", "help", "quit", "exit",
 )
 
@@ -114,6 +114,26 @@ async def _do_rename(session: ExploreSession, cmd: Command) -> Outcome:
         "rename",
         {"ok": True, "target": cmd.target, "old": cmd.name, "new": cmd.value},
         f"renamed {cmd.target} '{cmd.name}' -> '{cmd.value}'",
+    )
+
+
+async def _do_drop(session: ExploreSession, cmd: Command) -> Outcome:
+    if cmd.target == "endpoint":
+        assert cmd.name is not None
+        freed = session.drop_endpoint(cmd.name)
+        note = f" ({freed} step{'' if freed == 1 else 's'} now unnamed)" if freed else ""
+        return Outcome(
+            "drop",
+            {"ok": True, "target": "endpoint", "name": cmd.name, "freed": freed},
+            f"dropped endpoint '{cmd.name}'{note}",
+        )
+    assert cmd.index is not None
+    info = session.drop_step(cmd.index)
+    tail = f" (was in {info['endpoint']})" if info["endpoint"] else ""
+    return Outcome(
+        "drop",
+        {"ok": True, "target": "step", **info},
+        f"dropped step {cmd.index} {info['path']}{tail}",
     )
 
 
@@ -250,6 +270,7 @@ _HANDLERS: t.Final[dict[str, t.Callable[[ExploreSession, Command], t.Awaitable[O
     "request": _do_request,
     "endpoint": _do_endpoint,
     "rename": _do_rename,
+    "drop": _do_drop,
     "model": _do_model,
     "on": _do_on,
     "param": _do_param,
@@ -382,6 +403,11 @@ def candidates_for(session: ExploreSession, leading: str, text: str) -> list[str
             return [n for n in session.endpoints() if n.startswith(text)]
         if len(parts) == 2 and parts[1] == "model":
             return [n for n in _model_names(session) if n.startswith(text)]
+    if cmd == "drop":
+        if len(parts) == 1:
+            return [w + " " for w in ("endpoint", "step") if w.startswith(text)]
+        if len(parts) == 2 and parts[1] == "endpoint":
+            return [n for n in session.endpoints() if n.startswith(text)]
     if cmd == "on" and len(parts) == 2:  # the action position
         return [a for a in ("none", "raise:") if a.startswith(text)]
     if cmd == "auth" and len(parts) == 1:
@@ -648,6 +674,19 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
         if cmd.target == "endpoint" and not exists:
             return [_seg("tb.warn", f"no endpoint named '{cmd.name}'")]
         return segs
+    if cmd.kind == "drop":
+        if cmd.target == "endpoint":
+            if cmd.name not in session.endpoints():
+                return [_seg("tb.warn", f"no endpoint named '{cmd.name}'")]
+            n = len(session._endpoint_steps(cmd.name))  # noqa: SLF001 - same package
+            return [
+                _seg("tb.verb", "removes endpoint "), _seg("tb.target", cmd.name or ""),
+                _seg("tb.muted", f" · frees {n} step{'' if n == 1 else 's'} (kept in history)"),
+            ]
+        ids = {s["id"] for s in session.history()}
+        if cmd.index not in ids:
+            return [_seg("tb.warn", f"no step with id {cmd.index}")]
+        return [_seg("tb.verb", "removes step "), _seg("tb.value", str(cmd.index))]
     if cmd.kind in ("retry", "throttle", "timeout", "auth", "header", "base"):
         detail = cmd.spec or cmd.value or (f"{cmd.name}={cmd.value}" if cmd.name else "")
         label = {"base": "base_url"}.get(cmd.kind, cmd.kind)
