@@ -15,7 +15,6 @@ from __future__ import annotations
 import base64
 import copy
 import json
-import os
 import re
 import time
 import typing as t
@@ -25,7 +24,34 @@ from pathlib import Path
 
 from gracy._types import Response
 from gracy.client import Gracy
-from gracy.config import Backoff, GracyConfig, Rate, Retry, Throttle, parse_duration
+from gracy.config import GracyConfig
+from gracy.explore._env import (  # noqa: F401  # re-exported for compat
+    _ENV_RE,
+    _redact_values,
+    _referenced_env_values,
+    _resolve_env_any,
+    env_vars_in,
+    resolve_env,
+)
+from gracy.explore._pathutils import (  # noqa: F401  # re-exported for compat
+    _tokenize_path,
+    default_param_name,
+    flatten_keys,
+    join_segments,
+    resolve_json_path,
+    split_segments,
+    template_matches,
+)
+from gracy.explore._policies import (  # noqa: F401  # re-exported for compat
+    auth_header_value,
+    on_action_value,
+    parse_auth,
+    parse_retry,
+    parse_throttle,
+    retry_to_config,
+    throttle_to_config,
+    validate_on_action,
+)
 from gracy.replay import Scrub
 
 __all__ = ["ExploreSession", "StepResult"]
@@ -34,294 +60,8 @@ SCHEMA_VERSION: t.Final = 1
 MAX_STORED_BODY: t.Final = 256 * 1024  # response bodies are capped in the session file
 _PREVIEW_CHARS: t.Final = 400
 
-_ENV_RE: t.Final = re.compile(r"\$\{(\w+)\}|\$(\w+)")
 _CAPTURE_RE: t.Final = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 _SCRUBBED_HEADERS: t.Final = frozenset(h.lower() for h in Scrub().headers)
-
-_RETRY_RE: t.Final = re.compile(
-    r"^\s*(?P<attempts>\d+)\s+on\s+(?P<codes>\d+(?:\s*,\s*\d+)*)(?:\s+wait\s+(?P<wait>\S+))?\s*$"
-)
-_WAIT_RE: t.Final = re.compile(r"^(?P<initial>\d+(?:\.\d+)?)(?:x(?P<multiplier>\d+(?:\.\d+)?))?$")
-_THROTTLE_RE: t.Final = re.compile(r"^\s*(?P<limit>\d+)\s*/\s*(?P<per>\S+)\s*$")
-
-
-# --------------------------------------------------------------------------- env interpolation
-
-
-def resolve_env(value: str) -> str:
-    """Replace $VAR / ${VAR} with os.environ values; UNSET vars stay literal."""
-
-    def _sub(m: re.Match[str]) -> str:
-        var = m.group(1) or m.group(2)
-        return os.environ.get(var, m.group(0))
-
-    return _ENV_RE.sub(_sub, value)
-
-
-def _referenced_env_values(*pieces: t.Any) -> set[str]:
-    """The concrete os.environ VALUES a request's unresolved strings reference.
-
-    Used to scrub secrets a server ECHOES back: the request stores placeholders,
-    but the response may contain the resolved value verbatim - redact it before
-    the response ever touches disk (recordings are git-committable)."""
-    values: set[str] = set()
-
-    def walk(v: t.Any) -> None:
-        if isinstance(v, str):
-            for m in _ENV_RE.finditer(v):
-                var = m.group(1) or m.group(2)
-                env_val = os.environ.get(var)
-                if env_val:
-                    values.add(env_val)
-        elif isinstance(v, dict):
-            for item in v.values():
-                walk(item)
-        elif isinstance(v, list):
-            for item in v:
-                walk(item)
-
-    for piece in pieces:
-        walk(piece)
-    return values
-
-
-def _redact_values(value: t.Any, secrets: set[str]) -> t.Any:
-    """Deep-replace any exact secret occurrence (whole or substring) with '***'."""
-    if not secrets:
-        return value
-    if isinstance(value, str):
-        for secret in secrets:
-            if secret in value:
-                value = value.replace(secret, "***")
-        return value
-    if isinstance(value, dict):
-        return {k: _redact_values(v, secrets) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_redact_values(v, secrets) for v in value]
-    return value
-
-
-def _resolve_env_any(value: t.Any) -> t.Any:
-    """Recursively resolve env placeholders in every string of a JSON-ish tree."""
-    if isinstance(value, str):
-        return resolve_env(value)
-    if isinstance(value, dict):
-        return {k: _resolve_env_any(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_resolve_env_any(v) for v in value]
-    return value
-
-
-def env_vars_in(value: str) -> list[str]:
-    return [m.group(1) or m.group(2) for m in _ENV_RE.finditer(value)]
-
-
-# --------------------------------------------------------------------------- path helpers
-
-
-def split_segments(path: str) -> list[str]:
-    return [seg for seg in path.split("/") if seg]
-
-
-def join_segments(segments: t.Sequence[str]) -> str:
-    return "/" + "/".join(segments)
-
-
-def template_matches(template: str, path: str) -> bool:
-    t_segs, p_segs = split_segments(template), split_segments(path)
-    if len(t_segs) != len(p_segs):
-        return False
-    return all(ts.startswith("{") and ts.endswith("}") or ts == ps for ts, ps in zip(t_segs, p_segs))
-
-
-def default_param_name(segments: t.Sequence[str], index: int, taken: t.Collection[str]) -> str:
-    """Deterministic default: the preceding literal segment ("/pokemon/x" -> "pokemon"),
-    falling back to "param_<index>" when there is none (or it's taken)."""
-    if index > 0:
-        prev = re.sub(r"\W+", "_", segments[index - 1]).strip("_").lower()
-        if prev and not prev[0].isdigit() and prev not in taken and not (
-            segments[index - 1].startswith("{")
-        ):
-            return prev
-    name = f"param_{index}"
-    while name in taken:
-        name += "_"
-    return name
-
-
-def flatten_keys(obj: t.Any, prefix: str = "") -> set[str]:
-    """Dot-path field names of a JSON dict tree (for model-drift detection)."""
-    keys: set[str] = set()
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            path = f"{prefix}.{k}" if prefix else str(k)
-            keys.add(path)
-            keys |= flatten_keys(v, path)
-    return keys
-
-
-# --------------------------------------------------------------------------- capture paths
-
-
-def _tokenize_path(path: str) -> list[str | int]:
-    """Break 'results[0].name' into ['results', 0, 'name'] (bare keys + [int] indices)."""
-    tokens: list[str | int] = []
-    i, n = 0, len(path)
-    while i < n:
-        ch = path[i]
-        if ch == ".":
-            i += 1
-            continue
-        if ch == "[":
-            end = path.find("]", i)
-            if end == -1:
-                raise ValueError(f"unclosed '[' in path {path!r}")
-            inner = path[i + 1 : end]
-            try:
-                tokens.append(int(inner))
-            except ValueError:
-                raise ValueError(f"invalid list index {inner!r} in path {path!r}") from None
-            i = end + 1
-            continue
-        j = i
-        while j < n and path[j] not in ".[":
-            j += 1
-        key = path[i:j]
-        if not key:
-            raise ValueError(f"empty segment in path {path!r}")
-        tokens.append(key)
-        i = j
-    if not tokens:
-        raise ValueError(f"empty path {path!r}")
-    return tokens
-
-
-def resolve_json_path(root: t.Any, path: str) -> t.Any:
-    """Walk a dot/bracket path into parsed JSON; errors name the failing segment."""
-    current = root
-    traversed = ""
-    for token in _tokenize_path(path):
-        if isinstance(token, int):
-            traversed += f"[{token}]"
-            if not isinstance(current, list):
-                raise ValueError(f"cannot index into non-list at {traversed!r}")
-            try:
-                current = current[token]
-            except IndexError:
-                raise ValueError(f"index {token} out of range at {traversed!r}") from None
-        else:
-            traversed = f"{traversed}.{token}" if traversed else token
-            if not isinstance(current, dict):
-                raise ValueError(f"cannot read key {token!r} from non-object at {traversed!r}")
-            if token not in current:
-                raise ValueError(f"no key {token!r} at {traversed!r}")
-            current = current[token]
-    return current
-
-
-# --------------------------------------------------------------------------- policy grammar
-
-
-def parse_retry(spec: str) -> dict[str, t.Any]:
-    """'3 on 429,503 wait 0.5x2' -> structured policy dict (stored in the session)."""
-    m = _RETRY_RE.match(spec)
-    if not m:
-        raise ValueError(f"Invalid retry spec {spec!r}; expected '<n> on <codes> [wait <s>[x<mult>]]'")
-    policy: dict[str, t.Any] = {
-        "spec": spec.strip(),
-        "attempts": int(m.group("attempts")),
-        "codes": [int(c.strip()) for c in m.group("codes").split(",")],
-    }
-    wait = m.group("wait")
-    if wait is not None:
-        wm = _WAIT_RE.match(wait)
-        if not wm:
-            raise ValueError(f"Invalid retry wait {wait!r}; expected e.g. '0.5' or '0.5x2'")
-        if wm.group("multiplier") is not None:
-            policy["wait"] = {"initial": float(wm.group("initial")), "multiplier": float(wm.group("multiplier"))}
-        else:
-            policy["wait"] = float(wm.group("initial"))
-    return policy
-
-
-def parse_throttle(spec: str) -> dict[str, t.Any]:
-    """'5/1s' -> {"limit": 5, "per": "1s"}."""
-    m = _THROTTLE_RE.match(spec)
-    if not m:
-        raise ValueError(f"Invalid throttle spec {spec!r}; expected '<n>/<per>' e.g. '5/1s'")
-    per = m.group("per")
-    parse_duration(per)  # validate eagerly
-    return {"spec": spec.strip(), "limit": int(m.group("limit")), "per": per}
-
-
-def parse_auth(spec: str) -> dict[str, t.Any]:
-    """'bearer $TOK' | 'basic user pass' -> structured auth policy."""
-    parts = spec.split()
-    if len(parts) == 2 and parts[0].lower() == "bearer":
-        return {"scheme": "bearer", "token": parts[1]}
-    if len(parts) == 3 and parts[0].lower() == "basic":
-        return {"scheme": "basic", "user": parts[1], "password": parts[2]}
-    raise ValueError(f"Invalid auth spec {spec!r}; expected 'bearer <token>' or 'basic <user> <pass>'")
-
-
-def retry_to_config(policy: dict[str, t.Any]) -> Retry:
-    from gracy.config import status as status_set
-
-    wait_raw = policy.get("wait", 1.0)
-    wait: float | Backoff
-    if isinstance(wait_raw, dict):
-        wait = Backoff(initial=float(wait_raw["initial"]), multiplier=float(wait_raw["multiplier"]))
-    else:
-        wait = float(wait_raw)
-    return Retry(on=status_set(*policy["codes"]), attempts=int(policy["attempts"]), wait=wait)
-
-
-def throttle_to_config(policy: dict[str, t.Any]) -> Throttle:
-    return Throttle(rules=[Rate(int(policy["limit"]), per=policy["per"])])
-
-
-def auth_header_value(auth: dict[str, t.Any], *, resolve: bool) -> str:
-    """The Authorization header value for an auth policy (env resolved when asked)."""
-    if auth["scheme"] == "bearer":
-        token = resolve_env(auth["token"]) if resolve else auth["token"]
-        return f"Bearer {token}"
-    user = resolve_env(auth["user"]) if resolve else auth["user"]
-    password = resolve_env(auth["password"]) if resolve else auth["password"]
-    return "Basic " + base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
-
-
-_BARE_WORD_ACTION: t.Final = re.compile(r"^[A-Za-z][\w\- ]*$")
-
-
-def on_action_value(action: str) -> t.Any:
-    """The value a non-special on-action maps to. A python literal ('{}', '0',
-    '\"hi\"') is eval'd; a bare word/phrase ('unavailable', 'not found') is taken
-    as a plain string, so you don't have to quote simple values."""
-    import ast
-
-    try:
-        return ast.literal_eval(action)
-    except (ValueError, SyntaxError):
-        if _BARE_WORD_ACTION.match(action):
-            return action
-        raise
-
-
-def validate_on_action(action: str) -> None:
-    """Grammar: "none" | "raise:<ExcName>" | a python literal ('{}') or a bare word."""
-    if action == "none":
-        return
-    if action.startswith("raise:"):
-        name = action[len("raise:") :]
-        if not name.isidentifier():
-            raise ValueError(f"Invalid exception name in {action!r}")
-        return
-    try:
-        on_action_value(action)
-    except (ValueError, SyntaxError) as exc:
-        raise ValueError(
-            f"Invalid on-action {action!r}; use 'none', 'raise:<ExcName>', a bare word, or a literal like '{{}}'"
-        ) from exc
 
 
 # --------------------------------------------------------------------------- step result
