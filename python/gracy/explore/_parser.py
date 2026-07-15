@@ -33,6 +33,7 @@ USAGE: t.Final[dict[str, str]] = {
     "model": "model <Name>[!request]",
     "rename": "rename endpoint|model <old> <new>",
     "drop": "drop endpoint <name> | drop step <id>    remove a named endpoint or a recorded request",
+    "prune": "prune    drop every unnamed step (requests not folded into an endpoint)",
     "list": "list | ls    list named endpoints (alias of 'show endpoints')",
     "on": "on <status> none|raise:<ExcName>|<literal>    e.g. on 404 none",
     "param": "param <index> as <name>",
@@ -74,7 +75,7 @@ class ParseError(ValueError):
 
 @dataclass
 class Command:
-    kind: str  # request|endpoint|model|rename|drop|on|param|set|retry|throttle|timeout|auth|header|base|show|undo|export|help|quit
+    kind: str  # request|endpoint|model|rename|drop|prune|on|param|set|retry|throttle|timeout|auth|header|base|show|undo|export|help|quit
     method: str | None = None
     path: str | None = None  # request path (also the capture <path> for kind "set")
     query: dict[str, str] = field(default_factory=dict)
@@ -326,6 +327,10 @@ def parse_command(line: str) -> Command:
                 raise ParseError(f"step id must be a number, e.g. `drop step 3` (got {rest[1]!r})", "drop") from None
             return Command(kind="drop", target="step", index=sid)
         raise ParseError("expected 'drop endpoint <name>' or 'drop step <id>'", "drop")
+
+    if head == "prune":
+        _exactly(tokens, 1, "prune")
+        return Command(kind="prune")
 
     if head == "model":
         _exactly(tokens, 2, "model")

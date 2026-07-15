@@ -24,7 +24,7 @@ PROMPT: t.Final = "gracy› "
 # `endpoint` before `ep` so the ghost hint prefers the full, clearer word.
 COMMANDS: t.Final = (
     *METHODS,
-    "endpoint", "ep", "model", "rename", "drop", "on", "param", "set", "peek", "retry", "throttle",
+    "endpoint", "ep", "model", "rename", "drop", "prune", "on", "param", "set", "peek", "retry", "throttle",
     "timeout", "auth", "header", "base", "show", "list", "ls", "undo", "export", "help", "quit", "exit",
 )
 
@@ -135,6 +135,13 @@ async def _do_drop(session: ExploreSession, cmd: Command) -> Outcome:
         {"ok": True, "target": "step", **info},
         f"dropped step {cmd.index} {info['path']}{tail}",
     )
+
+
+async def _do_prune(session: ExploreSession, cmd: Command) -> Outcome:
+    info = session.prune_steps()
+    n = info["removed"]
+    human = f"pruned {n} unnamed step{'' if n == 1 else 's'}" if n else "no unnamed steps to prune"
+    return Outcome("prune", {"ok": True, **info}, human)
 
 
 async def _do_model(session: ExploreSession, cmd: Command) -> Outcome:
@@ -271,6 +278,7 @@ _HANDLERS: t.Final[dict[str, t.Callable[[ExploreSession, Command], t.Awaitable[O
     "endpoint": _do_endpoint,
     "rename": _do_rename,
     "drop": _do_drop,
+    "prune": _do_prune,
     "model": _do_model,
     "on": _do_on,
     "param": _do_param,
@@ -692,6 +700,14 @@ def describe_impact(session: ExploreSession, line: str) -> FormattedText:
             _seg("tb.verb", "removes step "), _seg("tb.value", str(cmd.index)),
             _seg("tb.muted", " · "), _seg("tb.target", f"{step['method']} {step['path']}"),
             _seg("tb.muted", f" · {where}"),
+        ]
+    if cmd.kind == "prune":
+        n = sum(1 for s in session.history() if s["matched_endpoint"] is None)
+        if not n:
+            return [_seg("tb.muted", "no unnamed steps to prune")]
+        return [
+            _seg("tb.verb", "removes "), _seg("tb.value", f"{n} unnamed step{'' if n == 1 else 's'}"),
+            _seg("tb.muted", " (folded-in requests stay)"),
         ]
     if cmd.kind in ("retry", "throttle", "timeout", "auth", "header", "base"):
         detail = cmd.spec or cmd.value or (f"{cmd.name}={cmd.value}" if cmd.name else "")

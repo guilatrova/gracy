@@ -988,6 +988,24 @@ class ExploreSession:
         self.persist()
         return {"step_id": step_id, "path": target["path"], "endpoint": endpoint}
 
+    def prune_steps(self) -> dict[str, int]:
+        """Drop every unnamed step (one not folded into any endpoint) at once
+        and renumber the survivors 1..N. Exploration leaves these behind when
+        you re-run a request just to look at it; this clears the clutter that
+        `list` hides. Snapshotted, so `undo` brings them all back. Returns
+        {'removed': n, 'kept': m}."""
+        steps = self._data["steps"]
+        kept = [s for s in steps if s.get("endpoint")]
+        removed = len(steps) - len(kept)
+        if not removed:
+            return {"removed": 0, "kept": len(steps)}
+        self._snapshot("prune unnamed steps")
+        for i, s in enumerate(kept, start=1):
+            s["id"] = i
+        self._data["steps"] = kept
+        self.persist()
+        return {"removed": removed, "kept": len(kept)}
+
     def _default_model_name(self, endpoint: str) -> str:
         from gracy.explore._infer import pascal
 

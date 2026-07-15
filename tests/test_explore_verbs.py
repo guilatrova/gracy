@@ -65,6 +65,12 @@ def test_parse_drop() -> None:
             parse_command(bad)
 
 
+def test_parse_prune() -> None:
+    assert parse_command("prune").kind == "prune"
+    with pytest.raises(ParseError):
+        parse_command("prune everything")
+
+
 def test_parse_list_and_ls_alias_show_endpoints() -> None:
     for text in ("list", "ls"):
         cmd = parse_command(text)
@@ -321,6 +327,62 @@ def test_session_normalises_gappy_step_ids_on_load(tmp_path: Path) -> None:
     )
     session = ExploreSession(path)
     assert [s["step_id"] for s in session.history()] == [1, 2]
+
+
+async def test_prune_removes_unnamed_keeps_endpoint_steps(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """The reported clutter: two orphan /echo/dup requests (recorded before any
+    endpoint matched them) sit next to named endpoint steps and are invisible
+    in `list`. `prune` clears the orphans, keeps the folded-in steps, renumbers."""
+    session = make_session()
+    await session.execute("get", "/echo/dup")  # step 1 orphan (no endpoint yet)
+    await session.execute("get", "/echo/dup")  # step 2 orphan
+    await session.execute("get", "/echo/a")  # step 3 -> will name
+    await session.execute("get", "/echo/b")  # step 4 -> will name
+    session.name_endpoint("echo", 3)
+    session.name_endpoint("echo", 4)
+    assert len(session.history()) == 4
+
+    out = await execute_command(session, parse_command("prune"))
+    assert out.data == {"ok": True, "removed": 2, "kept": 2}
+    hist = session.history()
+    assert [s["step_id"] for s in hist] == [1, 2]  # survivors renumbered
+    assert all(s["matched_endpoint"] == "echo" for s in hist)
+    assert session.endpoints()["echo"]["steps"] == 2
+
+
+async def test_prune_noop_when_nothing_unnamed(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/a")
+    session.name_endpoint("echo")
+    out = await execute_command(session, parse_command("prune"))
+    assert out.data == {"ok": True, "removed": 0, "kept": 1}
+    assert "no unnamed steps" in out.human
+
+
+async def test_prune_is_undoable(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/a")  # orphan
+    await session.execute("get", "/echo/b")  # orphan
+    await execute_command(session, parse_command("prune"))
+    assert session.history() == []
+    session.undo()
+    assert [s["path"] for s in session.history()] == ["/echo/a", "/echo/b"]
+
+
+async def test_prune_impact_preview(make_session: t.Callable[..., ExploreSession]) -> None:
+    from gracy.explore.repl import describe_impact
+
+    session = make_session()
+    await session.execute("get", "/echo/a")
+    session.name_endpoint("echo")
+    assert "no unnamed steps to prune" in "".join(seg[1] for seg in describe_impact(session, "prune"))
+    await session.execute("get", "/echo/orphan")
+    plain = "".join(seg[1] for seg in describe_impact(session, "prune"))
+    assert "removes 1 unnamed step" in plain and "folded-in requests stay" in plain
 
 
 # --------------------------------------------------------------------------- list
