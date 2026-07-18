@@ -5,3 +5,18 @@
 dist/
 .mongo
 .venv/
+target/
+*.so
+__pycache__/
+
+# PyInstaller / packaging build outputs
+dist/
+dist-bin/
+dist-spec/
+build/
+*.egg-info/
+
+# gracy explore runtime artifacts
+gracy_explore.json
+*.gracy.json
+.gracy_history

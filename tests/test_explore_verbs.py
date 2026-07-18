@@ -1,0 +1,457 @@
+"""The `endpoint` / `rename` / `list` command verbs and create-vs-fold echo."""
+
+from __future__ import annotations
+
+import typing as t
+from pathlib import Path
+
+import pytest
+
+from gracy.explore import ExploreSession
+from gracy.explore._parser import ParseError, parse_command
+from gracy.explore.repl import execute_command
+
+
+@pytest.fixture
+async def make_session(tmp_path: Path, test_server: str) -> t.AsyncIterator[t.Callable[..., ExploreSession]]:
+    sessions: list[ExploreSession] = []
+
+    def factory(name: str = "s.json") -> ExploreSession:
+        s = ExploreSession(tmp_path / name, base_url=test_server)
+        sessions.append(s)
+        return s
+
+    yield factory
+    for s in sessions:
+        await s.aclose()
+
+
+# --------------------------------------------------------------------------- parser
+
+
+def test_parse_endpoint_replaces_name() -> None:
+    cmd = parse_command("endpoint get_pokemon")
+    assert cmd.kind == "endpoint" and cmd.name == "get_pokemon"
+    with pytest.raises(ParseError):  # the old verb is gone
+        parse_command("name get_pokemon")
+
+
+def test_parse_ep_is_alias_of_endpoint() -> None:
+    cmd = parse_command("ep get_pokemon")
+    assert cmd.kind == "endpoint" and cmd.name == "get_pokemon"
+    # same arity rules as the long form
+    for bad in ("ep", "ep a b"):
+        with pytest.raises(ParseError):
+            parse_command(bad)
+
+
+def test_parse_rename() -> None:
+    c = parse_command("rename endpoint old new")
+    assert (c.kind, c.target, c.name, c.value) == ("rename", "endpoint", "old", "new")
+    c2 = parse_command("rename model Pokemon PokemonDetail")
+    assert (c2.target, c2.name, c2.value) == ("model", "Pokemon", "PokemonDetail")
+    for bad in ("rename endpoint only-two", "rename widget a b", "rename endpoint a b c"):
+        with pytest.raises(ParseError):
+            parse_command(bad)
+
+
+def test_parse_drop() -> None:
+    ep = parse_command("drop endpoint pikachu")
+    assert (ep.kind, ep.target, ep.name) == ("drop", "endpoint", "pikachu")
+    st = parse_command("drop step 3")
+    assert (st.kind, st.target, st.index) == ("drop", "step", 3)
+    for bad in ("drop", "drop endpoint", "drop widget x", "drop step abc", "drop step"):
+        with pytest.raises(ParseError):
+            parse_command(bad)
+
+
+def test_parse_prune() -> None:
+    assert parse_command("prune").kind == "prune"
+    with pytest.raises(ParseError):
+        parse_command("prune everything")
+
+
+def test_parse_list_and_ls_alias_show_endpoints() -> None:
+    for text in ("list", "ls"):
+        cmd = parse_command(text)
+        assert cmd.kind == "show" and cmd.target == "endpoints"
+
+
+# --------------------------------------------------------------------------- echo: create vs fold
+
+
+async def test_endpoint_echo_created_then_folded(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/one")
+    created = await execute_command(session, parse_command("endpoint get_echo"))
+    assert created.data["created"] is True
+    assert "created endpoint" in created.human and "get_echo" in created.human
+
+    await session.execute("get", "/echo/two")
+    folded = await execute_command(session, parse_command("endpoint get_echo"))
+    assert folded.data["created"] is False
+    assert "folded into" in folded.human
+    assert folded.data["template"] == "/echo/{echo}"
+
+
+async def test_ep_alias_creates_and_folds_like_endpoint(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/one")
+    created = await execute_command(session, parse_command("ep get_echo"))
+    assert created.data["created"] is True and "get_echo" in session.endpoints()
+
+    await session.execute("get", "/echo/two")
+    folded = await execute_command(session, parse_command("ep get_echo"))
+    assert folded.data["created"] is False
+    assert folded.data["template"] == "/echo/{echo}"
+
+
+async def test_ep_completion_and_toolbar(make_session: t.Callable[..., ExploreSession]) -> None:
+    from gracy.explore.repl import COMMANDS, candidates_for, describe_impact
+
+    assert "ep" in COMMANDS  # Tab surfaces the alias at the top level
+    session = make_session()
+    await session.execute("get", "/echo/one")
+    session.name_endpoint("get_echo")
+    # `ep <TAB>` offers existing endpoint names to fold into, same as `endpoint`
+    assert candidates_for(session, "ep ", "get") == ["get_echo"]
+    # the impact toolbar reads the alias through the parser (kind == endpoint)
+    plain = "".join(seg[1] for seg in describe_impact(session, "ep NewThing"))
+    assert "creates endpoint" in plain and "NewThing" in plain
+
+
+async def test_echo_has_no_rich_markup(make_session: t.Callable[..., ExploreSession]) -> None:
+    # human text is plain (gracy x prints it raw); markup would leak as literal text
+    session = make_session()
+    await session.execute("get", "/echo/x")
+    out = await execute_command(session, parse_command("endpoint e"))
+    assert "[bold]" not in out.human and "[/bold]" not in out.human
+
+
+# --------------------------------------------------------------------------- rename
+
+
+async def test_rename_endpoint(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    out = await execute_command(session, parse_command("rename endpoint get_echo fetch_echo"))
+    assert out.data == {"ok": True, "target": "endpoint", "old": "get_echo", "new": "fetch_echo"}
+    assert "fetch_echo" in session.endpoints() and "get_echo" not in session.endpoints()
+    # steps re-pointed to the new name
+    assert all(s.get("endpoint") in (None, "fetch_echo") for s in session.history())
+
+
+async def test_rename_endpoint_errors(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    with pytest.raises(ValueError, match="no endpoint named"):
+        session.rename_endpoint("nope", "x")
+    await session.execute("get", "/berry/cheri")
+    session.name_endpoint("get_berry")
+    with pytest.raises(ValueError, match="already exists"):
+        session.rename_endpoint("get_echo", "get_berry")
+
+
+async def test_rename_model(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    session.set_model_name("EchoResponse")
+    out = await execute_command(session, parse_command("rename model EchoResponse Echo"))
+    assert out.data["new"] == "Echo"
+    assert session.endpoints()["get_echo"]["response_model"] == "Echo"
+    with pytest.raises(ValueError, match="no model named"):
+        session.rename_model("Ghost", "X")
+
+
+# --------------------------------------------------------------------------- drop
+
+
+async def test_drop_endpoint_removes_it_and_frees_steps(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    await session.execute("get", "/berry/cheri")
+    session.name_endpoint("get_berry")
+
+    out = await execute_command(session, parse_command("drop endpoint get_echo"))
+    # nothing else covers /echo/mew, so its step is freed (not re-absorbed)
+    assert out.data == {"ok": True, "target": "endpoint", "name": "get_echo", "freed": 1, "absorbed": {}}
+    assert "get_echo" not in session.endpoints() and "get_berry" in session.endpoints()
+    # the step survives in history but is no longer named
+    echo_step = next(s for s in session.history() if s["path"] == "/echo/mew")
+    assert echo_step["matched_endpoint"] is None
+    with pytest.raises(ValueError, match="no endpoint named"):
+        session.drop_endpoint("get_echo")
+
+
+async def test_drop_redundant_endpoint_reabsorbs_step(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """The reported scenario: a separately-named endpoint whose literal path is
+    subsumed by another's template. Dropping it folds its step into the covering
+    endpoint (no orphan left behind), leaving a single endpoint."""
+    session = make_session()
+    await session.execute("get", "/echo/mew")  # step 1
+    await session.execute("get", "/echo/ditto")  # step 2
+    session.name_endpoint("many", 1)
+    assert session.name_endpoint("many", 2) == "/echo/{echo}"  # templates
+    await session.execute("get", "/echo/pika")  # step 3, its own distinct step
+    session.name_endpoint("just_pika", 3)  # a redundant literal endpoint that overlaps
+
+    from gracy.explore.repl import describe_impact
+
+    preview = "".join(seg[1] for seg in describe_impact(session, "drop endpoint just_pika"))
+    assert "folds 1 into many" in preview
+
+    out = await execute_command(session, parse_command("drop endpoint just_pika"))
+    assert out.data["absorbed"] == {"many": 1}  # its step folded into `many`
+    assert list(session.endpoints()) == ["many"]
+    assert session.endpoints()["many"]["template"] == "/echo/{echo}"
+    assert session.endpoints()["many"]["steps"] == 3  # /echo/pika re-homed here
+    assert [s["matched_endpoint"] for s in session.history()] == ["many", "many", "many"]
+
+
+async def test_drop_step_re_templates_endpoint(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")  # step 1
+    await session.execute("get", "/echo/ditto")  # step 2
+    session.name_endpoint("get_echo", 1)
+    session.name_endpoint("get_echo", 2)
+    assert session.endpoints()["get_echo"]["steps"] == 2
+
+    out = await execute_command(session, parse_command("drop step 2"))
+    assert out.data["target"] == "step" and out.data["endpoint"] == "get_echo"
+    assert session.endpoints()["get_echo"]["steps"] == 1
+    assert not any(s["step_id"] == 2 for s in session.history())
+    with pytest.raises(ValueError, match="no step with id"):
+        session.drop_step(999)
+
+
+async def test_drop_is_undoable(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    await execute_command(session, parse_command("drop endpoint get_echo"))
+    assert "get_echo" not in session.endpoints()
+    session.undo()
+    assert "get_echo" in session.endpoints()
+
+
+async def test_drop_impact_and_completion(make_session: t.Callable[..., ExploreSession]) -> None:
+    from gracy.explore.repl import candidates_for, describe_impact
+
+    def _tb(line: str) -> str:
+        return "".join(seg[1] for seg in describe_impact(session, line))
+
+    session = make_session()
+    await session.execute("get", "/echo/mew")  # step 1, named
+    session.name_endpoint("get_echo")
+    await session.execute("get", "/echo/orphan")  # step 2, unnamed
+
+    # endpoint preview shows the template + freed-step count
+    ep = _tb("drop endpoint get_echo")
+    assert "removes endpoint" in ep and "/echo/mew" in ep and "frees 1 step" in ep
+    assert "no endpoint named 'ghost'" in _tb("drop endpoint ghost")
+
+    # step preview shows method + path + which endpoint (regression: this branch
+    # used the wrong key and crashed, so the footer silently showed nothing)
+    named = _tb("drop step 1")
+    assert "removes step 1" in named and "GET /echo/mew" in named and "get_echo" in named
+    orphan = _tb("drop step 2")
+    assert "GET /echo/orphan" in orphan and "unnamed" in orphan
+    assert "no step with id 99" in _tb("drop step 99")
+
+    assert candidates_for(session, "drop ", "") == ["endpoint ", "step "]
+    assert candidates_for(session, "drop endpoint ", "get") == ["get_echo"]
+
+
+async def test_drop_step_keeps_ids_contiguous(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """Regression: dropping a step used to leave a gap (ids 1,3,4), so `drop
+    step 2` on the next attempt hit nothing. Ids must stay a contiguous 1..N."""
+    session = make_session()
+    for p in ("/echo/a", "/echo/b", "/echo/c", "/echo/d"):
+        await session.execute("get", p)
+    assert [s["step_id"] for s in session.history()] == [1, 2, 3, 4]
+
+    out = await execute_command(session, parse_command("drop step 2"))
+    assert out.data["path"] == "/echo/b"  # the 2nd request went
+
+    hist = session.history()
+    assert [s["step_id"] for s in hist] == [1, 2, 3]  # no gap
+    assert [s["path"] for s in hist] == ["/echo/a", "/echo/c", "/echo/d"]
+
+    # a fresh request continues contiguously, never reviving a gapped id
+    await session.execute("get", "/echo/e")
+    assert [s["step_id"] for s in session.history()] == [1, 2, 3, 4]
+
+
+async def test_drop_step_rejects_zero_and_out_of_range(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/only")  # the only step, id 1
+    for bad in (0, 2, -1):
+        with pytest.raises(ValueError, match="no step with id"):
+            session.drop_step(bad)
+    # the error names the recorded ids so you are not left guessing
+    with pytest.raises(ValueError, match="recorded: 1"):
+        session.drop_step(0)
+
+
+def test_session_normalises_gappy_step_ids_on_load(tmp_path: Path) -> None:
+    """An older session file with gappy ids (left by a pre-fix drop) is
+    renumbered to a contiguous 1..N the moment it is reopened."""
+    import json
+
+    from gracy.explore._session import SCHEMA_VERSION
+
+    path = tmp_path / "legacy.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": SCHEMA_VERSION,
+                "base_url": None,
+                "policies": {},
+                "endpoints": {},
+                "models": {},
+                "captures": {},
+                "steps": [
+                    {"id": 1, "method": "GET", "path": "/x", "endpoint": None, "status": 200},
+                    {"id": 7, "method": "GET", "path": "/y", "endpoint": None, "status": 200},
+                ],
+            }
+        )
+    )
+    session = ExploreSession(path)
+    assert [s["step_id"] for s in session.history()] == [1, 2]
+
+
+async def test_prune_removes_unnamed_keeps_endpoint_steps(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """The reported clutter: two orphan /echo/dup requests (recorded before any
+    endpoint matched them) sit next to named endpoint steps and are invisible
+    in `list`. `prune` clears the orphans, keeps the folded-in steps, renumbers."""
+    session = make_session()
+    await session.execute("get", "/echo/dup")  # step 1 orphan (no endpoint yet)
+    await session.execute("get", "/echo/dup")  # step 2 orphan
+    await session.execute("get", "/echo/a")  # step 3 -> will name
+    await session.execute("get", "/echo/b")  # step 4 -> will name
+    session.name_endpoint("echo", 3)
+    session.name_endpoint("echo", 4)
+    assert len(session.history()) == 4
+
+    out = await execute_command(session, parse_command("prune"))
+    assert out.data == {"ok": True, "removed": 2, "kept": 2}
+    hist = session.history()
+    assert [s["step_id"] for s in hist] == [1, 2]  # survivors renumbered
+    assert all(s["matched_endpoint"] == "echo" for s in hist)
+    assert session.endpoints()["echo"]["steps"] == 2
+
+
+async def test_prune_noop_when_nothing_unnamed(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/a")
+    session.name_endpoint("echo")
+    out = await execute_command(session, parse_command("prune"))
+    assert out.data == {"ok": True, "removed": 0, "kept": 1}
+    assert "no unnamed steps" in out.human
+
+
+async def test_prune_is_undoable(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/a")  # orphan
+    await session.execute("get", "/echo/b")  # orphan
+    await execute_command(session, parse_command("prune"))
+    assert session.history() == []
+    session.undo()
+    assert [s["path"] for s in session.history()] == ["/echo/a", "/echo/b"]
+
+
+async def test_prune_impact_preview(make_session: t.Callable[..., ExploreSession]) -> None:
+    from gracy.explore.repl import describe_impact
+
+    session = make_session()
+    await session.execute("get", "/echo/a")
+    session.name_endpoint("echo")
+    assert "no unnamed steps to prune" in "".join(seg[1] for seg in describe_impact(session, "prune"))
+    await session.execute("get", "/echo/orphan")
+    plain = "".join(seg[1] for seg in describe_impact(session, "prune"))
+    assert "removes 1 unnamed step" in plain and "folded-in requests stay" in plain
+
+
+# --------------------------------------------------------------------------- list
+
+
+async def test_list_lists_endpoints(make_session: t.Callable[..., ExploreSession]) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    out = await execute_command(session, parse_command("list"))
+    assert "get_echo" in out.human and "/echo/mew" in out.human
+
+
+async def test_list_flags_redundant_endpoint(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    """A literal endpoint covered by another's template is marked redundant in
+    `list`, so seeing it next to the {param} one is no longer a surprise."""
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    await session.execute("get", "/echo/ditto")
+    session.name_endpoint("many", 1)
+    session.name_endpoint("many", 2)  # -> /echo/{echo}
+    await session.execute("get", "/echo/pika")
+    session.name_endpoint("just_pika", 3)  # /echo/pika, covered by many
+
+    out = await execute_command(session, parse_command("list"))
+    # the redundant one is flagged and points at the fix; the general one is not
+    lines = {ln.split("->")[1].split("(")[0].strip(): ln for ln in out.human.splitlines() if "->" in ln}
+    assert "redundant: covered by many" in lines["just_pika"]
+    assert "drop endpoint just_pika" in lines["just_pika"]
+    assert "redundant" not in lines["many"]
+
+
+async def test_list_footnotes_unnamed_steps(
+    make_session: t.Callable[..., ExploreSession],
+) -> None:
+    session = make_session()
+    await session.execute("get", "/echo/orphan")  # recorded before any endpoint
+    await session.execute("get", "/berry/a")
+    session.name_endpoint("berry")  # /berry/a - does not cover /echo/orphan
+    out = await execute_command(session, parse_command("ls"))
+    assert "1 unnamed step not in any endpoint" in out.human
+    assert out.data["unnamed_steps"] == 1
+    # once nothing is orphaned, the footnote is gone
+    await execute_command(session, parse_command("prune"))
+    assert "unnamed step" not in (await execute_command(session, parse_command("ls"))).human
+
+
+async def test_on_accepts_bare_words_and_renders_as_strings(
+    make_session: t.Callable[..., ExploreSession], tmp_path: Path
+) -> None:
+    from gracy.explore._parser import parse_command
+
+    session = make_session()
+    await session.execute("get", "/echo/mew")
+    session.name_endpoint("get_echo")
+    # bare word (no quotes needed) maps the status to that string
+    await execute_command(session, parse_command("on 404 unavailable"))
+    await execute_command(session, parse_command("on 500 none"))
+    files = session.save_code(tmp_path / "api.py")
+    src = files[0].read_text()
+    assert "404: 'unavailable'" in src
+    assert "500: None" in src

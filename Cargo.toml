@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = ["crates/gracy-core", "crates/gracy-py"]
+
+[workspace.package]
+version = "2.0.0-alpha.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/guilatrova/gracy"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

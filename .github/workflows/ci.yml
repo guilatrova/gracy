@@ -12,41 +12,67 @@ on:
       - "*.md"
 
 jobs:
-  test:
-    # We want to run on external PRs, but not on our own internal PRs as they'll be run
-    # by the push to the branch. Without this if check, checks are duplicated since
-    # internal PRs match both the push and pull_request events.
+  rust:
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test
+        run: cargo test -p gracy-core
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
 
+  python:
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.8, 3.9, "3.10", 3.11]
-        os: [ubuntu-latest] #, macOS-latest, windows-latest]
-
-    runs-on: ${{ matrix.os }}
-
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        engine: [rust, python]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install poetry
-        shell: bash
-        run: pipx install poetry
-
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: poetry
-          # key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+      - name: Install
+        run: |
+          python -m venv .venv
+          # maturin >=1.14 installs [dependency-groups] via `pip install --group`,
+          # which needs pip >=25.1 (the venv ships whatever ensurepip bundles)
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install maturin pytest pytest-asyncio httpx pydantic rich requests
+          .venv/bin/maturin develop
+      - name: pytest (GRACY_ENGINE=${{ matrix.engine }})
+        env:
+          GRACY_ENGINE: ${{ matrix.engine }}
+        run: .venv/bin/python -m pytest tests/ -q
 
-      - name: Install dependencies
-        run: poetry install --with=dev
-
-      - name: Lint
-        uses: pre-commit/action@v3.0.0
-
-      - name: Unit tests
-        run: poetry run pytest -vvv
+  wheels:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist/*.whl
