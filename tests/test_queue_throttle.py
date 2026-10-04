@@ -21,6 +21,7 @@ import gracy
 from gracy import (
     Concurrency,
     Gracy,
+    GracyClientClosedError,
     GracyConfig,
     GracyQueueFull,
     Queue,
@@ -325,6 +326,67 @@ async def test_max_pending_on_full_wait_eventually_grants_all():
     stats = sched.stats()
     assert stats["pending"] == 0
     assert stats["in_flight"] == 0
+
+
+@pytest.mark.parametrize("waiter_count", [1, 3])
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_close_with_backpressure_waiters(waiter_count, cancel):
+    sched = PyScheduler(make_plan(max_at_once=1, max_pending=1))
+    holder = await sched.submit(UURL, UURL)
+    blocker = asyncio.create_task(sched.submit(UURL, UURL))
+    await asyncio.sleep(0)
+    waiters = [asyncio.create_task(sched.submit(UURL, UURL)) for _ in range(waiter_count)]
+    try:
+        await asyncio.sleep(0)
+        assert sched.stats()["pending"] == waiter_count + 1
+
+        await sched.aclose()
+        if cancel:
+            for waiter in waiters:
+                waiter.cancel()
+        results = await asyncio.wait_for(asyncio.gather(*waiters, return_exceptions=True), 15)
+        expected = asyncio.CancelledError if cancel else GracyClientClosedError
+        assert all(isinstance(result, expected) for result in results), results
+    finally:
+        for task in [blocker, *waiters]:
+            task.cancel()
+        await asyncio.gather(blocker, *waiters, return_exceptions=True)
+        holder.release()
+        await sched.aclose()
+
+    assert sched.stats()["pending"] == 0
+    assert sched.stats()["in_flight"] == 0
+
+
+async def test_cancel_reserved_waiter_after_close_releases_capacity():
+    sched = PyScheduler(make_plan(max_at_once=1, max_pending=1))
+    holder = await sched.submit(UURL, UURL)
+    blocker = asyncio.create_task(sched.submit(UURL, UURL))
+    await asyncio.sleep(0)
+    waiter = asyncio.create_task(sched.submit(UURL, UURL))
+    try:
+        await asyncio.sleep(0)
+        assert sched.stats()["pending"] == 2
+
+        blocker.cancel()
+        await asyncio.sleep(0)
+        assert blocker.cancelled()
+        assert not waiter.done()
+        assert sched.stats()["pending"] == 1
+
+        await sched.aclose()
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+    finally:
+        blocker.cancel()
+        waiter.cancel()
+        await asyncio.gather(blocker, waiter, return_exceptions=True)
+        holder.release()
+        await sched.aclose()
+
+    assert sched.stats()["pending"] == 0
+    assert sched.stats()["in_flight"] == 0
 
 
 # =========================================================================== pause gates

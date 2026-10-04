@@ -215,7 +215,7 @@ class PyScheduler:
             if waiter.reserved:  # capacity was already handed to us - pass it on
                 self._pending -= 1
                 self._wake_next_waiter()
-            else:
+            elif not self._closed:
                 self._waiters.remove(entry)
                 heapq.heapify(self._waiters)
             raise
